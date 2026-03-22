@@ -16,10 +16,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import ALL models here so Alembic autogenerate can detect every table.
-# Using the shared Base from app.models.base ensures consistency.
+# Import the models package — its __init__.py imports every model so that
+# Alembic autogenerate can detect all tables registered on Base.metadata.
 from app.models.base import Base
-import app.models.user  # noqa: F401 — registers User table on Base.metadata
+import app.models  # noqa: F401 — registers all models (User, Trip, Destination, …)
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
