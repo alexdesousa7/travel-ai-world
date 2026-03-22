@@ -8,8 +8,9 @@ services:
     environment:
       - DB_SERVER=db_postgres
     volumes:
-      - .:/app  # bind-mount for --reload in dev
-      - /app/.venv/  # Mask host .venv from container
+      - ./app:/app/app  # bind-mount for --reload in dev
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
     depends_on:
       db_postgres:
         condition: service_healthy
