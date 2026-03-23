@@ -5,7 +5,7 @@
 AI-powered travel planning web app. Users describe their trip and an AI generates a personalized day-by-day itinerary.
 
 **Live site:** https://manupm87.github.io/travel-ai-world/
-**Status:** Frontend landing page is live. Backend (FastAPI + LLM) is planned but not yet built.
+**Status:** Frontend landing page is live. Backend (FastAPI + SQLAlchemy + uv + LLM) is scaffolded and under development.
 
 ---
 
@@ -14,6 +14,7 @@ AI-powered travel planning web app. Users describe their trip and an AI generate
 ```
 travel-ai-world/
 ├── frontend/          # Next.js 16 (App Router) — active development
+├── backend/           # FastAPI with Postgres/SQLite — active development
 ├── ideas.pen          # Pencil design file — use Pencil MCP tools to read/edit
 ├── images/            # Design assets and AI-generated city images
 └── .github/
@@ -76,6 +77,7 @@ Core tokens:
 
 ## Common Commands
 
+### Frontend
 ```bash
 # All commands run from the frontend/ directory
 cd frontend
@@ -84,6 +86,18 @@ npm run dev        # Dev server at http://localhost:3000
 npm run build      # Production static export → frontend/out/
 npm run lint       # ESLint check
 npm run test:e2e   # Playwright E2E smoke tests (auto-starts dev server)
+```
+
+### Backend
+```bash
+# All commands run from the backend/ directory
+cd backend
+
+# The backend uses `uv` for package management and environment isolation
+uv run fastapi dev app/main.py  # Local Dev server at http://127.0.0.1:8000
+uv run pytest -v                # Runs against a dedicated PostgreSQL test DB (<DB_NAME>_test)
+uv run ruff check               # Run linter
+uv run alembic upgrade head     # Run DB migrations
 ```
 
 ---
@@ -153,11 +167,21 @@ The `/trip/[id]` route is split into two files to satisfy Next.js App Router con
 
 ---
 
-## Backend (Planned)
+## Backend Stack
 
-- **Stack:** FastAPI + Python + LLM integration
-- **Location:** `backend/` (not yet created)
-- **Integration point:** When ready, add `NEXT_PUBLIC_API_URL` to `frontend/.env.local` and wire `PlannerCard.tsx` form submit to `POST /api/trips`
+| Tool           | Notes                                      |
+|----------------|--------------------------------------------|
+| FastAPI        | Async web framework                        |
+| SQLAlchemy 2.0 | ORM — uses `DeclarativeBase` (SA2 style)   |
+| Pydantic v2    | Schemas for request/response validation    |
+| Alembic        | Database migrations                        |
+| uv             | Package manager and virtual environments   |
+| Pytest         | Testing — real PostgreSQL `<DB_NAME>_test` |
+| Ruff           | Linter and formatter (target: py312)       |
+| LLM            | Not implemented yet                        |
+
+**Working directory for all backend commands:** `backend/`
+**Integration point:** Set `NEXT_PUBLIC_API_URL` to `http://localhost:8000` in `frontend/.env.local` to connect them.
 
 ---
 
