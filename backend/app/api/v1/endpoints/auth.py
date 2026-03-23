@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import get_user_service
 from app.core.exceptions import UnauthorizedException
 from app.core.security import create_access_token
 from app.services.user_service import UserService
@@ -13,15 +12,14 @@ router = APIRouter()
 @router.post("/login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
-):
+    user_service: UserService = Depends(get_user_service),
+) -> dict[str, str]:
     """
     OAuth2-compatible login endpoint.
 
     Accepts username (email) + password via form data and returns a Bearer token.
     The Swagger UI "Authorize" button uses this endpoint automatically.
     """
-    user_service = UserService(db)
     user = await user_service.authenticate_user(
         email=form_data.username,
         password=form_data.password,
@@ -31,5 +29,4 @@ async def login(
     if not user.is_active:
         raise UnauthorizedException(detail="Inactive user account")
 
-    access_token = create_access_token(subject=user.id)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": create_access_token(subject=user.id), "token_type": "bearer"}

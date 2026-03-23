@@ -43,7 +43,8 @@ To keep the code testable and clean, follow the lifecycle of a request:
    - Classes that handle async connections and sessions using `asyncpg` and SQLAlchemy.
 7. **`core/`**: The configuration and utilities core.
    - Contains Environment Settings (`config.py`), Custom Exceptions (`exceptions.py`), and Security (`security.py`).
-   - Also houses authentication `Dependables` and **Role-Based Access Control (RBAC)** such as `get_current_admin_user`.
+   - `config.py` exposes `BACKEND_CORS_ORIGINS` (list of allowed frontend origins) alongside JWT/DB settings.
+   - **Authentication `Dependables` and RBAC** (`get_current_user`, `get_current_admin_user`, `get_user_service`) live in **`api/deps.py`**, not here.
 
 ---
 
@@ -92,4 +93,5 @@ Para mantener el código testeable y limpio, sigue el siguiente flujo de vida de
    - Son clases que manejan la conexión y sesión asíncrona mediante `asyncpg` y SQLAlchemy.
 7. **`core/`**: El núcleo de configuración y utilidades.
    - Contiene los Ajustes de Entorno (`config.py`), Excepciones personalizadas (`exceptions.py`) y la Seguridad (`security.py`).
-   - También alberga los `Dependables` de autenticación y **Role-Based Access Control (RBAC)** como `get_current_admin_user`.
+   - `config.py` expone `BACKEND_CORS_ORIGINS` (lista de orígenes permitidos) junto a la configuración de JWT y base de datos.
+   - Los **`Dependables` de autenticación y RBAC** (`get_current_user`, `get_current_admin_user`, `get_user_service`) viven en **`api/deps.py`**, no aquí.

@@ -93,8 +93,10 @@ cp .env.example .env
 ```
 
 > [!IMPORTANT]
-> The `.env.example` file defaults to PostgreSQL and Docker (`DB_SERVER="db_postgres"`). 
+> The `.env.example` file defaults to PostgreSQL and Docker (`DB_SERVER="db_postgres"`).
 > **If you are running the backend locally without Docker**, you MUST open `.env` and change `DB_SERVER="127.0.0.1"`. You also need a PostgreSQL server running locally, or you can switch `DB_ENGINE="sqlite"` to use a simple file-based database for quick testing.
+>
+> **CORS (production):** Set `BACKEND_CORS_ORIGINS` to your frontend URL(s) — e.g. `BACKEND_CORS_ORIGINS=["https://yourdomain.com"]`. The default value allows only `localhost:3000` and `localhost:5173`.
 
 ### 4. Database Setup
 
@@ -119,7 +121,7 @@ Then visit:
 
 ## ✅ Running Tests
 
-The test suite runs entirely disconnected from the main database by utilizing an in-memory SQLite setup.
+The test suite runs against a **dedicated PostgreSQL database** named `<DB_NAME>_test` (auto-created from your `.env` `DB_NAME` value). Schema is rebuilt fresh on every run, so your development data is never touched.
 
 ```bash
 uv run pytest -v
@@ -129,8 +131,9 @@ uv run pytest -v
 
 If you intend to add a new `Item` feature, you should follow this exact sequence:
 
-1. `app/models/item.py` - Create the SQLAlchemy `Base` table.
-2. `app/schemas/item.py` - Define Pydantic inputs and outputs (`ItemCreate`, `ItemResponse`).
-3. `app/repositories/item_repository.py` - Handle solely `asyncpg` DB operations (`create`, `get_by_id`).
-4. `app/services/item_service.py` - Hold business rules.
-5. `app/api/v1/endpoints/items.py` - Handle HTTP traffic and inject dependencies.
+1. `app/models/item.py` — Create the SQLAlchemy model inheriting from `Base`.
+2. `app/models/__init__.py` — Import `Item` here so Alembic and the test harness discover it.
+3. `app/schemas/item.py` — Define Pydantic inputs and outputs (`ItemCreate`, `ItemResponse`).
+4. `app/repositories/item_repository.py` — Handle solely DB operations (`create`, `get_by_id`).
+5. `app/services/item_service.py` — Hold business rules.
+6. `app/api/v1/endpoints/items.py` — Handle HTTP traffic and inject dependencies via `Depends()`.

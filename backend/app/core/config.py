@@ -5,6 +5,11 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "FastAPI Enterprise Boilerplate"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
+
+    # CORS — list allowed frontend origins explicitly in production.
+    # Example: ["https://myapp.com", "http://localhost:3000"]
+    # Use ["*"] ONLY in development AND only if allow_credentials is False.
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     
     # DB Engine Selection (postgresql, mysql, sqlite)
     DB_ENGINE: Literal["postgresql", "mysql", "sqlite"] = "postgresql"

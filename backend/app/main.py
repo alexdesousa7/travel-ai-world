@@ -17,21 +17,22 @@ def create_app() -> FastAPI:
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
         lifespan=lifespan,
     )
-    
+
+    # CORS middleware must be registered before routers.
+    # allow_credentials=True requires explicit origins (never "*").
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.BACKEND_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # Global exception handlers can be registered here
-    
+
     # Include main API router
     app.include_router(api_router, prefix=settings.API_V1_STR)
-    
+
     return app
 
 app = create_app()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"]
-)
