@@ -37,16 +37,8 @@ class UserService:
         return await self.repository.create(db_obj)
 
     async def update_user(self, db_obj: User, user_in: UserUpdate | UserRoleUpdate) -> User:
-        """
-        Update a user from a Pydantic model or dict.
-        Supports partial updates dynamically.
-        """
-        if hasattr(user_in, "model_dump"):
-            update_data = user_in.model_dump(exclude_unset=True)
-        elif isinstance(user_in, dict):
-            update_data = user_in
-        else:
-            update_data = {}
+        """Applies a partial update on db_obj from the given Pydantic schema."""
+        update_data = user_in.model_dump(exclude_unset=True)
 
         for field, value in update_data.items():
             if field == "password" and value is not None:

@@ -9,7 +9,10 @@ class UserCreate(UserBase):
     password: str
     role: UserRole = UserRole.USER
 
-class UserUpdate(UserBase):
+class UserUpdate(BaseModel):
+    """All fields are optional — supports partial PUT/PATCH updates."""
+    email: EmailStr | None = None
+    is_active: bool | None = None
     password: str | None = None
 
 class UserRoleUpdate(BaseModel):
@@ -18,5 +21,5 @@ class UserRoleUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     role: UserRole
-    
+
     model_config = ConfigDict(from_attributes=True)

@@ -38,7 +38,7 @@ uv run alembic downgrade -1
 ### Common Troubleshooting
 - **`ConnectionDoesNotExistError`**: Occurs on Windows if the DB host is set to `localhost`. Change `DB_SERVER=127.0.0.1` in your `.env` file.
 - **Target database is not up to date**: You are trying to generate a new revision but haven't applied the latest one (`upgrade head`).
-- **Tables are not detected**: Ensure your model is imported in `app/models/base.py` so that Alembic's `env.py` includes it in the context.
+- **Tables are not detected**: Ensure your model is imported in `app/models/__init__.py` (not `base.py`). Alembic's `env.py` imports that package with `import app.models` to register every table on `Base.metadata`.
 
 ---
 
@@ -82,4 +82,4 @@ uv run alembic downgrade -1
 ### Solución de Problemas Comunes
 - **`ConnectionDoesNotExistError`**: Ocurre en Windows si el host de DB está como `localhost`. Cambia `DB_SERVER=127.0.0.1` en tu archivo `.env`.
 - **Target database is not up to date**: Intestas generar una nueva revisión pero no has aplicado la última (`upgrade head`).
-- **No se detectan las tablas**: Asegúrate de que tu modelo esté importado en `app/models/base.py` para que el `env.py` de Alembic lo incluya en el contexto.
+- **No se detectan las tablas**: Asegúrate de que tu modelo esté importado en `app/models/__init__.py` (no en `base.py`). El `env.py` de Alembic importa ese paquete con `import app.models` para registrar cada tabla en `Base.metadata`.

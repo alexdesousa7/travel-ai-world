@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import NotFoundException, UnauthorizedException
+from app.core.exceptions import UnauthorizedException
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.services.user_service import UserService
@@ -15,8 +15,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
-):
+    token: str = Depends(oauth2_scheme),
+) -> User:
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -30,7 +30,8 @@ async def get_current_user(
     user_service = UserService(db)
     user = await user_service.get_user_by_id(user_id=int(token_data))
     if not user:
-        raise NotFoundException(detail="User not found")
+        # 401, not 404: avoids leaking which user IDs exist in the database
+        raise UnauthorizedException(detail="Invalid authentication credentials")
     if not user.is_active:
         raise UnauthorizedException(detail="Inactive user account")
     return user

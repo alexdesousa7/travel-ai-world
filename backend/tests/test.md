@@ -2,14 +2,15 @@
 
 ## Test Setup (`tests/`)
 
-This Template includes a robust test suite using **Pytest** and **Pytest-Asyncio**. The main strength of this setup is that _it can run without needing perfectly running PostgreSQL instance_.
+This Template includes a robust test suite using **Pytest** and **Pytest-Asyncio**.
 
 ### Test Environment
 
-To ensure the tests are fast, clean, and don't destroy your development environment, take a look at `tests/conftest.py`:
+The test suite uses a **dedicated PostgreSQL test database** (not in-memory SQLite). The `conftest.py` automatically creates and manages it:
 
-1. **In-Memory Database**: By default, the tests override the database injection (`get_db`) and use an async in-memory SQLite (`aiosqlite`).
-2. **Automated Setup and Teardown**: Each test execution reconstructs the database schema, guaranteeing an entirely pristine state before each test.
+1. **Dedicated Test DB**: Tests connect to `<DB_NAME>_test` (derived from your `.env` `DB_NAME`). The database is created automatically if it doesn't exist.
+2. **Automated Setup and Teardown**: Before each session, `Base.metadata.drop_all` + `create_all` is called — guaranteeing a pristine schema on every test run, then cleaned up after.
+3. **Dependency Override**: The FastAPI `get_db` dependency is overridden per test via `app.dependency_overrides`, isolating tests from the main database.
 
 ### Useful Commands
 
@@ -55,14 +56,15 @@ When adding new features, follow the general pattern:
 
 ## Configuración de Tests (`tests/`)
 
-Este Template incluye una suite de pruebas robusta usando **Pytest** y **Pytest-Asyncio**. La fortaleza principal de este setup es que _puede correr sin necesidad de levantar un PostgreSQL real_.
+Este Template incluye una suite de pruebas robusta usando **Pytest** y **Pytest-Asyncio**.
 
 ### Entorno de Pruebas
 
-Para garantizar que los tests sean rápidos, limpios y no destruyan tu entorno de desarrollo, echa un vistazo a `tests/conftest.py`:
+La suite de tests usa una **base de datos PostgreSQL dedicada** (no SQLite en memoria). El `conftest.py` la crea y gestiona automáticamente:
 
-1. **Base de Datos en Memoria**: Por defecto, los tests sobrescriben la inyección de la base de datos (`get_db`) y utilizan SQLite asíncrono en memoria (`aiosqlite`).
-2. **Setup y Teardown Automatizado**: Cada ejecución de test reconstruye el esquema de la base de datos, garantizando que el estado sea prístino antes de cada test.
+1. **BD de Pruebas Dedicada**: Los tests se conectan a `<DB_NAME>_test` (derivado del `DB_NAME` de tu `.env`). La base de datos se crea automáticamente si no existe.
+2. **Setup y Teardown Automatizado**: Antes de cada sesión, se ejecuta `Base.metadata.drop_all` + `create_all` — garantizando un esquema limpio en cada ejecución, y eliminado al terminar.
+3. **Sobreescritura de Dependencia**: La dependencia FastAPI `get_db` es sobrescrita por test vía `app.dependency_overrides`, aislando los tests de la base de datos principal.
 
 ### Comandos Útiles
 
