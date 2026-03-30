@@ -20,27 +20,6 @@ A production-ready, highly opinionated **FastAPI Template** designed to build sc
 
 ---
 
-## 🤖 The differentiator: Built-in AI Guidelines
-
-This template is uniquely optimized for **AI-Assisted Development**. Instead of fighting with AI generating monolithic, unmaintainable code, this project includes strict system boundaries:
-
-### 1. Contextual Directives (`.claude/`)
-
-The `.claude` directory contains strict prompts (`agent_basic_instructions.md`, `architecture.md`).
-**How to use:** When asking an AI (Claude, Copilot, Cursor) to generate a new endpoint, always reference these files. The AI will read the architecture and properly split your feature into Router, Service, and Repository layers automatically.
-
-### 2. Automated Agent Skills (`.agents/workflows/`)
-
-If you use MCP (Model Context Protocol) servers like GitHub and Linear, the `.agents` directory provides specific skills:
-
-- **Linear-to-GitHub (`linear_github_pr.md`)**: Instructs the AI on how to read a Linear issue, create a branch, write contextual commits, and open a PR—effortlessly.
-- **AI Code Reviewer (`ai_pr_reviewer.md`)**: Analyzes Pull Requests for blocking I/O calls or missing types.
-
-> [!TIP]
-> **Check the [Antigravity Workflow Guide](.agents/antigravity_guide.md)** for detailed instructions on setting up MCPs and triggering slash commands like `/linear_github_pr`.
-
----
-
 ## 🛠️ Quick Start Guide
 
 ### 1. Prerequisites ⚡
