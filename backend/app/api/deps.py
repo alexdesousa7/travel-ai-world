@@ -8,6 +8,13 @@ from app.core.exceptions import UnauthorizedException
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.services.user_service import UserService
+from app.services.trip_service import TripService
+from app.services.destination_service import DestinationService
+from app.services.itinerary_day_service import ItineraryDayService
+from app.services.activity_service import ActivityService
+from app.services.meal_service import MealService
+from app.services.accommodation_service import AccommodationService
+from app.services.transportation_service import TransportationService
 
 from fastapi.security import OAuth2PasswordBearer
 
@@ -45,9 +52,26 @@ async def get_current_admin_user(
 
 
 def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
-    """Provides a UserService instance via FastAPI dependency injection.
-
-    Centralises service construction so tests can override it with a mock
-    by using app.dependency_overrides[get_user_service].
-    """
+    """Provides a UserService instance via FastAPI dependency injection."""
     return UserService(db)
+
+def get_trip_service(db: AsyncSession = Depends(get_db)) -> TripService:
+    return TripService(db)
+
+def get_destination_service(db: AsyncSession = Depends(get_db)) -> DestinationService:
+    return DestinationService(db)
+
+def get_itinerary_day_service(db: AsyncSession = Depends(get_db)) -> ItineraryDayService:
+    return ItineraryDayService(db)
+
+def get_activity_service(db: AsyncSession = Depends(get_db)) -> ActivityService:
+    return ActivityService(db)
+
+def get_meal_service(db: AsyncSession = Depends(get_db)) -> MealService:
+    return MealService(db)
+
+def get_accommodation_service(db: AsyncSession = Depends(get_db)) -> AccommodationService:
+    return AccommodationService(db)
+
+def get_transportation_service(db: AsyncSession = Depends(get_db)) -> TransportationService:
+    return TransportationService(db)
