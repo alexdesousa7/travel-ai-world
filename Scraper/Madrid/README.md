@@ -1,5 +1,4 @@
 
----
 
 # 🏙️ Scraper de Madrid — Travel AI World
 
@@ -87,7 +86,7 @@ madrid/
 │   ├── wikipedia_madrid.py
 │   ├── madrid_open_data.py
 │   ├── geoportal_madrid.py
-│   └── transport_static.py
+│   └── transport_static_madrid.py
 │
 ├── utils/                  # Utilidades compartidas
 │   ├── fetch.py
@@ -201,4 +200,4 @@ Próximas integraciones previstas:
 El propósito de este módulo es proporcionar **datos limpios, estructurados y estables** sobre Madrid para alimentar la IA del proyecto.  
 El diseño modular permite añadir nuevas fuentes sin afectar al resto del sistema.
 
----
+
