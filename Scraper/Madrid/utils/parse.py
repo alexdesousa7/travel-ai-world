@@ -9,6 +9,12 @@ def parse_html_list(html, section_id):
     # Buscar la seccion por su ID
     section = soup.find("span", {"id": section_id})
     if not section:
+        print(f"[WARN] No se encontro la seccion {section_id}")
+        return []
+    
+    # Encontrar la lista <ul> siguiente
+    ul = section.find_next("ul")
+    if not ul:
         print(f"[WARN] No se encontro una lista <ul> despues de {section_id}")
         return []
     

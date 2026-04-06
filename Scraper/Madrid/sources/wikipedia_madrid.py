@@ -1,62 +1,108 @@
 from utils.fetch import fetch_html
-from utils.parse import parse_html_list
 from utils.save import save_json
 from config import WIKIPEDIA_MADRID_URL
+from bs4 import BeautifulSoup
 
-# Scraper para Wikipedia Madrid
 
-def scrape_lugares_turisticos():
-    """Extrae lugares turisticos de la seccion Lugares_de_interes de wikipedia"""
-    html = fetch_html(WIKIPEDIA_MADRID_URL)
-    if not html:
-        return []
-    
-    lugares = parse_html_list(html, "Lugares_de_interes")
-    save_json(lugares, "Lugares_turisticos.json")
-    return lugares
+# Funciones de bsuqueda robustas en el HTML para extraer secciones especificas, debido a que del otro modo no extrae la informacion correctamente.
 
-def scrape_monumentos():
-    """Extrae monumeros de la seccion Monumentos de Wikipedia"""
-    html = fetch_html(WIKIPEDIA_MADRID_URL)
-    if not html:
-        return []
 
-    monumetos = parse_html_list(html, "Monumentos")
-    save_json(monumentos, "monumentos.json")
-    return monumentos
+def extract_section(html, keywords):
+    keywords = [k.lower() for k in keywords]
 
-def scrape_parques():
-    """Extrae parques y jardines de la seccion Parques y Jardines de Wikipedia"""
-    html = fetch_html(WIKIPEDIA_MADRID_URL)
-    if not html:
-        return []
+    for h in html.find_all(["h2", "h3"]):
+        title = h.get_text().strip().lower()
 
-    parques = parse_html_list(html, "Parques y Jardines")
-    save_json(Parques, "parques.json")
-    return parques
+        if any(k in title for k in keywords):
+            content = []
+            node = h.find_next_sibling()
 
-def scrape_museos_destacadas():
-    """Extrae museos destacados de la seccion museos de Wikipedia"""
-    html = fetch_html(WIKIPEDIA_MADRID_URL)
-    if not html:
-        return []
+            while node and node.name not in ["h2", "h3"]:
+                if node.name == "p":
+                    content.append(node.get_text(strip=True))
 
-    museos = parse_html_list(html, "Museos")
-    save_json(museos, "museos.json")
-    return museos
+                if node.name == "ul":
+                    items = [li.get_text(strip=True) for li in node.find_all("li")]
+                    content.extend(items)
 
-# Funcion principal para ejecutar el scraper
+                node = node.find_next_sibling()
+
+            return content
+
+    return []
+
+
+def extract_list(html, keywords):
+    keywords = [k.lower() for k in keywords]
+
+    for h in html.find_all(["h2", "h3"]):
+        title = h.get_text().strip().lower()
+
+        if any(k in title for k in keywords):
+            ul = h.find_next("ul")
+            if ul:
+                return [li.get_text(strip=True) for li in ul.find_all("li")]
+
+    return []
+
+
+
+# Scrapers específicos a extraer de secciones en concreto de la Wikipedia de Madrid.
+
+
+def scrape_lugares_turisticos(html):
+    return extract_section(html, ["patrimonio", "lugares", "interés"])
+
+
+def scrape_monumentos(html):
+    return extract_section(html, ["patrimonio", "monumentos"])
+
+
+def scrape_museos(html):
+    return extract_section(html, ["museos", "galerías"])
+
+
+def scrape_parques(html):
+    return extract_section(html, ["parques", "jardines"])
+
+
+def scrape_historia(html):
+    return extract_section(html, ["historia"])
+
+
+def scrape_cultura(html):
+    return extract_section(html, ["cultura"])
+
+
+def scrape_gastronomia(html):
+    return extract_section(html, ["gastronomía"])
+
+
+
+# Función principal para ejecutar el scraper de Wikipedia Madrid.
+
 
 def scrape_wikipedia_madrid():
-    """Ejecuta todos los scrapers de Wikipedia Madrid y devuelve un diccionario con los resultados"""
     print("Scrapeando Wikipedia Madrid...")
 
+    html_raw = fetch_html(WIKIPEDIA_MADRID_URL)
+    if not html_raw:
+        print("No se pudo obtener la página de Wikipedia.")
+        return {}
+
+    html = BeautifulSoup(html_raw, "lxml")
+
     data = {
-        "ugares_tuisticos": scrape_lugares_turisticos(),
-        "monumentos": scrape_monumentos(),
-        "parques": scrape_parques(),
-        "museos_destacados": scrape_museos_destacados()
+        "lugares_turisticos": scrape_lugares_turisticos(html),
+        "monumentos": scrape_monumentos(html),
+        "museos": scrape_museos(html),
+        "parques": scrape_parques(html),
+        "historia": scrape_historia(html),
+        "cultura": scrape_cultura(html),
+        "gastronomia": scrape_gastronomia(html)
     }
 
-    print("[OK] Scraping de Wikipedia completados.")
+    save_json(data, "wikipedia_madrid.json")
+
+    print("[OK] Scraping de Wikipedia completado.")
     return data
