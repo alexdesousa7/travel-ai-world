@@ -1,11 +1,10 @@
-
-
 # 🏙️ Scraper de Madrid — Travel AI World
 
-`https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white`  
-`https://img.shields.io/badge/Requests-HTTP-orange?style=for-the-badge`  
-`https://img.shields.io/badge/BeautifulSoup-HTML%20Parsing-green?style=for-the-badge`  
-`https://img.shields.io/badge/JSON-Data-blue?style=for-the-badge`
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Requests](https://img.shields.io/badge/Requests-HTTP-orange?style=for-the-badge)
+![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-HTML%20Parsing-green?style=for-the-badge)
+![JSON](https://img.shields.io/badge/JSON-Data-blue?style=for-the-badge)
+
 
 Este módulo implementa el **pipeline de ingesta de datos de la ciudad de Madrid**, utilizado por *Travel AI World* para recopilar información estructurada desde fuentes públicas y estables.  
 Los datos generados se emplearán posteriormente para crear **embeddings** y alimentar la base vectorial del proyecto, permitiendo que la IA responda sobre Madrid con información propia.
