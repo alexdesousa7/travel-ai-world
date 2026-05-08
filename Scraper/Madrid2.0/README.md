@@ -1,9 +1,10 @@
 # 🏙️ Madrid 2.0 — Scraper Oficial de Travel AI World
 
-`https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python`
-`https://img.shields.io/badge/Google%20Places-API-blue?style=for-the-badge`
-`https://img.shields.io/badge/Wikipedia-Scraper-black?style=for-the-badge`
-`https://img.shields.io/badge/JSON-Data-green?style=for-the-badge`
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python)
+![Google Places](https://img.shields.io/badge/Google%20Places-API-blue?style=for-the-badge)
+![Wikipedia](https://img.shields.io/badge/Wikipedia-Scraper-black?style=for-the-badge)
+![JSON](https://img.shields.io/badge/JSON-Data-green?style=for-the-badge)
+
 
 **Madrid 2.0** es la nueva versión del scraper oficial de *Travel AI World*, diseñado para generar datos limpios, completos y estructurados sobre la ciudad de Madrid.
 

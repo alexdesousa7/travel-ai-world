@@ -1,4 +1,4 @@
-# 🏙️ Scraper de Madrid — Travel AI World
+# 🏙️ Scraper de Madrid — Versión Antigua (Madrid Old)
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Requests](https://img.shields.io/badge/Requests-HTTP-orange?style=for-the-badge)
@@ -6,197 +6,128 @@
 ![JSON](https://img.shields.io/badge/JSON-Data-blue?style=for-the-badge)
 
 
-Este módulo implementa el **pipeline de ingesta de datos de la ciudad de Madrid**, utilizado por *Travel AI World* para recopilar información estructurada desde fuentes públicas y estables.  
-Los datos generados se emplearán posteriormente para crear **embeddings** y alimentar la base vectorial del proyecto, permitiendo que la IA responda sobre Madrid con información propia.
+Este módulo corresponde a la **primera versión del scraper de Madrid**, utilizado en las fases iniciales del proyecto *Travel AI World*.  
+Se mantiene en el repositorio **solo como referencia histórica y documental**, ya que su arquitectura y fuentes de datos fueron reemplazadas por la nueva versión **Madrid 2.0**.
 
 ---
 
-## ✨ Fuentes de datos utilizadas
+## ❌ Limitaciones de Madrid Old
 
-Actualmente, el scraper obtiene información desde:
+Tras varios meses de pruebas, se identificaron problemas estructurales que hacían imposible mantener este scraper en producción:
 
-### **📘 Wikipedia**
-- Información general sobre Madrid  
-- Lugares destacados  
-- Contexto histórico y cultural  
+### 🔹 1. Dependencia de fuentes inestables
+- URLs del Ayuntamiento que cambiaban sin aviso  
+- Endpoints JSON que desaparecían  
+- Geoportal con rutas rotas  
+- Falta de consistencia en los datos  
 
-### **🏛️ Datos Abiertos del Ayuntamiento de Madrid**
+### 🔹 2. Falta de cobertura real
+Madrid Old solo podía obtener:
+
 - Museos oficiales  
-- Parques y zonas verdes  
+- Parques  
+- Algunos eventos  
+- Información parcial de Wikipedia  
 
-Estas dos fuentes son **estables y funcionales**, y se integran automáticamente.
+No existía forma fiable de obtener:
+
+- Restaurantes  
+- Hoteles  
+- Bares  
+- Monumentos  
+- Iglesias  
+- Palacios  
+- Transporte completo  
+
+### 🔹 3. Arquitectura rígida y difícil de extender
+- Módulos acoplados  
+- Falta de normalización  
+- Sin fusiones entre fuentes  
+- Sin manejo de errores  
+- Sin orquestador  
+
+### 🔹 4. No apto para IA
+Los datos generados eran:
+
+- incompletos  
+- inconsistentes  
+- no normalizados  
+- insuficientes para embeddings  
 
 ---
 
-## 🚇 Transporte de Madrid (Metro, Cercanías, EMT)
+## ✔ Por qué nació Madrid 2.0
 
-### ❗ Importante
+Madrid 2.0 se creó para resolver todos los problemas anteriores y ofrecer:
 
-Tras múltiples pruebas se determinó que **no existen fuentes públicas estables** para obtener automáticamente:
+### 🟩 1. **Cobertura completa de la ciudad**
+Gracias a Google Places API:
 
+- Hoteles  
+- Restaurantes  
+- Bares  
+- Museos  
+- Monumentos  
+- Parques  
+- Iglesias y Palacios  
 - Estaciones de Metro  
 - Estaciones de Cercanías  
-- Paradas de EMT  
+- Intercambiadores EMT  
 
-Las alternativas probadas (Overpass/OSM, OSMnx, Geoportal, repos comunitarios, MITMA, EMT API) resultaron:
+### 🟩 2. **Datos enriquecidos con Wikipedia**
+- Historia  
+- Arquitectura  
+- Estilo  
+- Año de construcción  
+- Información documental  
 
-- inestables,  
-- incompletas,  
-- con URLs rotas,  
-- o dependientes de claves/API externas.
+### 🟩 3. **Arquitectura modular y profesional**
+- `sources/` → scrapers atómicos  
+- `core/` → utilidades  
+- `main.py` → orquestador  
+- `data/` → datasets finales  
 
-### ✔ Solución adoptada
-
-Para mantener el scraper **estable y funcional**, se utiliza un **dataset estático mínimo**, ubicado en:
-
-```
-scraper/madrid/data/static/
-```
-
-Incluye:
-
-- 5 estaciones representativas de Metro  
-- 3 estaciones representativas de Cercanías  
-- 3 paradas principales de EMT  
-
-Estos datos permiten:
-
-- evitar errores de scraping,  
-- mantener el pipeline estable,  
-- avanzar hacia la fase de IA,  
-- y dejar abierta la puerta a ampliaciones futuras.
-
-Más adelante se podrán sustituir por:
-
-- datasets completos,  
-- exportaciones manuales de OSM,  
-- o la API oficial de EMT (requiere API KEY).
+### 🟩 4. **Pipeline estable y sin errores**
+- Manejo de errores por módulo  
+- Logs claros  
+- Fusión entre fuentes  
+- Normalización consistente  
 
 ---
 
-## 📂 Estructura del módulo
+## 📌 ¿Por qué se mantiene Madrid Old?
 
-```
-madrid/
-│
-├── main.py                 # Punto de entrada del scraper
-│
-├── sources/                # Scrapers por fuente
-│   ├── wikipedia_madrid.py
-│   ├── madrid_open_data.py
-│   ├── geoportal_madrid.py
-│   └── transport_static_madrid.py
-│
-├── utils/                  # Utilidades compartidas
-│   ├── fetch.py
-│   ├── parse.py
-│   └── save.py
-│
-├── data/                   # Datos generados
-│   ├── wikipedia_madrid.json
-│   ├── museos_madrid.json
-│   ├── parques_madrid.json
-│   ├── metro_madrid.json
-│   ├── cercanias_madrid.json
-│   ├── emt_paradas.json
-│   └── static/             # Datos estáticos de transporte
-│       ├── metro_madrid.json
-│       ├── cercanias_madrid.json
-│       └── emt_paradas.json
-│
-└── README.md
-```
+Aunque ya no se usa en producción, se conserva porque:
+
+- contiene código útil como referencia  
+- documenta la evolución del proyecto  
+- sirve como base para futuros scrapers documentales  
+- permite comparar la mejora entre versiones  
 
 ---
 
-## 🚀 Cómo ejecutar el scraper
+## 📈 Diferencias clave: Madrid Old vs Madrid 2.0
 
-Desde la carpeta del scraper:
-
-```bash
-cd scraper/madrid
-python main.py
-```
-
-Esto ejecutará **todas las fuentes disponibles** y generará los archivos JSON dentro de:
-
-```
-scraper/madrid/data/
-```
+| Característica | Madrid Old | Madrid 2.0 |
+|----------------|------------|-------------|
+| Fuentes | Wikipedia + Open Data | Google Places + Wikipedia |
+| Estabilidad | Baja | Alta |
+| Cobertura | Parcial | Completa |
+| Arquitectura | Rígida | Modular |
+| Normalización | Inconsistente | Profesional |
+| Uso para IA | Limitado | Óptimo |
+| Transporte | Estático mínimo | Completo (Metro, EMT, Cercanías) |
 
 ---
 
-## 🧪 Ejecución por partes
+## 🎯 Conclusión
 
-Puedes ejecutar scrapers individuales desde Python:
+Madrid Old fue un buen punto de partida, pero Madrid 2.0 es la versión que:
 
-```python
-from sources.wikipedia_madrid import scrape_wikipedia_madrid
-scrape_wikipedia_madrid()
-```
+- **permite escalar**,  
+- **es estable**,  
+- **es completa**,  
+- **y es apta para IA**.
 
-O desde terminal:
-
-```bash
-python -c "from sources.madrid_open_data import scrape_madrid_open_data; scrape_madrid_open_data()"
-```
-
----
-
-## 🧹 Datos generados
-
-Los archivos generados actualmente son:
-
-- `wikipedia_madrid.json`  
-- `museos_madrid.json`  
-- `parques_madrid.json`  
-- `metro_madrid.json`  
-- `cercanias_madrid.json`  
-- `emt_paradas.json`  
-
----
-
-## 🛠️ Dependencias
-
-Instala todas las dependencias necesarias con:
-
-```bash
-pip install -r requirements.txt
-```
-
-Contenido del `requirements.txt`:
-
-```
-requests
-beautifulsoup4
-lxml
-```
-
-No se requieren librerías GIS, APIs externas ni dependencias pesadas.
-
----
-
-## 📌 Estado actual del scraper
-
-✔️ Wikipedia  
-✔️ Museos oficiales  
-✔️ Parques y zonas verdes  
-✔️ Transporte estático mínimo (Metro, Cercanías, EMT)  
-✔️ Pipeline estable y sin errores  
-
-Próximas integraciones previstas:
-
-⬜ Eventos culturales  
-⬜ Bicimad  
-⬜ Calidad del aire  
-⬜ Rutas recomendadas  
-⬜ Transporte completo (cuando existan fuentes estables)
-
----
-
-## 🎯 Objetivo del scraper
-
-El propósito de este módulo es proporcionar **datos limpios, estructurados y estables** sobre Madrid para alimentar la IA del proyecto.  
-El diseño modular permite añadir nuevas fuentes sin afectar al resto del sistema.
-
+Madrid Old se mantiene únicamente como **contenido documental y referencia histórica** del proyecto.
 
