@@ -1,0 +1,13 @@
+{
+  "id": "string",
+  "nombre": "string",
+  "direccion": "string",
+  "lat": "float",
+  "lon": "float",
+  "rating": "float",
+  "tipo": ["string"],
+  "precio": "string",
+  "horario": ["string"],
+  "fotos": ["string"],
+  "fuente": "Google Places"
+}

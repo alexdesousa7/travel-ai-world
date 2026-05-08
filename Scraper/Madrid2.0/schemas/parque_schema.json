@@ -1,0 +1,9 @@
+{
+  "id": "string",
+  "nombre": "string",
+  "direccion": "string",
+  "lat": "float",
+  "lon": "float",
+  "descripcion": "string",
+  "fuente": "Open Data Madrid"
+}
