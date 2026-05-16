@@ -34,6 +34,7 @@ export const metadata: Metadata = {
 
 
 import { ThemeProvider } from "@/context/ThemeContext";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 /**
  * Root Layout for the Next.js App Router.
@@ -57,7 +58,10 @@ export default function RootLayout({
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "PLACEHOLDER_CLIENT_ID"}>
           <AuthProvider>
             <ThemeProvider>
-              <LanguageProvider>{children}</LanguageProvider>
+              <LanguageProvider>
+                {children}
+                <ChatWidget />
+              </LanguageProvider>
             </ThemeProvider>
           </AuthProvider>
         </GoogleOAuthProvider>
@@ -65,3 +69,4 @@ export default function RootLayout({
     </html>
   );
 }
+
