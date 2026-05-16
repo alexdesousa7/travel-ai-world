@@ -34,7 +34,6 @@ export const metadata: Metadata = {
 
 
 import { ThemeProvider } from "@/context/ThemeContext";
-import ChatWidget from "@/components/chat/ChatWidget";
 
 /**
  * Root Layout for the Next.js App Router.
@@ -60,7 +59,6 @@ export default function RootLayout({
             <ThemeProvider>
               <LanguageProvider>
                 {children}
-                <ChatWidget />
               </LanguageProvider>
             </ThemeProvider>
           </AuthProvider>
