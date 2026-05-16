@@ -5,9 +5,10 @@ Thin controller: delegates to ChatService for streaming logic.
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.core.config import settings
 from app.schemas.chat import ChatRequest
 from app.services.chat_service import ChatService
 
@@ -26,6 +27,9 @@ async def chat(request: ChatRequest) -> StreamingResponse:
     Accepts user message + optional conversation history.
     Returns Server-Sent Events with incremental content chunks.
     """
+    if not settings.NVIDIA_API_KEY:
+        raise HTTPException(status_code=503, detail="AI chat service not configured")
+
     messages: list[dict[str, str]] = [
         {"role": msg.role, "content": msg.content} for msg in request.history
     ]
@@ -40,3 +44,4 @@ async def chat(request: ChatRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
