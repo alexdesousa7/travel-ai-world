@@ -163,9 +163,11 @@ Verifies complete user flows, like creating a trip and navigating the dashboard.
 
 ## Connecting the Backend
 
-The backend will be a FastAPI service (see root `README.md`). Currently:
+The backend is a **FastAPI** service (see [`backend/README.md`](../backend/README.md)).
 
-1. `services/trips.ts` provides a data layer for the frontend.
-2. `PlannerCard.tsx` simulates the AI generation process with loading feedback.
-3. In production, `NEXT_PUBLIC_API_URL` will be used to fetch real itineraries.
+1. Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `frontend/.env.local`
+2. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to your Google OAuth Client ID in `frontend/.env.local`
+3. `services/api.ts` provides `verifyGoogleToken()` for authentication and `streamChat()` for AI chat streaming
+4. `PlannerCard.tsx` streams real AI responses via SSE when the backend is configured; falls back to a static "coming soon" mode when `NEXT_PUBLIC_API_URL` is unset (e.g. GitHub Pages)
+5. `AuthContext.tsx` handles Google OAuth sessions with JWT-based validation and auto-logout on token expiry
 

@@ -1,22 +1,23 @@
-# 🚀 FastAPI Professional Boilerplate Template
+# 🚀 Travel AI World — Backend API
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
-![Python](https://img.shields.io/badge/Python-3.14-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red?style=for-the-badge)
 
-A production-ready, highly opinionated **FastAPI Template** designed to build scalable async web APIs. It provides a solid foundation with "batteries included" for user authentication, layered architecture, database migrations, and **built-in Artificial Intelligence integration**.
+The FastAPI backend powering Travel AI World. Provides Google OAuth authentication, real-time AI chat streaming via NVIDIA, and full trip CRUD management through a layered async architecture.
 
-## ✨ Features (Batteries Included)
+## ✨ Features
 
-- 🏗️ **Layered Architecture:** Controllers (Routers), Services, Repositories, and Models logically separated.
-- 🔐 **Authentication & RBAC:** JWT Bearer tokens, Bcrypt hashing, and built-in **Role-Based Access Control** (Admin/User).
-- 👥 **User Module:** A complete, working User entity (CRUD operations, login, role management).
-- 💾 **Database Connectivity:** Async PostgreSQL connections via `asyncpg` and `SQLAlchemy 2.0`.
-- 🗃️ **Migrations:** Alembic is pre-configured and ready to auto-generate schemas.
-- 🚦 **Error Handling:** Centralized semantic exception handling extending `HTTPException`.
-- 🧪 **Testing Base:** `pytest-asyncio` configured with an in-memory test database and coverage reporting.
-- 🚀 **Blazing Fast CI/CD & Deps:** GitHub Actions workflow utilizing `uv` caching (with `.lock` deterministic builds), `Ruff` formatting, and `Mypy` type checking.
+- 🏗️ **Layered Architecture:** Controllers (Routers) → Services → Repositories → Models
+- 🔐 **Google OAuth 2.0:** Exclusive authentication via Google — no passwords stored
+- 🤖 **AI Chat Streaming:** SSE proxy to NVIDIA Kimi K2.6 with retry + exponential backoff
+- 👥 **User Management:** Google profile sync, JWT sessions, Role-Based Access Control (Admin/User)
+- 💾 **Async Database:** PostgreSQL via `asyncpg` + SQLAlchemy 2.0 (SQLite fallback for dev)
+- 🗃️ **Migrations:** Alembic pre-configured for async schemas
+- 🚦 **Error Handling:** Centralized semantic exceptions extending `HTTPException`
+- 🧪 **Testing:** `pytest-asyncio` with dedicated test database and coverage reporting
+- 🚀 **CI/CD:** GitHub Actions with `uv` caching, `Ruff` linting, and import validation
 
 ---
 
@@ -72,10 +73,15 @@ cp .env.example .env
 ```
 
 > [!IMPORTANT]
-> The `.env.example` file defaults to PostgreSQL and Docker (`DB_SERVER="db_postgres"`).
-> **If you are running the backend locally without Docker**, you MUST open `.env` and change `DB_SERVER="127.0.0.1"`. You also need a PostgreSQL server running locally, or you can switch `DB_ENGINE="sqlite"` to use a simple file-based database for quick testing.
+> **Required environment variables:**
+> - `SECRET_KEY` — JWT signing key (generate a strong random string)
+> - `GOOGLE_CLIENT_ID` — Google OAuth Client ID from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+> - `GOOGLE_CLIENT_SECRET` — Google OAuth Client Secret
+> - `NVIDIA_API_KEY` — API key for AI chat functionality
 >
-> **CORS (production):** Set `BACKEND_CORS_ORIGINS` to your frontend URL(s) — e.g. `BACKEND_CORS_ORIGINS=["https://yourdomain.com"]`. The default value allows only `localhost:3000` and `localhost:5173`.
+> **Database:** The `.env.example` defaults to PostgreSQL. Set `DB_ENGINE="sqlite"` for quick local testing without a database server. If using PostgreSQL locally, ensure `DB_SERVER="127.0.0.1"` (not `localhost` on Windows).
+>
+> **CORS (production):** Set `BACKEND_CORS_ORIGINS` to your frontend URL(s) — e.g. `BACKEND_CORS_ORIGINS=["https://yourdomain.com"]`. The default allows only `localhost:3000` and `localhost:5173`.
 
 ### 4. Database Setup
 
@@ -97,6 +103,37 @@ Then visit:
 
 - **Swagger Documentation:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - **ReDoc Interactive Spec:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+
+---
+
+## 🔐 Authentication
+
+The backend uses **Google OAuth 2.0 exclusively**. There is no password-based login or registration.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/v1/auth/google` | `POST` | Accepts a Google ID token, verifies it with Google's tokeninfo API, creates/updates the user, returns a JWT |
+
+**Security stack:**
+- `verify_google_token()` — validates the token audience matches `GOOGLE_CLIENT_ID`
+- `create_access_token()` — issues a JWT signed with `SECRET_KEY`
+- `HTTPBearer` — extracts Bearer tokens from `Authorization` header
+- No `bcrypt`, no `OAuth2PasswordBearer`, no password fields in the database
+
+---
+
+## 🤖 AI Chat
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/api/v1/chat` | `POST` | None | Streams AI responses via SSE |
+
+The chat endpoint proxies requests to NVIDIA's API (`moonshotai/kimi-k2.6`) with:
+- **Retry logic** with exponential backoff (up to 2 retries)
+- **Streaming SSE** — content chunks arrive as `data: {"content": "..."}` events
+- **Fail-fast** — returns 503 if `NVIDIA_API_KEY` is not configured
+
+---
 
 ## ✅ Running Tests
 

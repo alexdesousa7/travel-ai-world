@@ -5,7 +5,7 @@
 AI-powered travel planning web app. Users describe their trip and an AI generates a personalized day-by-day itinerary.
 
 **Live site:** https://manupm87.github.io/travel-ai-world/
-**Status:** Frontend landing page is live. Backend (FastAPI + SQLAlchemy + uv + LLM) is scaffolded and under development.
+**Status:** Frontend is live. Backend is active with Google OAuth 2.0 authentication and AI chat streaming (NVIDIA Kimi K2.6).
 
 ---
 
@@ -14,12 +14,16 @@ AI-powered travel planning web app. Users describe their trip and an AI generate
 ```
 travel-ai-world/
 ├── frontend/          # Next.js 16 (App Router) — active development
-├── backend/           # FastAPI with Postgres/SQLite — active development
+├── backend/           # FastAPI with Postgres/SQLite + Google OAuth + AI Chat
+├── Scraper/           # City data scrapers (Madrid)
+├── tasks.ps1          # Project task runner (setup, dev, lint, build, release)
+├── scripts/           # Automation scripts (versioning, releases)
 ├── ideas.pen          # Pencil design file — use Pencil MCP tools to read/edit
 ├── images/            # Design assets and AI-generated city images
 └── .github/
     └── workflows/
-        └── deploy.yml # Deploys frontend/out/ to GitHub Pages on push to main
+        ├── deploy.yml # Deploys frontend/out/ to GitHub Pages on push to main
+        └── pr.yml     # PR checks: backend lint + frontend build
 ```
 
 ---
@@ -158,8 +162,9 @@ Use the `/check-site` slash command for a full checklist of both modes.
 | Route        | Status    | Description                                       |
 |--------------|-----------|---------------------------------------------------|
 | `/`          | ✅ Live    | Full landing page                                 |
-| `/plan`      | 🔜 Stub   | AI trip planner form (needs backend)              |
-| `/trip/[id]` | 🔜 Stub   | Generated itinerary viewer (needs backend)        |
+| `/dashboard` | ✅ Live    | Planned trips overview & status                   |
+| `/plan`      | ✅ Live    | AI trip planner with streaming chat               |
+| `/trip/[id]` | ✅ Live    | Interactive itinerary viewer                      |
 
 The `/trip/[id]` route is split into two files to satisfy Next.js App Router constraints:
 - `page.tsx` — server component, exports `generateStaticParams`
@@ -178,10 +183,13 @@ The `/trip/[id]` route is split into two files to satisfy Next.js App Router con
 | uv             | Package manager and virtual environments   |
 | Pytest         | Testing — real PostgreSQL `<DB_NAME>_test` |
 | Ruff           | Linter and formatter (target: py312)       |
-| LLM            | Not implemented yet                        |
+| httpx          | Async HTTP client for Google + NVIDIA APIs |
+| NVIDIA API     | Kimi K2.6 model for AI chat streaming      |
 
+**Authentication:** Google OAuth 2.0 exclusively — no passwords. `POST /api/v1/auth/google` verifies Google ID tokens and returns JWTs.
+**AI Chat:** `POST /api/v1/chat` streams responses via SSE from NVIDIA Kimi K2.6.
 **Working directory for all backend commands:** `backend/`
-**Integration point:** Set `NEXT_PUBLIC_API_URL` to `http://localhost:8000` in `frontend/.env.local` to connect them.
+**Integration point:** Set `NEXT_PUBLIC_API_URL` to `http://localhost:8000` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in `frontend/.env.local`.
 
 ---
 
