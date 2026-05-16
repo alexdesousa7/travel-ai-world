@@ -16,14 +16,24 @@ from app.services.meal_service import MealService
 from app.services.accommodation_service import AccommodationService
 from app.services.transportation_service import TransportationService
 
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+# Google OAuth flow — tokens are issued by POST /auth/google, not a password form.
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def _extract_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    """Extract the Bearer token from the Authorization header."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise UnauthorizedException(detail="Missing or invalid authorization header")
+    return credentials.credentials
 
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
+    token: str = Depends(_extract_token),
 ) -> User:
     try:
         payload = jwt.decode(

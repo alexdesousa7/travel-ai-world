@@ -1,7 +1,6 @@
 # Re-export all schemas for convenient single-package imports.
 from app.schemas.user import (
     UserBase,
-    UserCreate,
     UserUpdate,
     UserRoleUpdate,
     UserResponse,
@@ -48,7 +47,6 @@ from app.schemas.trip import (
 __all__ = [
     # User
     "UserBase",
-    "UserCreate",
     "UserUpdate",
     "UserRoleUpdate",
     "UserResponse",

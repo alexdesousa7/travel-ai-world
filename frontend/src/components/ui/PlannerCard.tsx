@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import { useAuth } from "@/context/AuthContext";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { isApiAvailable, streamChat } from "@/services/api";
 import { Bot, Loader2, Send, User } from "lucide-react";
@@ -30,7 +29,6 @@ interface ChatMessage {
  */
 export default function PlannerCard({ transparent = false }: PlannerCardProps) {
   const { t } = useLanguage();
-  const { isAuthenticated } = useAuth();
   const p = t.planner;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -40,7 +38,7 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const apiReady = isApiAvailable() && isAuthenticated;
+  const apiReady = isApiAvailable();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

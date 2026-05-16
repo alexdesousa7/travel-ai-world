@@ -2,8 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_current_user, get_current_admin_user, get_user_service
-from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
-from app.schemas.user import UserResponse, UserCreate, UserUpdate, UserRoleUpdate
+from app.core.exceptions import ForbiddenException, NotFoundException
+from app.schemas.user import UserResponse, UserUpdate, UserRoleUpdate
 from app.services.user_service import UserService
 from app.models.user import User
 
@@ -24,19 +24,6 @@ async def read_users(
     Retrieve users (paginated). Max 500 per request.
     """
     return await user_service.get_users(skip=skip, limit=limit)
-
-
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    user_in: UserCreate,
-    user_service: UserService = Depends(get_user_service),
-):
-    """
-    Creates a new user ensuring email uniqueness.
-    """
-    if await user_service.get_user_by_email(email=user_in.email):
-        raise ConflictException(detail="User or email already exists in the system.")
-    return await user_service.create_user(user_in=user_in)
 
 
 @router.get("/me", response_model=UserResponse)  # Declared BEFORE /{user_id}
