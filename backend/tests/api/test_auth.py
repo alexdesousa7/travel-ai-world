@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+
 async def _create_and_login(client: AsyncClient, email: str, password: str) -> str:
     """Helper: create a user and return a valid Bearer token."""
     await client.post(

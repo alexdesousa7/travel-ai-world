@@ -5,6 +5,7 @@ from app.models.trip import Trip
 from app.schemas.trip import TripCreate, TripUpdate
 from app.repositories.trip_repository import TripRepository
 
+
 class TripService:
     def __init__(self, db: AsyncSession):
         self.repository = TripRepository(db)

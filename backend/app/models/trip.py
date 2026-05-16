@@ -50,7 +50,7 @@ class Trip(Base):
     travelers_infants = Column(Integer, nullable=False, default=0)
 
     # Preferences
-    travel_style = Column(ARRAY(String), nullable=True)          # stored as native PG array
+    travel_style = Column(ARRAY(String), nullable=True)  # stored as native PG array
     pace_preference = Column(String(100), nullable=True)
     accommodation_type = Column(String(100), nullable=True)
 

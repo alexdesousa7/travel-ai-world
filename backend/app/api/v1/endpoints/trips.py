@@ -10,6 +10,7 @@ from app.models.user import User
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[TripResponse])
 async def read_trips(
     skip: int = 0,
@@ -20,6 +21,7 @@ async def read_trips(
     """Retrieve trips (paginated)."""
     return await trip_service.get_trips(skip=skip, limit=limit)
 
+
 @router.post("/", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
 async def create_trip(
     trip_in: TripCreate,
@@ -28,6 +30,7 @@ async def create_trip(
 ):
     """Creates a new trip."""
     return await trip_service.create_trip(trip_in=trip_in, user_id=current_user.id)
+
 
 @router.get("/{trip_id}", response_model=TripResponse)
 async def read_trip(
@@ -43,6 +46,7 @@ async def read_trip(
         raise ForbiddenException(detail="Not enough permissions")
     return trip
 
+
 @router.put("/{trip_id}", response_model=TripResponse)
 async def update_trip(
     trip_id: UUID,
@@ -57,6 +61,7 @@ async def update_trip(
     if trip.user_id != current_user.id:
         raise ForbiddenException(detail="Not enough permissions")
     return await trip_service.update_trip(db_obj=trip, trip_in=trip_in)
+
 
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trip(

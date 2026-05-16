@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.trip import Trip
 
+
 class TripRepository:
     def __init__(self, db: AsyncSession):
         self.db = db

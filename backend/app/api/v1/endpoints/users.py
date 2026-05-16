@@ -12,6 +12,7 @@ router = APIRouter()
 # IMPORTANT: Static routes (e.g. /me) MUST be declared before parameterized routes
 # (e.g. /{user_id}), otherwise FastAPI will try to parse "me" as an int and return 422.
 
+
 @router.get("/", response_model=List[UserResponse])
 async def read_users(
     skip: int = 0,
@@ -23,6 +24,7 @@ async def read_users(
     Retrieve users (paginated). Max 500 per request.
     """
     return await user_service.get_users(skip=skip, limit=limit)
+
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
@@ -36,6 +38,7 @@ async def create_user(
         raise ConflictException(detail="User or email already exists in the system.")
     return await user_service.create_user(user_in=user_in)
 
+
 @router.get("/me", response_model=UserResponse)  # Declared BEFORE /{user_id}
 async def read_user_me(
     current_user: User = Depends(get_current_user),
@@ -44,6 +47,7 @@ async def read_user_me(
     Returns the profile of the currently authenticated user.
     """
     return current_user
+
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def read_user(
@@ -58,6 +62,7 @@ async def read_user(
     if not user:
         raise NotFoundException(detail="User not found")
     return user
+
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
@@ -76,6 +81,7 @@ async def update_user(
         raise ForbiddenException(detail="Not enough permissions")
     return await user_service.update_user(db_obj=user, user_in=user_in)
 
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
@@ -92,6 +98,7 @@ async def delete_user(
         raise ForbiddenException(detail="Not enough permissions")
     await user_service.delete_user(db_obj=user)
     return None
+
 
 @router.patch("/{user_id}/role", response_model=UserResponse)
 async def update_user_role(

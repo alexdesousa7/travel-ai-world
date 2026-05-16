@@ -20,6 +20,7 @@ from fastapi.security import OAuth2PasswordBearer
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     token: str = Depends(oauth2_scheme),
@@ -43,6 +44,7 @@ async def get_current_user(
         raise UnauthorizedException(detail="Inactive user account")
     return user
 
+
 async def get_current_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
@@ -55,23 +57,36 @@ def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     """Provides a UserService instance via FastAPI dependency injection."""
     return UserService(db)
 
+
 def get_trip_service(db: AsyncSession = Depends(get_db)) -> TripService:
     return TripService(db)
+
 
 def get_destination_service(db: AsyncSession = Depends(get_db)) -> DestinationService:
     return DestinationService(db)
 
-def get_itinerary_day_service(db: AsyncSession = Depends(get_db)) -> ItineraryDayService:
+
+def get_itinerary_day_service(
+    db: AsyncSession = Depends(get_db),
+) -> ItineraryDayService:
     return ItineraryDayService(db)
+
 
 def get_activity_service(db: AsyncSession = Depends(get_db)) -> ActivityService:
     return ActivityService(db)
 
+
 def get_meal_service(db: AsyncSession = Depends(get_db)) -> MealService:
     return MealService(db)
 
-def get_accommodation_service(db: AsyncSession = Depends(get_db)) -> AccommodationService:
+
+def get_accommodation_service(
+    db: AsyncSession = Depends(get_db),
+) -> AccommodationService:
     return AccommodationService(db)
 
-def get_transportation_service(db: AsyncSession = Depends(get_db)) -> TransportationService:
+
+def get_transportation_service(
+    db: AsyncSession = Depends(get_db),
+) -> TransportationService:
     return TransportationService(db)

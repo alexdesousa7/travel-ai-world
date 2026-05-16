@@ -9,8 +9,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class TransportationBase(BaseModel):
-    type: Optional[str] = None          # e.g. "flight", "train", "bus"
-    category: Optional[str] = None      # e.g. "outbound", "return", "internal"
+    type: Optional[str] = None  # e.g. "flight", "train", "bus"
+    category: Optional[str] = None  # e.g. "outbound", "return", "internal"
     from_location: Optional[str] = None
     to_location: Optional[str] = None
     from_city: Optional[str] = None

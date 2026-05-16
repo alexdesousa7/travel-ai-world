@@ -44,4 +44,3 @@ async def chat(request: ChatRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
-
