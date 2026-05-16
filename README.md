@@ -54,6 +54,9 @@ The `tasks.ps1` script provides a unified interface for all dev operations:
 .\tasks.ps1 lint           # Lint both frontend and backend
 .\tasks.ps1 test           # Run all tests
 .\tasks.ps1 build          # Production build
+.\tasks.ps1 docker-up      # Start backend + DB via Docker Compose
+.\tasks.ps1 docker-down    # Stop Docker Compose services
+.\tasks.ps1 check-port     # Check/kill process on port 8000
 ```
 
 ### Manual Setup
@@ -158,6 +161,35 @@ Every push to `main`:
 3. **Deploy** — uploads `out/` to GitHub Pages
 
 Live at: 👉 `https://manupm87.github.io/travel-ai-world/`
+
+---
+
+## Docker Deployment
+
+The backend includes a production-ready Docker setup:
+
+```powershell
+.\tasks.ps1 docker-up       # Build + start API + PostgreSQL
+.\tasks.ps1 docker-down     # Stop all services
+.\tasks.ps1 docker-logs     # Tail API logs
+.\tasks.ps1 docker-rebuild  # Rebuild API image (no cache)
+```
+
+**Architecture:**
+- **Multi-stage Dockerfile** — builder stage (uv + gcc) → slim production image (no build tools)
+- **Non-root user** (`appuser`) for security
+- **Auto-migrations** — `entrypoint.sh` runs `alembic upgrade head` on startup
+- **Healthcheck** on PostgreSQL before API starts
+
+**Manual Docker Compose:**
+
+```bash
+cd backend
+cp .env.example .env       # Configure env vars
+docker compose up --build
+```
+
+> **Note:** When running inside Docker Compose, `DB_SERVER` is automatically overridden to `db_postgres` (the Compose service name).
 
 ---
 

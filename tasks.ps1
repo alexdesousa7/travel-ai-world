@@ -36,6 +36,9 @@ switch ($Task) {
     "test-frontend" {
         Push-Location frontend; npm run test:unit; Pop-Location
     }
+    "test-e2e" {
+        Push-Location frontend; npx playwright test; Pop-Location
+    }
     "lint" {
         Write-Host "== Linting Backend ==" -ForegroundColor Cyan
         Push-Location backend; uv run ruff check .; Pop-Location
@@ -62,6 +65,35 @@ switch ($Task) {
         }
         Write-Host "Cleaned." -ForegroundColor Green
     }
+    # -- Docker --
+    "docker-up" {
+        Write-Host "== Starting Docker Compose ==" -ForegroundColor Cyan
+        Push-Location backend; docker compose up --build -d; Pop-Location
+    }
+    "docker-down" {
+        Push-Location backend; docker compose down; Pop-Location
+    }
+    "docker-logs" {
+        Push-Location backend; docker compose logs -f api; Pop-Location
+    }
+    "docker-rebuild" {
+        Write-Host "== Rebuilding API container (no cache) ==" -ForegroundColor Cyan
+        Push-Location backend; docker compose build --no-cache api; docker compose up -d api; Pop-Location
+    }
+    # -- Port Management --
+    "check-port" {
+        $port = 8000
+        $proc = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty OwningProcess
+        if ($proc) {
+            $info = Get-Process -Id $proc -ErrorAction SilentlyContinue
+            Write-Host "Port $port occupied by PID $proc ($($info.ProcessName))" -ForegroundColor Yellow
+            $kill = Read-Host "Kill it? (y/N)"
+            if ($kill -eq 'y') { Stop-Process -Id $proc -Force; Write-Host "Killed." -ForegroundColor Green }
+        } else {
+            Write-Host "Port $port is free." -ForegroundColor Green
+        }
+    }
     # -- Versioning & Release --
     "version" {
         & .\scripts\new_version.ps1 @args
@@ -78,12 +110,19 @@ switch ($Task) {
         Write-Host "  .\tasks.ps1 dev-frontend    Run frontend locally (hot-reload)"
         Write-Host "  .\tasks.ps1 test            Run all tests (backend + frontend)"
         Write-Host "  .\tasks.ps1 test-backend    Backend tests only"
-        Write-Host "  .\tasks.ps1 test-frontend   Frontend tests only"
+        Write-Host "  .\tasks.ps1 test-frontend   Frontend unit tests only"
+        Write-Host "  .\tasks.ps1 test-e2e        Frontend E2E tests (Playwright)"
         Write-Host "  .\tasks.ps1 lint            Lint backend + frontend"
         Write-Host "  .\tasks.ps1 format          Auto-format backend (ruff)"
         Write-Host "  .\tasks.ps1 format-check    Check formatting (CI)"
         Write-Host "  .\tasks.ps1 build           Build frontend for production"
         Write-Host "  .\tasks.ps1 clean           Remove caches and node_modules"
+        Write-Host "  ────────────────────────────────────────" -ForegroundColor DarkGray
+        Write-Host "  .\tasks.ps1 docker-up       Start backend + DB via Docker Compose"
+        Write-Host "  .\tasks.ps1 docker-down     Stop Docker Compose services"
+        Write-Host "  .\tasks.ps1 docker-logs     Tail API container logs"
+        Write-Host "  .\tasks.ps1 docker-rebuild  Rebuild API image (no cache)"
+        Write-Host "  .\tasks.ps1 check-port      Check/kill process on port 8000"
         Write-Host "  ────────────────────────────────────────" -ForegroundColor DarkGray
         Write-Host "  .\tasks.ps1 version         Bump version (patch, syncs all manifests)"
         Write-Host "    -Bump minor|major          Bump minor or major instead of patch"

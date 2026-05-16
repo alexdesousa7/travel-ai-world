@@ -31,13 +31,10 @@ RUN uv sync --frozen --no-dev
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install system dependencies
+# Install only runtime system dependencies (no gcc/build tools)
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# Install uv in the final stage so entrypoint.sh can use 'uv run'
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy the virtual environment from the builder
 COPY --from=builder /opt/venv /opt/venv
@@ -46,10 +43,8 @@ COPY --from=builder /opt/venv /opt/venv
 RUN useradd -m appuser && \
     chown -R appuser:appuser /app /opt/venv
 
-# Set up environment variables
+# Set up environment variables — venv/bin on PATH gives us alembic + uvicorn directly
 ENV PATH="/opt/venv/bin:$PATH" \
-    UV_PROJECT_ENVIRONMENT=/opt/venv \
-    UV_COMPILE_BYTECODE=1 \
     PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
