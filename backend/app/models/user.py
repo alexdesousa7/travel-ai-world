@@ -16,9 +16,15 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Nullable for OAuth users
     is_active = Column(Boolean, default=True)
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
+
+    # Google OAuth fields
+    auth_provider = Column(String, default="local", nullable=False)
+    google_id = Column(String, unique=True, nullable=True, index=True)
+    name = Column(String, nullable=True)
+    picture = Column(String, nullable=True)
 
     # Relationships
     trips = relationship("Trip", back_populates="user", cascade="all, delete-orphan")

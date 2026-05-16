@@ -1,9 +1,10 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserUpdate, UserRoleUpdate
 from app.repositories.user_repository import UserRepository
 from app.core.security import get_password_hash, verify_password
+
 
 class UserService:
     def __init__(self, db: AsyncSession):
@@ -32,11 +33,13 @@ class UserService:
             email=user_in.email,
             hashed_password=get_password_hash(user_in.password),
             is_active=user_in.is_active,
-            role=user_in.role
+            role=user_in.role,
         )
         return await self.repository.create(db_obj)
 
-    async def update_user(self, db_obj: User, user_in: UserUpdate | UserRoleUpdate) -> User:
+    async def update_user(
+        self, db_obj: User, user_in: UserUpdate | UserRoleUpdate
+    ) -> User:
         """Applies a partial update on db_obj from the given Pydantic schema."""
         update_data = user_in.model_dump(exclude_unset=True)
 
@@ -50,3 +53,32 @@ class UserService:
 
     async def delete_user(self, db_obj: User) -> None:
         await self.repository.delete(db_obj)
+
+    async def find_or_create_google_user(
+        self, email: str, google_id: str, name: str, picture: str | None
+    ) -> User:
+        """Find user by email or create new Google OAuth user.
+
+        If user exists, update their Google profile data.
+        If not, create a new user with auth_provider='google'.
+        """
+        user = await self.repository.get_by_email(email)
+        if user:
+            user.google_id = google_id
+            user.name = name
+            user.picture = picture
+            if user.auth_provider == "local":
+                user.auth_provider = "google"
+            return await self.repository.update(user)
+
+        db_obj = User(
+            email=email,
+            hashed_password=None,
+            google_id=google_id,
+            name=name,
+            picture=picture,
+            auth_provider="google",
+            is_active=True,
+            role=UserRole.USER,
+        )
+        return await self.repository.create(db_obj)
