@@ -4,12 +4,13 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User } from "@/types/user";
 import { jwtDecode } from "jwt-decode";
 import { useRouter } from "next/navigation";
+import { isApiAvailable, verifyGoogleToken } from "@/services/api";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credential: string) => void;
+  login: (credential: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -17,6 +18,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
  * Provides authentication state and methods to the application.
+ *
+ * Supports two modes:
+ * - Backend mode (NEXT_PUBLIC_API_URL set): verifies Google token server-side,
+ *   stores our own JWT for API access.
+ * - Static mode (no API URL): decodes Google JWT client-side for basic profile info.
+ *   This preserves functionality on static GitHub Pages deployments.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Validates a JWT credential and returns the decoded user if valid.
+   * Used as fallback when no backend API is available.
    */
   const validateAndDecode = (credential: string): User | null => {
     try {
@@ -76,13 +84,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, [isProd]);
 
-  const login = (credential: string) => {
-    const decodedUser = validateAndDecode(credential);
-    if (decodedUser) {
-      setUser(decodedUser);
-      localStorage.setItem("travel_ai_token", credential);
-      // We still store user for quick UI access, but token is the source of truth
-      localStorage.setItem("travel_ai_user", JSON.stringify(decodedUser));
+  /**
+   * Authenticates a user with a Google credential.
+   *
+   * If a backend API is configured, sends the Google ID token to the backend
+   * for server-side verification and receives our own JWT.
+   * Otherwise, falls back to client-side JWT decoding.
+   */
+  const login = async (credential: string): Promise<void> => {
+    if (isApiAvailable()) {
+      try {
+        const response = await verifyGoogleToken(credential);
+        const backendUser: User = {
+          id: response.user.id,
+          email: response.user.email,
+          name: response.user.name,
+          picture: response.user.picture,
+        };
+        setUser(backendUser);
+        localStorage.setItem("travel_ai_token", response.access_token);
+        localStorage.setItem("travel_ai_user", JSON.stringify(backendUser));
+      } catch (error) {
+        console.error("Backend auth failed, falling back to client-side:", error);
+        // Graceful fallback to client-side decode
+        const decodedUser = validateAndDecode(credential);
+        if (decodedUser) {
+          setUser(decodedUser);
+          localStorage.setItem("travel_ai_token", credential);
+          localStorage.setItem("travel_ai_user", JSON.stringify(decodedUser));
+        }
+      }
+    } else {
+      // Static mode — no backend available
+      const decodedUser = validateAndDecode(credential);
+      if (decodedUser) {
+        setUser(decodedUser);
+        localStorage.setItem("travel_ai_token", credential);
+        localStorage.setItem("travel_ai_user", JSON.stringify(decodedUser));
+      }
     }
   };
 
