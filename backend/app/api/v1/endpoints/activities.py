@@ -10,6 +10,7 @@ from app.models.user import User
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[ActivityResponse])
 async def read_activities(
     skip: int = 0,
@@ -20,6 +21,7 @@ async def read_activities(
     """Retrieve activities (paginated)."""
     return await activity_service.get_activities(skip=skip, limit=limit)
 
+
 @router.post("/", response_model=ActivityResponse, status_code=status.HTTP_201_CREATED)
 async def create_activity(
     activity_in: ActivityCreate,
@@ -28,7 +30,10 @@ async def create_activity(
     activity_service: ActivityService = Depends(get_activity_service),
 ):
     """Creates a new activity."""
-    return await activity_service.create_activity(activity_in=activity_in, itinerary_day_id=itinerary_day_id)
+    return await activity_service.create_activity(
+        activity_in=activity_in, itinerary_day_id=itinerary_day_id
+    )
+
 
 @router.get("/{activity_id}", response_model=ActivityResponse)
 async def read_activity(
@@ -42,6 +47,7 @@ async def read_activity(
         raise NotFoundException(detail="Activity not found")
     return activity
 
+
 @router.put("/{activity_id}", response_model=ActivityResponse)
 async def update_activity(
     activity_id: UUID,
@@ -53,7 +59,10 @@ async def update_activity(
     activity = await activity_service.get_activity_by_id(activity_id=activity_id)
     if not activity:
         raise NotFoundException(detail="Activity not found")
-    return await activity_service.update_activity(db_obj=activity, activity_in=activity_in)
+    return await activity_service.update_activity(
+        db_obj=activity, activity_in=activity_in
+    )
+
 
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_activity(

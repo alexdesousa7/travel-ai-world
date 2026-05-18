@@ -1,6 +1,15 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -18,7 +27,7 @@ class Activity(Base):
         index=True,
     )
 
-    time = Column(String(10), nullable=True)                   # e.g. "09:00"
+    time = Column(String(10), nullable=True)  # e.g. "09:00"
     duration_minutes = Column(Integer, nullable=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)

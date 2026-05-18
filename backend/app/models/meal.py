@@ -18,8 +18,8 @@ class Meal(Base):
         index=True,
     )
 
-    time = Column(String(10), nullable=True)                   # e.g. "13:00"
-    type = Column(String(50), nullable=True)                   # breakfast / lunch / dinner
+    time = Column(String(10), nullable=True)  # e.g. "13:00"
+    type = Column(String(50), nullable=True)  # breakfast / lunch / dinner
     restaurant_name = Column(String(255), nullable=False)
     cuisine = Column(String(100), nullable=True)
     estimated_cost = Column(Numeric(10, 2), nullable=True)

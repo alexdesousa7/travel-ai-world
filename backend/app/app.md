@@ -28,7 +28,7 @@ To keep the code testable and clean, follow the lifecycle of a request:
    - It only receives the validated payload (Schema), injects the `Service` via `Depends()`, calls the `Service`, and returns the output Schema.
 2. **`services/`**: The business manager.
    - Receives the already instantiated `Repository` class and the database session (`AsyncSession`).
-   - Verifies if a user exists, hashes passwords, checks logical permissions, and calls the `Repository`.
+   - Verifies if a user exists, validates Google tokens, checks logical permissions, and calls the `Repository`.
    - Throws exceptions if the logic fails (`raise UserNotFoundError`).
 3. **`repositories/`**: The data layer.
    - Raw classes that perform `.add()`, `.commit()`, `select()`.
@@ -43,7 +43,7 @@ To keep the code testable and clean, follow the lifecycle of a request:
    - Classes that handle async connections and sessions using `asyncpg` and SQLAlchemy.
 7. **`core/`**: The configuration and utilities core.
    - Contains Environment Settings (`config.py`), Custom Exceptions (`exceptions.py`), and Security (`security.py`).
-   - `config.py` exposes `BACKEND_CORS_ORIGINS` (list of allowed frontend origins) alongside JWT/DB settings.
+   - `config.py` exposes `BACKEND_CORS_ORIGINS` (list of allowed frontend origins) alongside JWT/DB settings, Google OAuth credentials, and NVIDIA AI configuration.
    - **Authentication `Dependables` and RBAC** (`get_current_user`, `get_current_admin_user`, `get_user_service`) live in **`api/deps.py`**, not here.
 
 ---
@@ -78,7 +78,7 @@ Para mantener el código testeable y limpio, sigue el siguiente flujo de vida de
    - Solo recibe el payload validado (Schema), inyecta el `Service` vía `Depends()`, llama al `Service`, y retorna el Schema de salida.
 2. **`services/`**: El gestor de negocio.
    - Recibe la clase `Repository` ya instanciada y la sesión de base de datos (`AsyncSession`).
-   - Verifica si un usuario existe, hashea contraseñas, comprueba permisos lógicos y llama al `Repository`.
+   - Verifica si un usuario existe, valida tokens de Google, comprueba permisos lógicos y llama al `Repository`.
    - Lanza excepciones si la lógica falla (`raise UserNotFoundError`).
 3. **`repositories/`**: La capa de datos.
    - Son clases crudas que hacen `.add()`, `.commit()`, `select()`.
@@ -93,5 +93,5 @@ Para mantener el código testeable y limpio, sigue el siguiente flujo de vida de
    - Son clases que manejan la conexión y sesión asíncrona mediante `asyncpg` y SQLAlchemy.
 7. **`core/`**: El núcleo de configuración y utilidades.
    - Contiene los Ajustes de Entorno (`config.py`), Excepciones personalizadas (`exceptions.py`) y la Seguridad (`security.py`).
-   - `config.py` expone `BACKEND_CORS_ORIGINS` (lista de orígenes permitidos) junto a la configuración de JWT y base de datos.
+   - `config.py` expone `BACKEND_CORS_ORIGINS` (lista de orígenes permitidos) junto a la configuración de JWT, base de datos, credenciales de Google OAuth y configuración de NVIDIA AI.
    - Los **`Dependables` de autenticación y RBAC** (`get_current_user`, `get_current_admin_user`, `get_user_service`) viven en **`api/deps.py`**, no aquí.

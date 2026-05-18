@@ -10,6 +10,7 @@ from app.models.user import User
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[MealResponse])
 async def read_meals(
     skip: int = 0,
@@ -20,6 +21,7 @@ async def read_meals(
     """Retrieve meals (paginated)."""
     return await meal_service.get_meals(skip=skip, limit=limit)
 
+
 @router.post("/", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
 async def create_meal(
     meal_in: MealCreate,
@@ -28,7 +30,10 @@ async def create_meal(
     meal_service: MealService = Depends(get_meal_service),
 ):
     """Creates a new meal."""
-    return await meal_service.create_meal(meal_in=meal_in, itinerary_day_id=itinerary_day_id)
+    return await meal_service.create_meal(
+        meal_in=meal_in, itinerary_day_id=itinerary_day_id
+    )
+
 
 @router.get("/{meal_id}", response_model=MealResponse)
 async def read_meal(
@@ -42,6 +47,7 @@ async def read_meal(
         raise NotFoundException(detail="Meal not found")
     return meal
 
+
 @router.put("/{meal_id}", response_model=MealResponse)
 async def update_meal(
     meal_id: UUID,
@@ -54,6 +60,7 @@ async def update_meal(
     if not meal:
         raise NotFoundException(detail="Meal not found")
     return await meal_service.update_meal(db_obj=meal, meal_in=meal_in)
+
 
 @router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_meal(

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.activity import Activity
 
+
 class ActivityRepository:
     def __init__(self, db: AsyncSession):
         self.db = db

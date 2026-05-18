@@ -4,11 +4,13 @@ from app.core.config import settings
 from app.api.v1.api_router import api_router
 from fastapi.middleware.cors import CORSMiddleware
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
     yield
     # Shutdown logic
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -34,5 +36,6 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix=settings.API_V1_STR)
 
     return app
+
 
 app = create_app()

@@ -18,6 +18,7 @@ from app.schemas.transportation import TransportationResponse
 # TripSummary — lightweight card used in list views (mirrors TripSummary.ts)
 # ---------------------------------------------------------------------------
 
+
 class TripSummaryResponse(BaseModel):
     id: UUID
     title: str
@@ -34,6 +35,7 @@ class TripSummaryResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Full Trip CRUD schemas
 # ---------------------------------------------------------------------------
+
 
 class TripBase(BaseModel):
     title: str

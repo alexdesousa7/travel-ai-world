@@ -11,7 +11,7 @@ This directory contains the SQLAlchemy models that define the strict schema of o
    - This ensures that Alembic and SQLAlchemy can discover every table in a centralized registry (`Base.metadata`).
 
 2. **Primary Keys (`id`)**:
-   - `User` uses standard `Integer` auto-incrementing IDs because it's the core system entity.
+   - `User` uses standard `Integer` auto-incrementing IDs because it's the core system entity. It includes Google OAuth fields (`auth_provider`, `google_id`, `name`, `picture`) — there is no `hashed_password` column since authentication is exclusively via Google.
    - All travel-related entities (`Trip`, `Destination`, `ItineraryDay`, etc.) use `UUID`s. This perfectly matches the frontend TypeScript interfaces (`id: string`), obfuscates URLs, and facilitates offline creation or merging of records.
 
 3. **Entity Relationships**:
@@ -44,7 +44,7 @@ Este directorio contiene los modelos de SQLAlchemy que definen el esquema estric
    - Esto asegura que Alembic y SQLAlchemy puedan descubrir cada tabla en un registro centralizado (`Base.metadata`).
 
 2. **Claves Primarias (`id`)**:
-   - `User` usa `Integer` auto-incremental estándar porque es la entidad base del sistema.
+   - `User` usa `Integer` auto-incremental estándar porque es la entidad base del sistema. Incluye campos de Google OAuth (`auth_provider`, `google_id`, `name`, `picture`) — no existe columna `hashed_password` ya que la autenticación es exclusivamente vía Google.
    - Todas las entidades relacionadas con los viajes (`Trip`, `Destination`, `ItineraryDay`, etc.) usan `UUID`s. Esto concuerda perfectamente con las interfaces de TypeScript del frontend (`id: string`), ofusca las URLs y facilita la creación offline de registros.
 
 3. **Relaciones entre Entidades**:

@@ -2,8 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_current_user, get_current_admin_user, get_user_service
-from app.core.exceptions import ConflictException, ForbiddenException, NotFoundException
-from app.schemas.user import UserResponse, UserCreate, UserUpdate, UserRoleUpdate
+from app.core.exceptions import ForbiddenException, NotFoundException
+from app.schemas.user import UserResponse, UserUpdate, UserRoleUpdate
 from app.services.user_service import UserService
 from app.models.user import User
 
@@ -11,6 +11,7 @@ router = APIRouter()
 
 # IMPORTANT: Static routes (e.g. /me) MUST be declared before parameterized routes
 # (e.g. /{user_id}), otherwise FastAPI will try to parse "me" as an int and return 422.
+
 
 @router.get("/", response_model=List[UserResponse])
 async def read_users(
@@ -24,17 +25,6 @@ async def read_users(
     """
     return await user_service.get_users(skip=skip, limit=limit)
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(
-    user_in: UserCreate,
-    user_service: UserService = Depends(get_user_service),
-):
-    """
-    Creates a new user ensuring email uniqueness.
-    """
-    if await user_service.get_user_by_email(email=user_in.email):
-        raise ConflictException(detail="User or email already exists in the system.")
-    return await user_service.create_user(user_in=user_in)
 
 @router.get("/me", response_model=UserResponse)  # Declared BEFORE /{user_id}
 async def read_user_me(
@@ -44,6 +34,7 @@ async def read_user_me(
     Returns the profile of the currently authenticated user.
     """
     return current_user
+
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def read_user(
@@ -58,6 +49,7 @@ async def read_user(
     if not user:
         raise NotFoundException(detail="User not found")
     return user
+
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
@@ -76,6 +68,7 @@ async def update_user(
         raise ForbiddenException(detail="Not enough permissions")
     return await user_service.update_user(db_obj=user, user_in=user_in)
 
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
@@ -92,6 +85,7 @@ async def delete_user(
         raise ForbiddenException(detail="Not enough permissions")
     await user_service.delete_user(db_obj=user)
     return None
+
 
 @router.patch("/{user_id}/role", response_model=UserResponse)
 async def update_user_role(

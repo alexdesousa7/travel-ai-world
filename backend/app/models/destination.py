@@ -20,7 +20,7 @@ class Destination(Base):
 
     city = Column(String(150), nullable=False)
     country = Column(String(150), nullable=False)
-    country_code = Column(String(3), nullable=False)       # ISO 3166-1 alpha-2/3
+    country_code = Column(String(3), nullable=False)  # ISO 3166-1 alpha-2/3
 
     # Coordinates (no PostGIS dependency at this stage)
     lat = Column(Float, nullable=True)

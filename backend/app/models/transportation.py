@@ -18,8 +18,8 @@ class Transportation(Base):
         index=True,
     )
 
-    type = Column(String(100), nullable=True)                  # flight / train / bus …
-    category = Column(String(100), nullable=True)              # e.g. "economy"
+    type = Column(String(100), nullable=True)  # flight / train / bus …
+    category = Column(String(100), nullable=True)  # e.g. "economy"
     from_location = Column(String(512), nullable=True)
     to_location = Column(String(512), nullable=True)
     from_city = Column(String(150), nullable=True)
@@ -27,7 +27,9 @@ class Transportation(Base):
     departure_time = Column(DateTime(timezone=True), nullable=True)
     arrival_time = Column(DateTime(timezone=True), nullable=True)
     provider = Column(String(255), nullable=True)
-    flight_number = Column(String(50), nullable=True)          # nullable — non-flights won't have one
+    flight_number = Column(
+        String(50), nullable=True
+    )  # nullable — non-flights won't have one
     duration_minutes = Column(Integer, nullable=True)
     cost = Column(Numeric(10, 2), nullable=True)
     booking_reference = Column(String(100), nullable=True)

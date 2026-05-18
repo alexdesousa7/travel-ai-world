@@ -1,5 +1,6 @@
 import os
 
+
 def create_structure():
     structure = {
         "app": {
@@ -9,50 +10,29 @@ def create_structure():
                 "config.py": "",
                 "security.py": "",
                 "exceptions.py": "",
-                "database.py": ""
+                "database.py": "",
             },
-            "models": {
-                "__init__.py": "",
-                "user.py": ""
-            },
-            "schemas": {
-                "__init__.py": "",
-                "user.py": ""
-            },
-            "repositories": {
-                "__init__.py": "",
-                "user.py": ""
-            },
-            "services": {
-                "__init__.py": "",
-                "user.py": ""
-            },
+            "models": {"__init__.py": "", "user.py": ""},
+            "schemas": {"__init__.py": "", "user.py": ""},
+            "repositories": {"__init__.py": "", "user.py": ""},
+            "services": {"__init__.py": "", "user.py": ""},
             "api": {
                 "__init__.py": "",
-                "dependencies": {
-                    "__init__.py": "",
-                    "deps.py": ""
-                },
+                "dependencies": {"__init__.py": "", "deps.py": ""},
                 "v1": {
                     "__init__.py": "",
-                    "endpoints": {
-                        "__init__.py": "",
-                        "user.py": ""
-                    }
+                    "endpoints": {"__init__.py": "", "user.py": ""},
                 },
-                "router.py": ""
+                "router.py": "",
             },
-            "main.py": ""
+            "main.py": "",
         },
         "tests": {
             "__init__.py": "",
             "conftest.py": "",
-            "api": {
-                "__init__.py": "",
-                "test_user.py": ""
-            }
+            "api": {"__init__.py": "", "test_user.py": ""},
         },
-        "requirements.txt": "fastapi[standard]\nsqlalchemy\npydantic_settings\npyjwt\npasslib[bcrypt]\npytest\n"
+        "requirements.txt": "fastapi[standard]\nsqlalchemy\npydantic_settings\npyjwt\npasslib[bcrypt]\npytest\n",
     }
 
     def create_nested(base_path, content):
@@ -67,6 +47,7 @@ def create_structure():
 
     create_nested(".", structure)
     print("Project structure created successfully!")
+
 
 if __name__ == "__main__":
     create_structure()

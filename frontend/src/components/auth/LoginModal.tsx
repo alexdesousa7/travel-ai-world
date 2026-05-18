@@ -56,17 +56,21 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
         <div className="flex flex-col items-center gap-4">
           <GoogleLogin
-            onSuccess={(credentialResponse) => {
+            onSuccess={async (credentialResponse) => {
               if (credentialResponse.credential) {
-                login(credentialResponse.credential);
-                onClose();
-                
-                // Handle redirection
-                const redirect = searchParams.get("redirect");
-                if (redirect) {
-                  router.push(decodeURIComponent(redirect));
-                } else {
-                  router.push("/dashboard");
+                try {
+                  await login(credentialResponse.credential);
+                  onClose();
+
+                  // Handle redirection
+                  const redirect = searchParams.get("redirect");
+                  if (redirect) {
+                    router.push(decodeURIComponent(redirect));
+                  } else {
+                    router.push("/dashboard");
+                  }
+                } catch (error) {
+                  console.error("Login failed:", error);
                 }
               }
             }}

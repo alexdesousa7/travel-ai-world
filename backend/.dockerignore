@@ -10,6 +10,7 @@
 # Environment Variables & Secrets
 .env
 .env.*
+!.env.example
 certs/
 *.pem
 *.key
@@ -37,13 +38,13 @@ env/
 *.swp
 *.swo
 
-# Tests and Docs (Optional: Keep tests out of prod image to save space)
+# Tests and Docs (keep tests out of prod image to save space)
 tests/
 docs/
 *.md
 !README.md
 
-# AI Agents & Assistants (Not needed inside the container runtime)
+# AI Agents & Assistants (not needed inside the container runtime)
 .claude/
 .agents/
 .cursor/
@@ -57,3 +58,6 @@ Dockerfile
 # Local DBs
 *.db
 *.sqlite3
+
+# Scripts (dev-only tooling)
+scripts/

@@ -5,6 +5,7 @@ from app.models.meal import Meal
 from app.schemas.meal import MealCreate, MealUpdate
 from app.repositories.meal_repository import MealRepository
 
+
 class MealService:
     def __init__(self, db: AsyncSession):
         self.repository = MealRepository(db)

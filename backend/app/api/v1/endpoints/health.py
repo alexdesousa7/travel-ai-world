@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 @router.get("/")
 async def health_check():
     """
     Simple API health check.
     """
     return {"status": "ok", "api": "healthy"}
+
 
 @router.get("/db")
 async def db_health_check(db: AsyncSession = Depends(get_db)):

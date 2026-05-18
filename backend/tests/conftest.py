@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.main import app
 from app.db.session import get_db
 from app import (
-    models,
-)  # Ensures all models are imported and registered with Base.metadata
+    models,  # noqa: F401 — registers models with Base.metadata
+)
 from app.models.base import Base
 from app.core.config import settings
 
