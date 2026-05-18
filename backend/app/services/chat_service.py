@@ -44,11 +44,11 @@ class ChatService:
         return {
             "model": NVIDIA_CHAT_MODEL,
             "messages": messages,
-            "max_tokens": 16384,
-            "temperature": 1.00,
-            "top_p": 1.00,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "top_p": 0.95,
             "stream": True,
-            "chat_template_kwargs": {"thinking": True},
+            "chat_template_kwargs": {"thinking": False},
         }
 
     async def stream_completion(
