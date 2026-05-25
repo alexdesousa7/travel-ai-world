@@ -1,3 +1,5 @@
+# Scraper de Wikipedia para obtener las estaciones oficiales del Metro de Madrid.
+
 import os
 import json
 import requests

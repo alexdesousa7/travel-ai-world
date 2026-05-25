@@ -1,3 +1,5 @@
+# Fusiona los datos de Iglesias y Palacios obtenidos desde Google Places (New) con la información enriquecida extraída desde Wikipedia.
+
 import json
 import unicodedata
 import re

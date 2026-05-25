@@ -1,3 +1,6 @@
+# Fusiona los datos del Metro de Madrid obtenidos desde Google Places (New) con la información oficial extraída desde Wikipedia.
+# Realiza matching difuso para asignar líneas y colores a cada estación, y genera el archivo'metro_madrid_final.json'.
+
 import json
 import os
 

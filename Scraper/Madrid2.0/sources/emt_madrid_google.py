@@ -1,4 +1,5 @@
-# sources/emt_madrid_google.py
+# Scraper de Google Places (New) para obtener los intercambiadores EMT de Madrid.
+
 import os
 import json
 import requests

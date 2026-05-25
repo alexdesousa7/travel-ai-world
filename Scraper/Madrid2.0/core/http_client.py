@@ -1,3 +1,5 @@
+# Cliente HTTP simple para realizar peticiones GET.
+
 import requests
 
 def http_get(url, headers=None, params=None):

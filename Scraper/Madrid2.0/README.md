@@ -6,210 +6,200 @@
 ![JSON](https://img.shields.io/badge/JSON-Data-green?style=for-the-badge)
 
 
-**Madrid 2.0** es la nueva versión del scraper oficial de *Travel AI World*, diseñado para generar datos limpios, completos y estructurados sobre la ciudad de Madrid.
+**Madrid 2.0 (Unified)** es la versión optimizada del scraper oficial de *Travel AI World*, diseñado para generar datos limpios, completos y estructurados sobre la ciudad de Madrid **o cualquier otra ciudad del mundo**, cambiando únicamente las coordenadas.
 
-Es la evolución directa del scraper antiguo de **Madrid**, resolviendo todas sus limitaciones y añadiendo:
+Esta versión introduce mejoras clave respecto a la versión original:
 
-- cobertura total de POIs,  
-- transporte completo,  
-- enriquecimiento documental,  
-- arquitectura modular,  
-- y un pipeline profesional y estable.
-
----
-
-# 🚀 ¿Por qué Madrid 2.0?
-
-El antiguo scraper de Madrid  dependía de fuentes inestables (Open Data, Geoportal) y no podía obtener:
-
-- restaurantes  
-- hoteles  
-- bares  
-- monumentos  
-- iglesias  
-- palacios  
-- transporte público completo  
-
-Madrid 2.0 utiliza:
+- Menos archivos  
+- Más lógica centralizada  
+- Un motor unificado para Google Places  
+- Un motor unificado para documentales  
+- Un pipeline mucho más fácil de mantener y escalar  
 
 ---
 
-## 🟩 Google Places API  
-Para obtener POIs reales, actualizados y completos:
+# 🚀 ¿Qué cambia en esta versión?
 
-- Hoteles  
-- Restaurantes  
-- Bares  
-- Museos  
-- Monumentos  
-- Parques  
-- Iglesias y Palacios  
-- Estaciones de Metro  
-- Estaciones de Cercanías  
-- Intercambiadores EMT  
+## 🟩 1. Unificación y eliminación de scrapers duplicados  
+En versiones anteriores, cada categoría tenía su propio archivo:
+
+```
+hoteles_madrid.py
+restaurantes_madrid.py
+bares_madrid.py
+...
+```
+
+Ahora todo eso se reemplaza por un **único motor universal**:
+
+```
+sources/scraper_general.py
+```
+
+Este motor puede scrapear cualquier categoría definida en:
+
+```
+config/categories.py
+```
 
 ---
 
-## 🟩 Wikipedia  
-Para enriquecer:
+## 🟩 2. Configuración centralizada mediante variables  
+Toda la lógica de scraping está ahora en archivos de configuración:
+
+- `config/categories.py` → categorías de Google Places  
+- `config/documentales.py` → módulos documentales de Wikipedia  
+- `config/city_zones.py` → coordenadas de la ciudad a scrapear  
+
+Esto permite:
+
+### ✔ Scrapear otra ciudad cambiando solo las coordenadas  
+### ✔ Añadir nuevas categorías sin modificar el scraper  
+### ✔ Mantener el proyecto limpio, modular y escalable  
+
+---
+
+## 🟩 3. Motor documental unificado  
+Los scrapers de:
 
 - historia  
 - cultura  
 - gastronomía  
 - clima  
-- arquitectura  
-- estilo  
-- año de construcción  
+
+antes eran 4 archivos independientes.  
+Ahora están unificados en:
+
+```
+sources/documental_general.py
+```
+
+Y se ejecutan mediante:
+
+```
+sources/documentales.py
+```
+
+Esto elimina duplicación y facilita añadir nuevos módulos narrativos.
 
 ---
 
-## 🟩 Arquitectura modular  
-- `sources/` → scrapers atómicos  
-- `core/` → utilidades  
-- `main.py` → orquestador  
-- `data/` → datasets generados  
-
----
-
-## 🟦 Uso de Google Places API
-Madrid 2.0 utiliza Google Places API (New) como fuente principal para obtener información actualizada y precisa sobre los puntos de interés de la ciudad.
-
-Se emplean los siguientes endpoints oficiales:
-
-- Nearby Search — para obtener POIs por coordenadas
-- Text Search — para búsquedas semánticas
-- Place Details — para enriquecer cada POI con datos adicionales
-
-Gracias a estos endpoints, el scraper obtiene:
-
-- nombre del lugar
-- dirección
-- coordenadas
-- rating y número de reseñas
-- tipos de establecimiento
-- horarios
-- teléfono
-- website
-
-Google Places garantiza:
-
-- datos actualizados
-- alta cobertura
-- consistencia global
-- fiabilidad para sistemas de IA
-
-Este proyecto utiliza Google Places API conforme a sus Términos de Servicio.  
-Los datos se emplean exclusivamente para alimentar el sistema Travel AI World.
-
-
-# 📂 Estructura del proyecto
+## 📂 4. Estructura del proyecto simplificada y profesional
 
 ```
 Madrid2.0/
 │
-├── main.py                 # Orquestador del pipeline completo
+├── main.py                     # Orquestador del pipeline completo
 │
-├── sources/                # Scrapers por categoría
-│   ├── hoteles_madrid.py
-│   ├── restaurantes_madrid.py
-│   ├── bares_madrid.py
-│   ├── museos_madrid.py
-│   ├── monumentos_madrid.py
-│   ├── parques_madrid.py
-│   ├── iglesias_palacios_madrid.py
-│   ├── iglesias_palacios_wiki.py
-│   ├── iglesias_palacios_fusion.py
-│   ├── metro_madrid.py
-│   ├── metro_madrid_wiki.py
-│   ├── metro_fusion.py
-│   ├── cercanias_madrid_google.py
-│   ├── cercanias_madrid_wiki.py
-│   ├── cercanias_madrid_fusion.py
-│   ├── emt_madrid_google.py
-│   ├── emt_madrid_wiki.py
-│   ├── emt_madrid_fusion.py
-│
-│   ├── historia_madrid.py          # Documentales
-│   ├── cultura_madrid.py
-│   ├── gastronomia_madrid.py
-│   ├── clima_madrid.py
+├── config/                     # Configuración centralizada
+│   ├── categories.py           # Categorías de Google Places
+│   ├── city_zones.py           # Coordenadas de la ciudad
+│   ├── env.py                  # API Key de Google
+│   ├── google_places.py        # URLs del API de Google
+│   └── documentales.py         # Configuración de documentales
 │
 ├── core/
-│   ├── utils.py
+│   ├── utils.py                # Utilidades generales
+│   └── http_client.py          # Cliente HTTP centralizado
 │
-├── data/                   # Datos generados
-│   ├── hoteles_madrid.json
-│   ├── restaurantes_madrid.json
-│   ├── bares_madrid.json
-│   ├── museos_madrid.json
-│   ├── monumentos_madrid.json
-│   ├── parques_madrid.json
-│   ├── iglesias_palacios_final.json
-│   ├── metro_madrid_final.json
-│   ├── cercanias_madrid_final.json
-│   ├── emt_madrid_final.json
+├── sources/                    # Motores y scrapers
+│   ├── scraper_general.py      # Motor universal Google Places
+│   ├── documental_general.py   # Motor universal Wikipedia
+│   ├── documentales.py         # Ejecutor documental
+│   ├── metro_*                 # Metro (Wiki + Google + fusión)
+│   ├── cercanias_*             # Cercanías (Wiki + Google + fusión)
+│   ├── emt_*                   # EMT (Wiki + Google + fusión)
+│   ├── iglesias_palacios_*     # Iglesias/Palacios (Google + Wiki + fusión)
+│   └── resources/              # CSV internos (ej. EMT)
 │
-│   ├── historia_madrid.json        # Documentales
-│   ├── cultura_madrid.json
-│   ├── gastronomia_madrid.json
-│   ├── clima_madrid.json
+├── data/                       # Datos generados (solo JSON finales)
 │
 └── README.md
 ```
 
----
-
-# 🧠 ¿Qué aporta Madrid 2.0?
-
-### ✔ Datos completos  
-Cobertura total de POIs, transporte y contenido documental.
-
-### ✔ Datos actualizados  
-Google Places garantiza frescura y precisión.
-
-### ✔ Datos normalizados  
-Estructura uniforme en todos los JSON.
-
-### ✔ Datos fusionados entre fuentes  
-Wikipedia + Google Places → datasets enriquecidos.
-
-### ✔ Datos aptos para embeddings  
-Especialmente los módulos documentales.
-
-### ✔ Pipeline estable y sin errores  
-Orquestado con `run_safe()`.
-
-### ✔ Preparado para IA generativa  
-Datos limpios, consistentes y listos para vectorización.
+### ✔ `/data` contiene solo resultados finales  
+### ✔ `/sources` contiene toda la lógica  
+### ✔ `/config` controla el comportamiento del scraper  
 
 ---
 
-# 📘 Módulo Documentales (Wikipedia)
+## 🟦 Google Places API (New)
 
-Madrid 2.0 incluye un bloque especial de **contenido narrativo**, ideal para embeddings:
+El scraper utiliza:
 
-### 🟦 Historia  
-13 secciones completas desde Wikipedia REST API.
+- **Nearby Search**  
+- **Text Search**  
+- **Place Details**  
 
-### 🟦 Cultura  
-Sección cultural del artículo principal de Madrid.
+Para obtener:
 
-### 🟦 Gastronomía  
-Platos, ingredientes, costumbres y tradición culinaria.
+- nombre  
+- dirección  
+- coordenadas  
+- rating  
+- reseñas  
+- tipos  
+- horarios  
+- teléfono  
+- website  
 
-### 🟦 Clima  
-Descripción climática estable (Köppen, temperaturas, precipitaciones).
-
-Estos módulos permiten que la IA:
-
-- explique Madrid,  
-- genere contexto,  
-- responda preguntas complejas,  
-- y produzca contenido narrativo coherente.
+Todo normalizado y listo para IA.
 
 ---
 
-# 🏁 Cómo ejecutar
+## 🟦 Wikipedia (REST API)
+
+El motor documental extrae:
+
+- Historia  
+- Cultura  
+- Gastronomía  
+- Clima  
+
+Cada módulo se guarda como JSON independiente, ideal para:
+
+- embeddings  
+- bases vectoriales  
+- sistemas RAG  
+- modelos LLM  
+
+---
+
+## 🌍 ¿Cómo scrapear otras ciudades?
+
+Solo cambia las coordenadas en:
+
+```
+config/city_zones.py
+```
+
+El scraper hará el resto:
+
+- zonas  
+- nearby search  
+- text search  
+- filtrado  
+- normalización  
+- JSON final  
+
+No se necesita modificar nada más.
+
+---
+
+## 🧠 ¿Qué aporta esta versión unificada?
+
+### ✔ Código más limpio  
+### ✔ Arquitectura más profesional  
+### ✔ Menos archivos, más lógica centralizada  
+### ✔ Preparado para scrapear cualquier ciudad  
+### ✔ Datos listos para embeddings y RAG  
+### ✔ Pipeline estable y reproducible  
+
+---
+
+## ▶️ Cómo ejecutar
+
+Desde una consola Bash o PowerShell (Python 3.10+):
 
 ```bash
 python main.py
@@ -219,43 +209,21 @@ Esto ejecuta:
 
 - todos los scrapers  
 - todas las fusiones  
-- todos los enriquecimientos  
+- todos los documentales  
 - y genera todos los JSON finales  
 
 ---
 
-# 📈 Diferencias clave con Madrid Old
+# 📈 Diferencias clave con Madrid 2.0 original
 
-| Característica    | Madrid Old            | Madrid 2.0                |
-| ---               | ---                   | ---                       |
-| Fuentes           | Wikipedia + Open Data | Google Places + Wikipedia |
-| Estabilidad       | Baja                  | Alta                      |
-| Cobertura         | Parcial               | Completa                  |
-| Transporte        | Estático              | Completo (Metro, Renfe, EMT) |
-| Normalización     | Inconsistente         | Profesional               |
-| Documentales      | No                    | Sí (Historia, Cultura, Gastronomía, Clima) |
-| Uso para IA       | Limitado              | Óptimo                    |
-
----
-
-# 📌 Estado actual del proyecto
-
-### ✔ POIs completos  
-### ✔ Transporte completo  
-### ✔ Iglesias y Palacios fusionados  
-### ✔ Documentales completados  
-### ✔ Pipeline estable  
-### ✔ Datos listos para embeddings  
-
----
-
-# 🛣️ Roadmap
-
-### 🔜 Próximos pasos
-- Integración de **Madrid Open Data** (barrios, distritos, población, geometrías).  
-- Normalización avanzada de POIs.  
-- Generación de embeddings automáticos.  
-- Integración con el backend de Travel AI World.  
-- Dashboard de validación de datos.  
+| Característica    | Madrid 2.0 Original | Madrid 2.0 Unificado |
+|------------------|---------------------|------------------------|
+| Scrapers         | Muchos archivos     | Motor único           |
+| Configuración    | Dispersa            | Centralizada          |
+| Escalabilidad    | Limitada            | Global (cualquier ciudad) |
+| Documentales     | 4 scrapers          | Motor único           |
+| Mantenimiento    | Alto                | Muy bajo              |
+| Código duplicado | Mucho               | Eliminado             |
+| Uso para IA      | Bueno               | Óptimo                |
 
 ---

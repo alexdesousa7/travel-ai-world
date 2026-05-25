@@ -1,3 +1,7 @@
+# Funciones de normalización para los datos obtenidos desde Google Places API (New).
+# Cada función transforma la respuesta cruda de Google en un diccionario uniforme, limpio y consistente, adaptado a cada categoría (hoteles, restaurantes, museos, parques, monumentos, metro, iglesias/palacios). 
+# Este módulo centraliza toda la lógica de estandarización para garantizar que los JSON finales tengan la misma estructura y calidad de datos.
+
 def normalize_hotel(place):
     return {
         "id": place.get("id"),

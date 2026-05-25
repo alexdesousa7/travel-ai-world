@@ -1,3 +1,5 @@
+# Lista oficial de nombres de Iglesias y Palacios tal como aparecen en Wikipedia.
+
 WIKI_NOMBRES = [
     # Iglesias
     "Catedral de la Almudena",

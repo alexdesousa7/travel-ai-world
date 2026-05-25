@@ -1,6 +1,10 @@
+# Scraper de Wikipedia para Iglesias y Palacios de Madrid. Extrae historia, estilo arquitectónico, arquitecto y año de construcción desde la página oficial de cada POI.
+
 import json
 import requests
+
 from bs4 import BeautifulSoup
+
 import unicodedata
 import re
 import os

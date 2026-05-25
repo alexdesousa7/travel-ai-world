@@ -1,3 +1,5 @@
+# Scraper de Google Places (New) para Iglesias y Palacios importantes de Madrid. Realiza búsquedas textuales específicas para cada POI
+
 import os
 import json
 import requests
@@ -9,9 +11,9 @@ from core.utils import normalize_iglesias_palacios
 TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
 
 
-# ============================
+
 # LISTA OFICIAL DE POIs IMPORTANTES
-# ============================
+
 LUGARES = [
     # Iglesias / Catedrales / Basílicas
     "Catedral de la Almudena Madrid",
@@ -86,9 +88,9 @@ def get_iglesias_palacios_madrid():
 
         resultados.append(item)
 
-    # ============================
+    
     # Guardar resultado final
-    # ============================
+    
     output = {
         "city": "Madrid",
         "category": "iglesias_palacios",
