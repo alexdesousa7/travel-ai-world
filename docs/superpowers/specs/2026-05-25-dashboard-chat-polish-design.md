@@ -68,6 +68,7 @@ Top to bottom inside the inner card (`bg-bg-card`, `border-border`, `rounded-2xl
    - No other bubble redesign.
 
 **Removed from the current component:**
+
 - The four hardcoded category chips (Vuelos / Hoteles / Restaurantes / Atracciones).
 - The fake action bar with `📎` paperclip and `🎤` mic.
 - The redundant giant `Planificar viaje` CTA button at the bottom of the card.
@@ -79,7 +80,7 @@ Top to bottom inside the inner card (`bg-bg-card`, `border-border`, `rounded-2xl
 All strings live under `planner` in `frontend/src/i18n/en.ts` and `frontend/src/i18n/es.ts`. The `Translations` interface in `frontend/src/i18n/types.ts` is updated accordingly.
 
 | Key | EN | ES |
-|---|---|---|
+| --- | --- | --- |
 | `planner.label` (existing, kept) | "Plan Your Trip" | "Planifica tu viaje" |
 | `planner.title` (existing, kept) | "Tell the AI where you want to go" | "Dile a la IA adónde quieres ir" |
 | `planner.placeholder` (new) | "A 7-day trip to Lisbon in October for a couple, mid-budget…" | "Un viaje de 7 días a Lisboa en octubre para una pareja, presupuesto medio…" |
@@ -92,6 +93,7 @@ All strings live under `planner` in `frontend/src/i18n/en.ts` and `frontend/src/
 `planner.examples[i]` shape: `{ emoji: string; label: string; prompt: string }` — `label` shows on the pill, `prompt` is pre-filled when clicked.
 
 Example seeds (EN):
+
 - `{ emoji: "🇵🇹", label: "Weekend in Lisbon", prompt: "Plan a 3-day weekend in Lisbon for two, focused on food and architecture." }`
 - `{ emoji: "🇯🇵", label: "10 days in Japan", prompt: "10 days in Japan in spring: Tokyo, Kyoto, and one off-the-beaten-path stop." }`
 - `{ emoji: "👨‍👩‍👧", label: "Family Madrid", prompt: "A 4-day family trip to Madrid with two kids (8 and 11), low-walking days preferred." }`
@@ -117,6 +119,7 @@ Example seeds (EN):
 - `frontend/src/i18n/en.ts` — remove unused `planner.*` keys, add new ones listed above.
 - `frontend/src/i18n/es.ts` — same.
 - `frontend/src/i18n/types.ts` — update `Translations.planner` shape.
+
 No other files change. No new files are created. (`frontend/e2e/smoke.spec.ts` doesn't currently assert on the planner card on either surface, so it doesn't need updates for this change.)
 
 ## Testing
@@ -126,6 +129,7 @@ No other files change. No new files are created. (`frontend/e2e/smoke.spec.ts` d
 **Current state:** the existing test file is stale — 4 of 5 tests already fail because they target a long-removed form-based UI (destination/dates/budget/travel-style inputs). It needs a full rewrite either way; this change is a good moment.
 
 The rewritten file mocks `useLanguage` and `streamChat` and covers:
+
 - Renders eyebrow label and headline from i18n.
 - Renders the textarea with the new placeholder.
 - Renders the send button (icon + label) and keyboard hint.
@@ -142,6 +146,7 @@ The rewritten file mocks `useLanguage` and `streamChat` and covers:
 The test mocks the `planner` i18n shape from `en.ts` (English path only — i18n itself is exercised in landing-section tests and E2E).
 
 ### E2E
+
 No changes. The current smoke spec doesn't assert on the planner card, and adding an authenticated dashboard E2E is out of scope.
 
 ## Open questions
