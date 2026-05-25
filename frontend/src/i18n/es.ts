@@ -58,29 +58,41 @@ const es: Translations = {
     trust3: "✓ +190 destinos",
   },
   planner: {
-    label: "Planifica Tu Viaje",
+    label: "Planifica tu viaje",
     title: "Dile a la IA adónde quieres ir",
-    destination: "Destino",
-    destinationPlaceholder: "¿Adónde quieres ir?",
-    dates: "Fechas de Viaje",
-    datesPlaceholder: "¿Cuándo vas a viajar?",
-    budget: "Presupuesto",
-    budgetPlaceholder: "Tu presupuesto total",
-    travelers: "Viajeros",
-    travelersPlaceholder: "¿Cuántas personas?",
-    travelStyle: "Estilo de Viaje",
-    styles: [
-      { emoji: "🏔", label: "Aventura" },
-      { emoji: "🌴", label: "Relax" },
-      { emoji: "🏛", label: "Cultura" },
-      { emoji: "🍜", label: "Gastronomía" },
-      { emoji: "💑", label: "Romántico" },
-      { emoji: "🎒", label: "Mochilero" },
+    placeholder:
+      "Un viaje de 7 días a Lisboa en octubre para una pareja, presupuesto medio…",
+    send: "Enviar",
+    sendHint: "↵ Enviar · ⇧↵ Salto de línea",
+    examplesLabel: "Prueba con una de estas",
+    examples: [
+      {
+        emoji: "🇵🇹",
+        label: "Fin de semana en Lisboa",
+        prompt:
+          "Planifica un fin de semana de 3 días en Lisboa para dos, centrado en gastronomía y arquitectura.",
+      },
+      {
+        emoji: "🇯🇵",
+        label: "10 días en Japón",
+        prompt:
+          "10 días en Japón en primavera: Tokio, Kioto y una parada fuera de los circuitos clásicos.",
+      },
+      {
+        emoji: "👨‍👩‍👧",
+        label: "Madrid en familia",
+        prompt:
+          "Un viaje de 4 días a Madrid en familia con dos niños (8 y 11), preferimos días con poca caminata.",
+      },
+      {
+        emoji: "🏔",
+        label: "Aventura en la Patagonia",
+        prompt:
+          "Viaje de aventura de 2 semanas por la Patagonia, senderismo y aire libre, a finales de noviembre.",
+      },
     ],
-    generate: "Generar Mi Itinerario Perfecto",
-    comingSoon: "¡Próximamente — backend en desarrollo!",
-    comingSoonNote:
-      "El generador de viajes con IA estará disponible cuando conectemos el backend FastAPI. ¡Estén atentos!",
+    errorFallback:
+      "Lo siento, no pude procesar tu solicitud. Inténtalo de nuevo.",
   },
   howItWorks: {
     label: "Cómo Funciona",

@@ -2,11 +2,6 @@
 // Add new locales here: "en" | "es" | "fr" ...
 export type Language = "en" | "es";
 
-export interface StyleOption {
-  emoji: string;
-  label: string;
-}
-
 export interface Step {
   number: string;
   title: string;
@@ -93,19 +88,12 @@ export interface Translations {
   planner: {
     label: string;
     title: string;
-    destination: string;
-    destinationPlaceholder: string;
-    dates: string;
-    datesPlaceholder: string;
-    budget: string;
-    budgetPlaceholder: string;
-    travelers: string;
-    travelersPlaceholder: string;
-    travelStyle: string;
-    styles: StyleOption[];
-    generate: string;
-    comingSoon: string;
-    comingSoonNote: string;
+    placeholder: string;
+    send: string;
+    sendHint: string;
+    examplesLabel: string;
+    examples: { emoji: string; label: string; prompt: string }[];
+    errorFallback: string;
   };
   howItWorks: {
     label: string;

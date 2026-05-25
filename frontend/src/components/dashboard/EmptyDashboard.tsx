@@ -31,7 +31,7 @@ export default function EmptyDashboard() {
       
       <Button href="#planner">
         <span>✨</span>
-        <span className="ml-2">{t.planner.generate}</span>
+        <span className="ml-2">{t.planner.label}</span>
       </Button>
     </div>
   );
