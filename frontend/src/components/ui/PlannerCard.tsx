@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { isApiAvailable, streamChat } from "@/services/api";
@@ -15,18 +15,9 @@ interface ChatMessage {
   content: string;
 }
 
-/**
- * AI Trip Planner — Chat-based itinerary generator.
- *
- * This shared component renders a conversational prompt interface where users
- * describe their ideal trip. When a backend API is configured, messages stream
- * from the NVIDIA AI in real-time via SSE. Otherwise, the form falls back to a
- * static "coming soon" mode.
- *
- * Used on both the landing page (hero CTA) and the user Dashboard.
- *
- * @param transparent - If true, removes the background color and reduces padding.
- */
+const TEXTAREA_MIN_PX = 72;
+const TEXTAREA_MAX_PX = 192;
+
 export default function PlannerCard({ transparent = false }: PlannerCardProps) {
   const { t } = useLanguage();
   const p = t.planner;
@@ -34,11 +25,11 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const apiReady = isApiAvailable();
+  const canSubmit = input.trim().length > 0 && !isStreaming && apiReady;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -48,36 +39,35 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  /**
-   * Sends the user message to the AI backend and streams the response.
-   */
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, TEXTAREA_MAX_PX) + "px";
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [input, autoResize]);
+
   const handleSendToAI = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
+    if (!trimmed || isStreaming || !apiReady) return;
 
     const userMessage: ChatMessage = { role: "user", content: trimmed };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsStreaming(true);
-
-    // Add empty assistant message that will be filled by stream
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
-      const history = messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
       for await (const chunk of streamChat(trimmed, history)) {
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last?.role === "assistant") {
-            updated[updated.length - 1] = {
-              ...last,
-              content: last.content + chunk,
-            };
+            updated[updated.length - 1] = { ...last, content: last.content + chunk };
           }
           return updated;
         });
@@ -87,10 +77,7 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last?.role === "assistant" && last.content === "") {
-          updated[updated.length - 1] = {
-            ...last,
-            content: "Sorry, I couldn't process your request. Please try again.",
-          };
+          updated[updated.length - 1] = { ...last, content: p.errorFallback };
         }
         return updated;
       });
@@ -100,27 +87,32 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
     }
   };
 
-  /**
-   * Fallback submit for when no backend is available (static mode).
-   */
-  const handleStaticSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 4000);
+  const handleExampleClick = (prompt: string) => {
+    setInput(prompt);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(prompt.length, prompt.length);
+      autoResize();
+    });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isSubmitKey =
+      e.key === "Enter" && (!e.shiftKey || e.metaKey || e.ctrlKey);
+    if (isSubmitKey) {
       e.preventDefault();
-      if (apiReady) {
-        handleSendToAI();
-      } else {
-        handleStaticSubmit();
-      }
+      handleSendToAI();
     }
   };
 
+  const sectionClasses = transparent
+    ? "bg-transparent py-12"
+    : "bg-bg-secondary py-24";
+
   return (
-    <section id="planner" className={`${transparent ? "bg-transparent py-12" : "bg-bg-secondary py-24"}`}>
+    <section id="planner" className={sectionClasses}>
       <div className="max-w-[1440px] w-full mx-auto px-8 lg:px-16 flex flex-col gap-10">
         <div className="flex flex-col gap-4">
           <SectionLabel>{p.label}</SectionLabel>
@@ -129,35 +121,15 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
           </h2>
         </div>
 
-        {/* PROMPT MODE — Layla.ai style with categories */}
         <div className="bg-bg-card border border-border rounded-2xl p-8 lg:p-10 flex flex-col gap-6">
-
-          {/* Category quick actions */}
-          <div className="flex flex-wrap justify-center gap-3">
-            {[
-              { label: "Vuelos", icon: "✈️" },
-              { label: "Hoteles", icon: "🏨" },
-              { label: "Restaurantes", icon: "🍽️" },
-              { label: "Atracciones", icon: "🎡" },
-            ].map(({ label, icon }) => (
-              <button
-                key={label}
-                type="button"
-                className="flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-card border border-border-soft text-text-primary rounded-xl text-sm font-medium transition-all"
-              >
-                <span>{icon}</span>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Chat messages area — only shown when there are messages */}
           {messages.length > 0 && (
             <div className="max-h-80 overflow-y-auto space-y-3 px-1">
               {messages.map((msg, i) => (
                 <div
                   key={i}
-                  className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                  className={`flex gap-2.5 ${
+                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
                 >
                   <div
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
@@ -177,13 +149,14 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
                         : "bg-bg-surface text-text-primary border border-border rounded-bl-sm"
                     }`}
                   >
-                    {msg.content}
-                    {msg.role === "assistant" && msg.content === "" && isStreaming && (
-                      <span className="inline-flex items-center gap-1 text-text-secondary">
-                        <Loader2 size={12} className="animate-spin" />
-                        <span className="text-xs">Thinking…</span>
-                      </span>
-                    )}
+                    {msg.content ||
+                      (msg.role === "assistant" && isStreaming && (
+                        <span className="inline-flex gap-1 items-center">
+                          <span className="h-1.5 w-1.5 rounded-full bg-text-secondary animate-pulse [animation-delay:0ms]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-text-secondary animate-pulse [animation-delay:150ms]" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-text-secondary animate-pulse [animation-delay:300ms]" />
+                        </span>
+                      ))}
                   </div>
                 </div>
               ))}
@@ -191,85 +164,63 @@ export default function PlannerCard({ transparent = false }: PlannerCardProps) {
             </div>
           )}
 
-          {/* Label */}
-          <label className="text-[12px] font-medium text-text-secondary tracking-[0.1em] uppercase">
-            Escribe tu viaje
-          </label>
-
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Crea un itinerario de 7 días en París o Japón para una escapada de ensueño"
-            disabled={isStreaming}
-            className="w-full h-32 bg-bg-primary border border-border-soft rounded-xl p-4 text-[15px] text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-accent/60 transition-colors disabled:opacity-50"
-          />
-
-          {/* Bottom action bar */}
-          <div className="flex items-center justify-between border border-border-soft bg-bg-primary rounded-xl px-4 py-3">
-            <button
-              type="button"
-              className="text-text-secondary hover:text-text-primary transition text-xl"
-            >
-              📎
-            </button>
-
-            {apiReady && (
+          <div className="bg-bg-primary border border-border-soft rounded-xl p-4 focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/10 transition-colors flex flex-col gap-3">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onInput={autoResize}
+              placeholder={p.placeholder}
+              disabled={isStreaming}
+              rows={3}
+              className="w-full bg-transparent text-[15px] text-text-primary placeholder-text-secondary/50 resize-none focus:outline-none disabled:opacity-60"
+              style={{
+                minHeight: `${TEXTAREA_MIN_PX}px`,
+                maxHeight: `${TEXTAREA_MAX_PX}px`,
+              }}
+            />
+            <div className="flex items-center justify-between border-t border-border-soft pt-3">
+              <span className="text-[10px] text-text-secondary/60">
+                {p.sendHint}
+              </span>
               <button
                 type="button"
                 onClick={handleSendToAI}
-                disabled={!input.trim() || isStreaming}
-                className="flex items-center gap-2 text-accent hover:text-accent-hover transition disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Send message"
+                disabled={!canSubmit}
+                aria-label={p.send}
+                className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-3.5 py-2 text-[13px] font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 {isStreaming ? (
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={14} className="animate-spin" />
                 ) : (
-                  <Send size={18} />
+                  <Send size={14} />
                 )}
+                <span>{p.send}</span>
               </button>
-            )}
-
-            {!apiReady && (
-              <button
-                type="button"
-                className="text-text-secondary hover:text-text-primary transition text-xl"
-              >
-                🎤
-              </button>
-            )}
+            </div>
           </div>
 
-          {/* Main button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (apiReady) {
-                handleSendToAI();
-              } else {
-                handleStaticSubmit();
-              }
-            }}
-            disabled={isStreaming || (apiReady && !input.trim())}
-            className="w-full h-14 bg-accent hover:bg-accent-hover text-white font-medium text-lg rounded-xl transition-all duration-300 shadow-lg shadow-accent/40 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isStreaming ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                <span>Generando...</span>
-              </>
-            ) : submitted ? (
-              <span>✅ ¡Próximamente!</span>
-            ) : (
-              <>
-                <span>✨</span>
-                <span>Planificar viaje</span>
-              </>
-            )}
-          </button>
-
+          {messages.length === 0 && (
+            <div className="flex flex-col gap-3">
+              <span className="text-[10px] font-medium text-text-secondary tracking-[0.12em] uppercase">
+                {p.examplesLabel}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {p.examples.map((ex) => (
+                  <button
+                    key={ex.label}
+                    type="button"
+                    onClick={() => handleExampleClick(ex.prompt)}
+                    className="border border-border-soft bg-transparent text-[13px] text-text-secondary hover:text-text-primary hover:border-accent/40 rounded-full px-3.5 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  >
+                    <span className="mr-1.5">{ex.emoji}</span>
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

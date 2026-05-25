@@ -6,7 +6,7 @@
 // That's it — the rest of the app picks it up automatically.
 
 export type { Language, Translations } from "./types";
-export type { StyleOption, Step, FeatureItem, Stat, Testimonial } from "./types";
+export type { Step, FeatureItem, Stat, Testimonial } from "./types";
 
 import en from "./en";
 import es from "./es";

@@ -60,27 +60,39 @@ const en: Translations = {
   planner: {
     label: "Plan Your Trip",
     title: "Tell the AI where you want to go",
-    destination: "Destination",
-    destinationPlaceholder: "Where do you want to go?",
-    dates: "Travel Dates",
-    datesPlaceholder: "When are you going?",
-    budget: "Budget",
-    budgetPlaceholder: "Your total budget",
-    travelers: "Travelers",
-    travelersPlaceholder: "How many people?",
-    travelStyle: "Travel Style",
-    styles: [
-      { emoji: "🏔", label: "Adventure" },
-      { emoji: "🌴", label: "Relaxation" },
-      { emoji: "🏛", label: "Culture" },
-      { emoji: "🍜", label: "Foodie" },
-      { emoji: "💑", label: "Romance" },
-      { emoji: "🎒", label: "Backpacker" },
+    placeholder:
+      "A 7-day trip to Lisbon in October for a couple, mid-budget…",
+    send: "Send",
+    sendHint: "↵ Send · ⇧↵ Newline",
+    examplesLabel: "Try one of these",
+    examples: [
+      {
+        emoji: "🇵🇹",
+        label: "Weekend in Lisbon",
+        prompt:
+          "Plan a 3-day weekend in Lisbon for two, focused on food and architecture.",
+      },
+      {
+        emoji: "🇯🇵",
+        label: "10 days in Japan",
+        prompt:
+          "10 days in Japan in spring: Tokyo, Kyoto, and one off-the-beaten-path stop.",
+      },
+      {
+        emoji: "👨‍👩‍👧",
+        label: "Family Madrid",
+        prompt:
+          "A 4-day family trip to Madrid with two kids (8 and 11), low-walking days preferred.",
+      },
+      {
+        emoji: "🏔",
+        label: "Adventure in Patagonia",
+        prompt:
+          "2-week adventure trip in Patagonia, hiking and outdoors, late November.",
+      },
     ],
-    generate: "Generate My Perfect Itinerary",
-    comingSoon: "Coming soon — backend in progress!",
-    comingSoonNote:
-      "The AI trip generator will be live once we connect the FastAPI backend. Stay tuned!",
+    errorFallback:
+      "Sorry, I couldn't process your request. Please try again.",
   },
   howItWorks: {
     label: "How It Works",

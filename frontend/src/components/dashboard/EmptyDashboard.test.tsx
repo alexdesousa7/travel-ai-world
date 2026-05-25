@@ -24,7 +24,7 @@ vi.mock('@/context/LanguageContext', () => ({
         emptyDescription: "You haven't planned any journeys yet."
       },
       planner: {
-        generate: 'Plan my trip'
+        label: 'Plan my trip'
       }
     }
   })
