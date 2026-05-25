@@ -1,97 +1,168 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
-import React from 'react'
-import PlannerCard from './PlannerCard'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import React from "react";
+import PlannerCard from "./PlannerCard";
 
-// Mock LanguageContext
-vi.mock('@/context/LanguageContext', () => ({
-  useLanguage: () => ({
-    t: {
-      planner: {
-        label: 'AI PLANNER',
-        title: 'Plan your next trip',
-        destination: 'Destination',
-        destinationPlaceholder: 'Where to?',
-        dates: 'Dates',
-        datesPlaceholder: 'When?',
-        budget: 'Budget',
-        budgetPlaceholder: 'How much?',
-        travelers: 'Travelers',
-        travelersPlaceholder: 'Who?',
-        travelStyle: 'Style',
-        styles: [
-          { label: 'Adventure', emoji: '⛰️' },
-          { label: 'Relax', emoji: '🏖️' }
-        ],
-        generate: 'Generate Itinerary',
-        comingSoon: 'Coming Soon!',
-        comingSoonNote: 'This feature is under development.'
-      }
-    }
-  })
-}))
+const mockI18n = {
+  planner: {
+    label: "Plan Your Trip",
+    title: "Tell the AI where you want to go",
+    placeholder: "A 7-day trip to Lisbon in October for a couple, mid-budget…",
+    send: "Send",
+    sendHint: "↵ Send · ⇧↵ Newline",
+    examplesLabel: "Try one of these",
+    examples: [
+      { emoji: "🇵🇹", label: "Weekend in Lisbon", prompt: "Plan a weekend in Lisbon" },
+      { emoji: "🇯🇵", label: "10 days in Japan", prompt: "10 days in Japan" },
+      { emoji: "👨‍👩‍👧", label: "Family Madrid", prompt: "Family trip to Madrid" },
+      { emoji: "🏔", label: "Adventure in Patagonia", prompt: "2 weeks in Patagonia" },
+    ],
+    errorFallback: "Sorry, error.",
+  },
+};
 
-// Mock SectionLabel to avoid potential rendering issues in isolation
-vi.mock('@/components/ui/SectionLabel', () => ({
-  SectionLabel: ({ children }: any) => <div data-testid="section-label">{children}</div>
-}))
+vi.mock("@/context/LanguageContext", () => ({
+  useLanguage: () => ({ t: mockI18n }),
+}));
 
-describe('PlannerCard', () => {
-  it('renders the form correctly', () => {
-    render(<PlannerCard />)
-    
-    expect(screen.getByText('Plan your next trip')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Where to?')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('When?')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('How much?')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Who?')).toBeInTheDocument()
-    expect(screen.getByText('Adventure')).toBeInTheDocument()
-  })
+vi.mock("@/components/ui/SectionLabel", () => ({
+  SectionLabel: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="section-label">{children}</div>
+  ),
+}));
 
-  it('updates form values on input change', () => {
-    render(<PlannerCard />)
-    const destinationInput = screen.getByPlaceholderText('Where to?') as HTMLInputElement
-    
-    fireEvent.change(destinationInput, { target: { value: 'Japan' } })
-    expect(destinationInput.value).toBe('Japan')
-  })
+let apiAvailable = true;
+const streamMock = vi.fn();
 
-  it('toggles travel styles on click', () => {
-    render(<PlannerCard />)
-    const adventureBtn = screen.getByRole('button', { name: /Adventure/i })
-    
-    expect(adventureBtn).toHaveAttribute('aria-pressed', 'false')
-    fireEvent.click(adventureBtn)
-    expect(adventureBtn).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(adventureBtn)
-    expect(adventureBtn).toHaveAttribute('aria-pressed', 'false')
-  })
+vi.mock("@/services/api", () => ({
+  isApiAvailable: () => apiAvailable,
+  streamChat: (...args: unknown[]) => streamMock(...args),
+}));
 
-  it('shows loading state on submit and then success state', async () => {
-    vi.useFakeTimers()
-    render(<PlannerCard />)
-    
-    const submitBtn = screen.getByRole('button', { name: /Generate Itinerary/i })
-    fireEvent.click(submitBtn)
-    
-    expect(submitBtn).toBeDisabled()
-    expect(submitBtn).toHaveClass('animate-pulse')
-    
-    // Fast-forward simulation
-    act(() => {
-      vi.advanceTimersByTime(2500)
-    })
-    
-    expect(screen.getByText('Coming Soon!')).toBeInTheDocument()
-    expect(screen.getByText('This feature is under development.')).toBeInTheDocument()
-    
-    vi.useRealTimers()
-  })
+beforeEach(() => {
+  apiAvailable = true;
+  // jsdom does not implement scrollIntoView; stub it so the auto-scroll effect
+  // does not throw once messages are appended.
+  Element.prototype.scrollIntoView = vi.fn();
+  streamMock.mockReset();
+  streamMock.mockImplementation(async function* () {
+    yield "Hello back!";
+  });
+});
 
-  it('applies transparent styles when prop is provided', () => {
-    const { container } = render(<PlannerCard transparent />)
-    const section = container.querySelector('section')
-    expect(section).toHaveClass('bg-transparent')
-    expect(section).toHaveClass('py-12')
-  })
-})
+const PLACEHOLDER = /A 7-day trip to Lisbon/i;
+
+describe("PlannerCard", () => {
+  it("renders eyebrow label and headline from i18n", () => {
+    render(<PlannerCard />);
+    expect(screen.getByTestId("section-label")).toHaveTextContent("Plan Your Trip");
+    expect(
+      screen.getByText("Tell the AI where you want to go")
+    ).toBeInTheDocument();
+  });
+
+  it("renders textarea with the new placeholder", () => {
+    render(<PlannerCard />);
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument();
+  });
+
+  it("renders send button and keyboard hint", () => {
+    render(<PlannerCard />);
+    expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument();
+    expect(screen.getByText("↵ Send · ⇧↵ Newline")).toBeInTheDocument();
+  });
+
+  it("renders 4 example pills with labels", () => {
+    render(<PlannerCard />);
+    expect(
+      screen.getByRole("button", { name: /Weekend in Lisbon/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /10 days in Japan/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Family Madrid/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Adventure in Patagonia/i })
+    ).toBeInTheDocument();
+  });
+
+  it("clicking a pill pre-fills the textarea and does not submit", () => {
+    render(<PlannerCard />);
+    fireEvent.click(screen.getByRole("button", { name: /Weekend in Lisbon/i }));
+    const ta = screen.getByPlaceholderText(PLACEHOLDER) as HTMLTextAreaElement;
+    expect(ta.value).toBe("Plan a weekend in Lisbon");
+    expect(streamMock).not.toHaveBeenCalled();
+  });
+
+  it("send button is disabled when input is empty or whitespace", () => {
+    render(<PlannerCard />);
+    const sendBtn = screen.getByRole("button", { name: /Send/ });
+    expect(sendBtn).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), {
+      target: { value: "   " },
+    });
+    expect(sendBtn).toBeDisabled();
+  });
+
+  it("Enter submits, Shift+Enter does not", () => {
+    render(<PlannerCard />);
+    const ta = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(ta, { target: { value: "go to Paris" } });
+    fireEvent.keyDown(ta, { key: "Enter", shiftKey: true });
+    expect(streamMock).not.toHaveBeenCalled();
+    fireEvent.keyDown(ta, { key: "Enter" });
+    expect(streamMock).toHaveBeenCalledTimes(1);
+    expect(streamMock).toHaveBeenCalledWith("go to Paris", []);
+  });
+
+  it("Cmd+Enter and Ctrl+Enter submit", async () => {
+    // Each modifier+Enter combo must independently route to a submit. After a
+    // submit the input is cleared and the component is briefly streaming, so we
+    // let each send settle and re-type before exercising the next combo.
+    render(<PlannerCard />);
+    const ta = screen.getByPlaceholderText(PLACEHOLDER);
+
+    fireEvent.change(ta, { target: { value: "go to Tokyo" } });
+    await act(async () => {
+      fireEvent.keyDown(ta, { key: "Enter", metaKey: true });
+    });
+    expect(streamMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(ta, { target: { value: "go to Kyoto" } });
+    await act(async () => {
+      fireEvent.keyDown(ta, { key: "Enter", ctrlKey: true });
+    });
+    expect(streamMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("example pills hide after a message exists", async () => {
+    render(<PlannerCard />);
+    fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), {
+      target: { value: "go to Lisbon" },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    });
+    expect(
+      screen.queryByRole("button", { name: /Weekend in Lisbon/i })
+    ).toBeNull();
+  });
+
+  it("send button stays disabled when API is unavailable", () => {
+    apiAvailable = false;
+    render(<PlannerCard />);
+    fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), {
+      target: { value: "go to Rome" },
+    });
+    expect(screen.getByRole("button", { name: /Send/ })).toBeDisabled();
+  });
+
+  it("applies transparent section classes when prop set", () => {
+    const { container } = render(<PlannerCard transparent />);
+    const section = container.querySelector("section");
+    expect(section).toHaveClass("bg-transparent");
+    expect(section).toHaveClass("py-12");
+  });
+});
