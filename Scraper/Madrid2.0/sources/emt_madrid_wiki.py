@@ -1,3 +1,7 @@
+# Scraper de Wikipedia para obtener información de los intercambiadores EMT de Madrid.
+# Extrae tablas de las páginas oficiales, obtiene líneas y coordenadas, y genera los archivos 'emt_wiki_estaciones.json' y 'emt_wiki_colores.json'. Estos datos se usan en la fase de fusión EMT.
+
+
 import os
 import json
 import requests

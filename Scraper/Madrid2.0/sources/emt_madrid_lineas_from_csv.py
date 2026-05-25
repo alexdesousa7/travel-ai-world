@@ -1,6 +1,9 @@
+# Procesa el archivo CSV oficial de líneas EMT y determina qué líneas pasan por cada intercambiador. Normaliza nombres, compara patrones y devuelve un diccionario con las líneas asociadas a cada intercambiador. 
+
 import csv
 import unicodedata
 import re
+
 from collections import defaultdict
 
 INTERCAMBIADORES = {

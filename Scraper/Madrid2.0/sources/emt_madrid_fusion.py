@@ -1,3 +1,5 @@
+# Fusiona los datos de los intercambiadores EMT obtenidos desde Google Places, Wikipedia y el CSV oficial de líneas
+
 import json
 import difflib
 import unicodedata
@@ -28,33 +30,33 @@ def normalizar(nombre):
 def fusionar_emt():
     print(">> Fusionando datos de EMT…")
 
-    # -----------------------------
-    # 1) Cargar Google Places
-    # -----------------------------
+    
+    # 1._ Cargar Google Places
+    
     with open("data/emt_madrid.json", "r", encoding="utf-8") as f:
         google_items = json.load(f)["items"]
 
-    # -----------------------------
-    # 2) Cargar Wikipedia
-    # -----------------------------
+    
+    # 2._ Cargar Wikipedia
+    
     with open("data/emt_wiki_estaciones.json", "r", encoding="utf-8") as f:
         wiki = json.load(f)
 
-    # -----------------------------
-    # 3) Cargar colores
-    # -----------------------------
+    
+    # 3._ Cargar colores
+    
     with open("data/emt_wiki_colores.json", "r", encoding="utf-8") as f:
         colores = json.load(f)
 
-    # -----------------------------
-    # 4) Cargar líneas reales desde CSV
-    # -----------------------------
+    
+    # 4._ Cargar líneas reales desde CSV
+    
     print(">> Cargando líneas reales desde CSV EMT…")
-    lineas_csv = cargar_lineas_emt("data/linesemt.csv")
-
-    # -----------------------------
-    # 5) Normalizar Wikipedia
-    # -----------------------------
+    lineas_csv = cargar_lineas_emt("sources/resources/linesemt.csv")
+    # El archivo linesemt.csv se obtuvo desde https://datos.madrid.es/dataset/?groups=transporte 
+    
+    # 5._ Normalizar Wikipedia
+    
     wiki_norm = {}
     for k, v in wiki.items():
         nombre_real = k
@@ -73,9 +75,9 @@ def fusionar_emt():
     items_final = []
 
 
-    # -----------------------------
-    # 6) Procesar Google Places
-    # -----------------------------
+    
+    # 6._ Procesar Google Places
+    
     for g in google_items:
         g_norm = normalizar(g["nombre"])
 
@@ -103,9 +105,9 @@ def fusionar_emt():
         items_final.append(g)
 
 
-    # -----------------------------
-    # 7) Añadir intercambiadores faltantes
-    # -----------------------------
+    
+    # 7._ Añadir intercambiadores faltantes
+    
     for w_norm, info in wiki_norm.items():
         if not any(normalizar(i["nombre"]) == w_norm for i in items_final):
 
@@ -123,9 +125,9 @@ def fusionar_emt():
                 "colores": [colores.get("EMT")]
             })
 
-    # -----------------------------
-    # 8) Deduplicar por nombre normalizado
-    # -----------------------------
+    
+    # 8._ Deduplicar por nombre normalizado
+    
     dedupe = {}
     for item in items_final:
         key = normalizar(item["nombre"])
@@ -143,9 +145,9 @@ def fusionar_emt():
 
     items_final = list(dedupe.values())
 
-    # -----------------------------
-    # 9) Guardar salida final
-    # -----------------------------
+    
+    # 9._ Guardar salida final
+    
     salida = {
         "city": "Madrid",
         "category": "emt",

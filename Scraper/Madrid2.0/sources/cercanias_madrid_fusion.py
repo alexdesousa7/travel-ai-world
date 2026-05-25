@@ -1,3 +1,6 @@
+# Fusiona los datos de Cercanías obtenidos desde Google Places (New) y Wikipedia.
+# Normaliza nombres, empareja estaciones, añade líneas y colores, y genera el archivo 'cercanias_madrid_final.json'.
+
 import os
 import json
 import difflib

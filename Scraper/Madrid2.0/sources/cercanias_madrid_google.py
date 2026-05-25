@@ -1,3 +1,7 @@
+# Realiza el Scraper de Google Places (New) para estaciones de Cercanías Madrid.
+# Realiza búsquedas por zonas y búsquedas textuales, deduplica resultados y genera el archivo 'cercanias_madrid.json' con los datos obtenidos.
+
+
 import os
 import json
 import time
