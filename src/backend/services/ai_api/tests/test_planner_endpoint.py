@@ -1,16 +1,27 @@
-"""POST /api/v1/ai/planner — authentication, the retrieval requirement and
-the SSE v2 framing end to end."""
+"""POST /api/v1/ai/planner and GET /api/v1/ai/planner/card — authentication,
+the retrieval requirement and the SSE v2 framing end to end."""
 
 import json
 from pathlib import Path
 
-from ai_api.api.deps import get_retriever
+from ai_api.api.deps import get_photos, get_retriever
+from ai_api.domain.models import Photo
 from ai_api.main import app
-from ai_api.testing import FakeProvider, FakeRetriever, documents_from_corpus
+from ai_api.testing import (
+    FakePhotoFinder,
+    FakeProvider,
+    FakeRetriever,
+    documents_from_corpus,
+)
 from httpx import AsyncClient
 
 PLANNER_URL = "/api/v1/ai/planner"
+CARD_URL = f"{PLANNER_URL}/card"
 FIXTURE = Path(__file__).parent / "fixtures" / "budapest_sample.jsonl"
+MAZEL_TOV = "osm:node/3990944430"
+"""A bar the corpus has no photo of: the lookup asks Commons for one."""
+
+BAR_PHOTO = Photo(url="https://example.org/mazel.jpg", credit="Someone (CC BY-SA 4.0)")
 
 EMPTY_TURN = {
     "message": "A weekend in Budapest from Madrid, 2 adults",
@@ -56,6 +67,105 @@ async def test_the_cities_endpoint_requires_authentication(client: AsyncClient):
     response = await client.get(f"{PLANNER_URL}/cities")
 
     assert response.status_code == 401
+
+
+async def test_the_card_endpoint_answers_the_full_detail(
+    client: AsyncClient, auth_headers
+):
+    """The id goes in, the store answers: the client sends no content (TRA-178)."""
+    retriever = FakeRetriever(documents_from_corpus(FIXTURE))
+    app.dependency_overrides[get_retriever] = lambda: retriever
+    app.dependency_overrides[get_photos] = lambda: None
+
+    response = await client.get(
+        CARD_URL, params={"id": MAZEL_TOV}, headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    card = response.json()
+    assert retriever.fetches == [[MAZEL_TOV]]
+    assert card["id"] == MAZEL_TOV
+    assert card["title"] == "Mazel Tov"
+    assert card["description"].startswith("Mazel Tov — bar in Erzsébetváros")
+    assert card["address"] == "Akácfa utca 47, 1073"
+    assert card["phone"] == "+36 70 626 4280"
+    assert card["website"] == "https://mazeltov.hu/en/"
+    assert card["heading_path"] == "Budapest › Erzsébetváros › Drink"  # noqa: RUF001
+    # Additive over OptionCard: every card field is still there.
+    assert card["category"] == "drink"
+    assert card["hours"] == "Mo-Su 12:00-24:00"
+    assert card["source"] == "OpenStreetMap"
+    # But not a replacement for the streamed card: the model's sentence is not
+    # in the store, and with no lookup neither is a photo (never a placeholder).
+    assert card["why"] == ""
+    assert card["image_url"] is None
+    assert card["image_credit"] is None
+
+
+async def test_the_card_endpoint_pictures_what_the_corpus_does_not(
+    client: AsyncClient, auth_headers
+):
+    """Wired like the planner's cards (TRA-161): the panel of a bar the corpus
+    has no photo of is not blank."""
+    app.dependency_overrides[get_retriever] = lambda: FakeRetriever(
+        documents_from_corpus(FIXTURE)
+    )
+    app.dependency_overrides[get_photos] = lambda: FakePhotoFinder(
+        {"Mazel Tov": BAR_PHOTO}
+    )
+
+    response = await client.get(
+        CARD_URL, params={"id": MAZEL_TOV}, headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    card = response.json()
+    assert card["image_url"] == BAR_PHOTO.url
+    assert card["image_credit"] == BAR_PHOTO.credit
+
+
+async def test_an_unknown_card_id_is_a_404(client: AsyncClient, auth_headers):
+    app.dependency_overrides[get_retriever] = lambda: FakeRetriever(
+        documents_from_corpus(FIXTURE)
+    )
+    app.dependency_overrides[get_photos] = lambda: None
+
+    response = await client.get(
+        CARD_URL, params={"id": "osm:node/made-up"}, headers=auth_headers
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["error_code"] == "NOT_FOUND"
+
+
+async def test_the_card_endpoint_requires_authentication(client: AsyncClient):
+    app.dependency_overrides[get_retriever] = lambda: FakeRetriever(
+        documents_from_corpus(FIXTURE)
+    )
+
+    response = await client.get(CARD_URL, params={"id": MAZEL_TOV})
+
+    assert response.status_code == 401
+
+
+async def test_the_card_endpoint_needs_an_id(client: AsyncClient, auth_headers):
+    app.dependency_overrides[get_retriever] = lambda: FakeRetriever()
+
+    response = await client.get(CARD_URL, headers=auth_headers)
+
+    assert response.status_code == 422
+
+
+async def test_without_retrieval_there_is_no_card_detail(
+    client: AsyncClient, auth_headers
+):
+    """Same mapping as the planner itself: no store, 503 (unchanged by TRA-178)."""
+    response = await client.get(
+        CARD_URL, params={"id": MAZEL_TOV}, headers=auth_headers
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["error_code"] == "SERVICE_UNAVAILABLE"
 
 
 async def test_without_retrieval_the_planner_is_unavailable(

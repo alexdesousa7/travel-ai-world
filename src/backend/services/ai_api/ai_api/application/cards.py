@@ -1,8 +1,19 @@
-"""Hydrate an `OptionCard` from a retrieved `Document`.
+"""Hydrate an `OptionCard` — or the fuller `CardDetail` — from a `Document`.
 
 Everything on a card but `why` is read straight from the corpus metadata
 `indexing.metadata_for` built: the model only picks ids (via `title_of`) and
 writes one short sentence, never a price or an address.
+
+`detail_from_document` adds what the carousel has no room for and the detail
+panel shows (TRA-178): the document's own text, the address, the phone and
+the venue's site. Same rule — it all comes from the store, never the client.
+
+A card the planner streamed is not quite the card this module builds: it has
+been through `application/photos.ensure_photos`, which pictures the many
+places the corpus has no photo of, and it carries the `why` the model wrote
+for that turn. `detail_from_card` therefore takes those shared fields from a
+card the caller already has, and a client that holds one merges the detail
+onto it instead of replacing it (see `detail_from_document`).
 """
 
 import json
@@ -11,6 +22,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from ai_api.domain.models import Document, MetadataValue
+from ai_api.schemas.planner import CardDetail
 from ai_api.schemas.planner_events import MAX_WHY_CHARS, OptionCard, PriceTier
 
 _SOURCE_NAMES: dict[str, str] = {
@@ -31,6 +43,12 @@ _LICENSE_DEFAULTS: dict[str, str] = {
 _MAX_HOURS_CHARS = 120
 _MAX_STARS = 5
 _HEADING_SEP = " › "  # noqa: RUF001 — the corpus's own separator
+
+MAX_DESCRIPTION_CHARS = 1_500
+"""How much of a document's text the detail panel gets: a few paragraphs."""
+
+_SENTENCE_END = re.compile(r"[.!?…](?=\s|$)")
+"""A full stop that ends a sentence rather than an abbreviation mid-word."""
 
 
 def card_from_document(document: Document, why: str = "") -> OptionCard:
@@ -62,6 +80,45 @@ def card_from_document(document: Document, why: str = "") -> OptionCard:
         license=_extra_str(extra, "license") or _LICENSE_DEFAULTS.get(source_key, ""),
         deep_link=_str(metadata.get("url")),
     )
+
+
+def detail_from_card(card: OptionCard, document: Document) -> CardDetail:
+    """`card` — built from `document` — plus the article behind it.
+
+    The shared fields are the given card's, so whatever the caller did to it
+    survives into the detail: the photo `ensure_photos` found, the `why` the
+    model wrote. Use this whenever such a card is at hand.
+    """
+    metadata = document.metadata
+    extra = _extra(metadata)
+
+    return CardDetail(
+        **card.model_dump(),
+        description=_description(document.content),
+        address=_extra_str(extra, "address"),
+        phone=_extra_str(extra, "phone"),
+        website=_website(metadata, extra, card.source_url),
+        heading_path=_str(metadata.get("heading_path")),
+    )
+
+
+def detail_from_document(document: Document, why: str = "") -> CardDetail:
+    """The same card with the article behind it: text, address, phone, site.
+
+    The card's own fields are the corpus's, exactly as `card_from_document`
+    reads them — which is *not* what the browser was streamed: `image_url`
+    and `image_credit` are `None` for every document the corpus has no photo
+    of (most restaurants, bars, hotels and tours), where the streamed card
+    carries a Wikimedia Commons photo, a same-category corpus photo or the
+    placeholder from `application/photos`; and `why` is empty unless the
+    caller passes the sentence the model wrote for that turn.
+
+    So a client that already holds the card must merge the detail onto it
+    (`{...card, ...detail}`, keeping the card's photo when the detail brings
+    none) rather than replace it. `application/card_detail.CardDetailLookup`
+    runs the Commons lookup itself for a caller holding nothing but an id.
+    """
+    return detail_from_card(card_from_document(document, why), document)
 
 
 def cards_for(
@@ -178,6 +235,41 @@ def _rating_text(extra: dict[str, Any]) -> str | None:
 def _hours(extra: dict[str, Any]) -> str | None:
     value = _extra_str(extra, "hours") or _extra_str(extra, "opening_hours")
     return value[:_MAX_HOURS_CHARS] if value else None
+
+
+def _description(text: str) -> str:
+    """The document's text, cut at the last sentence that still fits.
+
+    Paragraph breaks are kept (the panel renders them); only the tail is
+    dropped. A text with no sentence end inside the window is cut at a word
+    and marked with an ellipsis, so the panel never shows half a word.
+    """
+    cleaned = text.strip()
+    if len(cleaned) <= MAX_DESCRIPTION_CHARS:
+        return cleaned
+    window = cleaned[:MAX_DESCRIPTION_CHARS]
+    ends = [match.end() for match in _SENTENCE_END.finditer(window)]
+    if ends:
+        return window[: ends[-1]].rstrip()
+    cut = window.rstrip()
+    if " " in cut:
+        cut = cut[: cut.rfind(" ")]
+    return cut.rstrip() + "…"
+
+
+def _website(
+    metadata: Mapping[str, MetadataValue], extra: Mapping[str, Any], source_url: str
+) -> str | None:
+    """The venue's own site. Corpora that have none point `url` at the page
+    they were scraped from, and repeating the source there helps nobody."""
+    url = _extra_str(extra, "url") or _str(metadata.get("url"))
+    if not url or _same_page(url, source_url):
+        return None
+    return url
+
+
+def _same_page(url: str, other: str) -> bool:
+    return url.rstrip("/").casefold() == other.rstrip("/").casefold()
 
 
 def _truncate_why(why: str) -> str:
