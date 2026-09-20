@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import { useDialog } from "@/hooks/useDialog";
 import { interpolate } from "@/i18n";
 import type { TripSummary } from "@/types/trip-summary";
 
@@ -34,11 +35,18 @@ export function ConfirmDelete({ trip, onConfirm, onCancel }: ConfirmDeleteProps)
 
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const restoreRef = useRef<HTMLElement | null>(null);
   const known = useRef(trip);
   const open = trip !== null;
+
+  // The shared dialog contract (`hooks/useDialog.ts`). Once the DELETE is in
+  // flight there is nothing left to call off, so Escape stops answering: the
+  // dialog refuses to disappear and pretend the trip survived.
+  const dialogRef = useDialog<HTMLDivElement>({
+    open,
+    onEscape: deleting ? null : onCancel,
+    initialFocus: cancelRef,
+  });
 
   // Another trip starts the question over; a re-render of the same one does
   // not, or a failure would clear itself while it is being read.
@@ -49,52 +57,12 @@ export function ConfirmDelete({ trip, onConfirm, onCancel }: ConfirmDeleteProps)
     setFailed(false);
   }, [trip]);
 
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement;
-    restoreRef.current = previous instanceof HTMLElement ? previous : null;
-    cancelRef.current?.focus();
-    return () => {
-      restoreRef.current?.focus();
-    };
-  }, [open]);
-
   // Both buttons go disabled while the DELETE is in flight, which would drop
   // focus onto the body and out of the trap; the dialog itself holds it.
   useEffect(() => {
     if (!deleting) return;
     dialogRef.current?.focus();
-  }, [deleting]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        // Once the DELETE is in flight there is nothing left to call off, so
-        // the dialog refuses to disappear and pretend the trip survived.
-        if (!deleting) onCancel();
-        return;
-      }
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled])")
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || !dialogRef.current.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (active === last || !dialogRef.current.contains(active))) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onCancel, deleting]);
+  }, [deleting, dialogRef]);
 
   if (!trip) return null;
 
@@ -123,7 +91,7 @@ export function ConfirmDelete({ trip, onConfirm, onCancel }: ConfirmDeleteProps)
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         tabIndex={-1}
-        className="fixed top-1/2 left-1/2 z-50 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 animate-scale-in rounded-2xl border border-glass-border bg-bg-card p-6 shadow-field-glow"
+        className="fixed top-1/2 left-1/2 z-50 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 animate-scale-in rounded-2xl border border-glass-border bg-glass-bg p-6 shadow-field-glow backdrop-blur-xl"
       >
         <h2 id={titleId} className="text-lg font-medium text-text-primary">
           {r.title}

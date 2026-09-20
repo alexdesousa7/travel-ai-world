@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { useFormatters } from "@/hooks/useFormatters";
 import { useLanguage } from "@/context/LanguageContext";
+import { interpolate } from "@/i18n";
 import { BudgetCard } from "./BudgetCard";
 import { Calendar, Users, Wallet, ClipboardList, Download } from "lucide-react";
 
@@ -26,14 +27,20 @@ export default function TripHeader({ trip }: TripHeaderProps) {
   const { t } = useLanguage();
   const { formatDate, formatCurrency } = useFormatters();
 
-  const calculateTravelers = () => {
-    return trip.travelers.adults + trip.travelers.children + trip.travelers.infants;
-  };
+  const travellers =
+    trip.travelers.adults + trip.travelers.children + trip.travelers.infants;
+  // "1 travellers" is the kind of line that tells a reader nobody looked.
+  const travellersLabel =
+    travellers === 1
+      ? t.tripViewer.travelerOne
+      : interpolate(t.tripViewer.travelers, { count: travellers });
 
+  // `bg-bg-tertiary` was not a token at all, so a finished trip's pill had no
+  // background to sit on (TRA-193).
   const STATUS_COLOR: Record<TripStatus, string> = {
-    planning: "text-accent bg-accent/20",
-    planned: "text-success bg-success/20",
-    finished: "text-text-secondary bg-bg-tertiary",
+    planning: "text-accent bg-accent-soft",
+    planned: "text-success bg-success/15",
+    finished: "text-text-secondary bg-glass-bg",
   };
   const statusLabel = t.status[trip.status];
 
@@ -47,7 +54,7 @@ export default function TripHeader({ trip }: TripHeaderProps) {
 
             
             <div className="flex flex-col gap-3">
-              <h1 className="text-text-primary text-3xl md:text-5xl font-medium tracking-[-1.5px] leading-[1.1]">
+              <h1 className="text-3xl leading-[1.1] font-light text-text-primary md:text-5xl">
                 {trip.title}
               </h1>
               
@@ -60,7 +67,7 @@ export default function TripHeader({ trip }: TripHeaderProps) {
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
                   <Users size={14} className="text-accent" />
-                  <span className="text-sm">{calculateTravelers()} {t.tripViewer.travelers}</span>
+                  <span className="text-sm">{travellersLabel}</span>
                 </div>
                 <div className="flex items-center gap-2 text-text-secondary">
                   <Wallet size={14} className="text-accent" />
@@ -76,7 +83,7 @@ export default function TripHeader({ trip }: TripHeaderProps) {
           <div className="flex flex-col gap-4 items-start lg:items-end w-full lg:w-auto">
             <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 ${STATUS_COLOR[trip.status]}`}>
               <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
-              <span className="text-[11px] font-medium tracking-[1.5px] uppercase">{statusLabel}</span>
+              <span className="text-xs font-medium">{statusLabel}</span>
             </div>
             
             <div className="flex flex-row md:flex-row lg:flex-col gap-3 w-full md:w-auto">
@@ -84,7 +91,7 @@ export default function TripHeader({ trip }: TripHeaderProps) {
                 <ClipboardList size={18} className="mr-2" />
                 <span className="text-sm font-medium">{t.tripViewer.viewBookings}</span>
               </Button>
-              <Button variant="secondary" className="px-5 py-3.5 rounded-xl text-text-primary bg-bg-secondary border border-border-soft flex-1 md:flex-none">
+              <Button variant="glass" className="flex-1 rounded-xl px-5 py-3.5 md:flex-none">
                 <Download size={18} className="mr-2" />
                 <span className="text-sm font-medium">{t.tripViewer.exportPdf}</span>
               </Button>

@@ -12,6 +12,8 @@ export interface Translations {
   nav: {
     /** The header action once you are signed in. */
     openPlanner: string;
+    /** The same action where the bar is a phone wide: one word, one line. */
+    plannerShort: string;
     dashboard: string;
     openMenu: string;
     closeMenu: string;
@@ -31,12 +33,14 @@ export interface Translations {
     retry: string;
   };
   tripViewer: {
+    /** "{count} travellers" — the header's count, interpolated. */
     travelers: string;
+    /** The same line when there is only one of them. */
+    travelerOne: string;
     totalBudget: string;
     viewBookings: string;
     exportPdf: string;
     viewItinerary: string;
-    journeyMap: string;
     routeOverview: string;
     tripOverview: string;
     accommodations: string;
@@ -46,7 +50,6 @@ export interface Translations {
     weatherUnavailable: string;
     localTips: string;
     noLocalTips: string;
-    yourItinerary: string;
     journeyTitle: string; // "Your {duration}-Day Journey"
     allDays: string;
     freeDay: string;
@@ -376,7 +379,8 @@ export interface Translations {
   auth: {
     login: string;
     logout: string;
-    welcomeBack: string;
+    /** The sign-in dialog's heading, which is also what it is for. */
+    title: string;
     subtitle: string;
     terms: string;
     loginError: string;
@@ -387,11 +391,10 @@ export interface Translations {
     backHome: string;
   };
   notFound: {
-    subtitle: string;
+    title: string;
     description: string;
     cta: string;
     redirecting: string;
-    imageAlt: string;
   };
   theme: {
     toggle: string;
