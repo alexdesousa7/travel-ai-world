@@ -136,6 +136,10 @@ const maplibre = vi.hoisted(() => {
       this.eases.push(options);
       return this;
     }
+    /** The zoom a city-wide day sits at; the component never zooms out from it. */
+    getZoom() {
+      return 12;
+    }
     getSource(id: string) {
       const source = this.sources.get(id);
       if (!source) return undefined;
@@ -259,7 +263,7 @@ describe("TripMapCanvas", () => {
 
   it("selects a stop from its marker and mirrors a selection made elsewhere", () => {
     const { onSelectStop, show } = renderCanvas(1);
-    const [, first] = markers();
+    const [stay, first] = markers();
 
     fireEvent.click(first!);
     expect(onSelectStop).toHaveBeenCalledWith(first!.dataset.mapStop);
@@ -268,10 +272,58 @@ describe("TripMapCanvas", () => {
     show(1, first!.dataset.mapStop ?? null);
     expect(first!.dataset.selected).toBe("true");
     expect(first!.getAttribute("aria-current")).toBe("true");
+    // The rest of the day steps back while one stop is open.
+    expect(stay!.dataset.dimmed).toBe("true");
+    expect(first!.dataset.dimmed).toBe("false");
 
     show(1, null);
     expect(first!.dataset.selected).toBe("false");
     expect(first!.getAttribute("aria-current")).toBeNull();
+    expect(stay!.dataset.dimmed).toBe("false");
+  });
+
+  it("centres the open stop, and fits the day again when it is closed", () => {
+    const { show } = renderCanvas(1);
+    const map = lastMap();
+    const [, first] = markers();
+    const fitsBefore = map.fits.length;
+    const stop = stopsFor(1).find((one) => one.id === first!.dataset.mapStop)!;
+
+    show(1, stop.id);
+
+    // Centred on the stop, and never further out than the day's own zoom.
+    expect(map.eases[map.eases.length - 1]).toMatchObject({
+      center: [stop.lon, stop.lat],
+      zoom: 15,
+    });
+    expect(map.fits).toHaveLength(fitsBefore);
+
+    show(1, null);
+
+    expect(map.fits.length).toBe(fitsBefore + 1);
+  });
+
+  it("keeps the open stop centred when the itinerary is rewritten under it", () => {
+    const onSelectStop = vi.fn();
+    const stops = stopsFor(1);
+    const open = stops.find((stop) => stop.kind !== "stay")!;
+    const canvas = (forStops: typeof stops) => (
+      <TripMapCanvas
+        stops={forStops}
+        centre={BUDAPEST}
+        selectedStopId={open.id}
+        onSelectStop={onSelectStop}
+      />
+    );
+    const view = renderWithProviders(canvas(stops));
+    const map = lastMap();
+    const fitsBefore = map.fits.length;
+
+    // A chat turn touching this day hands the map a new array while the
+    // activity stays open: the viewport belongs to the open pin, not the day.
+    view.rerender(canvas([...stops]));
+
+    expect(map.fits).toHaveLength(fitsBefore);
   });
 
   it("opens on the destination's centre and eases there when nothing is pinned", () => {

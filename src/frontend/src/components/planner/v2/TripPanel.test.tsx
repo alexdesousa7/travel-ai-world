@@ -86,6 +86,17 @@ function renderPanel(state: Partial<PlannerState> = {}) {
   };
 }
 
+/** A stop's row: the button that opens the activity in the middle column. */
+const openRow = (title: string) =>
+  screen.getByRole("button", { name: interpolate(en.plan.detail.open, { title }) });
+
+const queryRow = (title: string) =>
+  screen.queryByRole("button", { name: interpolate(en.plan.detail.open, { title }) });
+
+/** The parts of the day on screen; gone while an activity is open. */
+const partRegion = (day: number, part: keyof typeof en.plan.parts) =>
+  `${interpolate(p.day, { day })} · ${en.plan.parts[part]}`;
+
 const dayTab = (day: number) =>
   within(screen.getByRole("tablist", { name: p.daysNav })).getByRole("tab", {
     name: new RegExp(`Day ${day}`),
@@ -102,7 +113,7 @@ describe("TripPanel", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText(p.draft)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: HOTELS.rum.title })).toBeInTheDocument();
+    expect(openRow(HOTELS.rum.title)).toBeInTheDocument();
     expect(screen.getByText(p.priceNote)).toBeInTheDocument();
 
     const flights = screen.getAllByRole("link", { name: p.searchFlights });
@@ -215,42 +226,111 @@ describe("TripPanel", () => {
   it("numbers the cards of the selected day with their pin, in slot order", () => {
     renderPanel();
 
-    const badge = (title: string) =>
-      screen.getByRole("button", { name: interpolate(en.plan.map.showOnMap, { title }) });
-
-    // The stay's badge is the map's "H" pin; the day's cards are numbered.
-    expect(badge(HOTELS.rum.title)).toHaveTextContent("H");
-    expect(badge(ACTIVITIES.greatMarket.title)).toHaveTextContent("1");
-    expect(
-      screen.queryByRole("button", {
-        name: interpolate(en.plan.map.showOnMap, { title: BATHS.gellert.title }),
-      })
-    ).not.toBeInTheDocument();
+    // The stay carries the map's "H" pin; the day's cards are numbered.
+    expect(openRow(HOTELS.rum.title)).toHaveAttribute("data-stop-index", "H");
+    expect(openRow(ACTIVITIES.greatMarket.title)).toHaveAttribute("data-stop-index", "1");
+    expect(queryRow(BATHS.gellert.title)).not.toBeInTheDocument();
 
     fireEvent.click(dayTab(2));
 
-    expect(badge(ACTIVITIES.fishermansBastion.title)).toHaveTextContent("1");
-    expect(badge(BATHS.gellert.title)).toHaveTextContent("2");
-    expect(
-      screen.queryByRole("button", {
-        name: interpolate(en.plan.map.showOnMap, { title: ACTIVITIES.greatMarket.title }),
-      })
-    ).not.toBeInTheDocument();
+    expect(openRow(ACTIVITIES.fishermansBastion.title)).toHaveAttribute("data-stop-index", "1");
+    expect(openRow(BATHS.gellert.title)).toHaveAttribute("data-stop-index", "2");
+    expect(queryRow(ACTIVITIES.greatMarket.title)).not.toBeInTheDocument();
   });
 
-  it("selects a pin from the card list and lets the same badge clear it", () => {
+  it("opens the activity in place of the day, and the back button closes it", () => {
     renderPanel();
 
-    const badge = screen.getByRole("button", {
-      name: interpolate(en.plan.map.showOnMap, { title: ACTIVITIES.greatMarket.title }),
+    const row = openRow(ACTIVITIES.greatMarket.title);
+    expect(row).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(row);
+
+    // The middle column is the activity now: its heading is there and the
+    // parts of the day are not.
+    expect(
+      screen.getByRole("heading", { level: 3, name: ACTIVITIES.greatMarket.title })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: partRegion(1, "morning") })
+    ).not.toBeInTheDocument();
+    // The day strip stays: another day is one click away.
+    expect(dayTab(2)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: interpolate(en.plan.detail.backToDay, { day: 1 }) })
+    );
+
+    expect(openRow(ACTIVITIES.greatMarket.title)).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("region", { name: partRegion(1, "morning") })).toBeInTheDocument();
+  });
+
+  it("gives the keyboard the way back, and the row again when the activity closes", () => {
+    renderPanel();
+
+    const row = openRow(ACTIVITIES.greatMarket.title);
+    fireEvent.click(row);
+
+    // The row is gone with the day: focus follows the view, or the next Tab
+    // would restart at the top of the page.
+    const back = screen.getByRole("button", {
+      name: interpolate(en.plan.detail.backToDay, { day: 1 }),
     });
-    expect(badge).toHaveAttribute("aria-pressed", "false");
+    expect(document.activeElement).toBe(back);
 
-    fireEvent.click(badge);
-    expect(badge).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(back);
 
-    fireEvent.click(badge);
-    expect(badge).toHaveAttribute("aria-pressed", "false");
+    expect(document.activeElement).toBe(openRow(ACTIVITIES.greatMarket.title));
+  });
+
+  it("closes only the alternatives sheet when Escape is pressed over it", () => {
+    renderPanel();
+
+    fireEvent.click(openRow(ACTIVITIES.greatMarket.title));
+    fireEvent.click(
+      screen.getByRole("button", { name: `${p.change}: ${ACTIVITIES.greatMarket.title}` })
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // Both views listen on `document`; the topmost one is the one that answers.
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: ACTIVITIES.greatMarket.title })
+    ).toBeInTheDocument();
+
+    // With the sheet gone, Escape is the activity's again.
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByRole("region", { name: partRegion(1, "morning") })).toBeInTheDocument();
+  });
+
+  it("opens the stay with the same row, and removing a card goes back to the day", () => {
+    const { onRemove } = renderPanel();
+
+    // The day's panel is named after the day it holds…
+    expect(screen.getByRole("tabpanel", { name: interpolate(p.day, { day: 1 }) })).toBeInTheDocument();
+
+    fireEvent.click(openRow(HOTELS.rum.title));
+    expect(screen.getByRole("heading", { level: 3, name: HOTELS.rum.title })).toBeInTheDocument();
+    // …and after the stay while the stay's page is what it holds: the hotel is
+    // the same on every day, and calling it "Day 1" would mislead a reader.
+    expect(screen.getByRole("tabpanel", { name: p.stayNoNights })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tabpanel", { name: interpolate(p.day, { day: 1 }) })
+    ).not.toBeInTheDocument();
+    // The stay belongs to no day, so its way back says so.
+    const backToStay = screen.getByRole("button", { name: en.plan.detail.backToStay });
+
+    fireEvent.click(backToStay);
+    fireEvent.click(openRow(ACTIVITIES.greatMarket.title));
+    fireEvent.click(
+      screen.getByRole("button", { name: `${p.remove}: ${ACTIVITIES.greatMarket.title}` })
+    );
+
+    expect(onRemove).toHaveBeenCalledWith({ day: 1, part: "morning" }, ACTIVITIES.greatMarket.id);
+    expect(screen.getByRole("region", { name: partRegion(1, "morning") })).toBeInTheDocument();
   });
 
   it("falls back to the first day when the itinerary is emptied and rebuilt", () => {
