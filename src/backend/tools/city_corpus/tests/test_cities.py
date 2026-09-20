@@ -65,6 +65,9 @@ def test_budapest_loads_from_its_toml() -> None:
     assert located == ["Buildings and structures in Budapest"]
     assert BUDAPEST.timezone == "Europe/Budapest"
     assert BUDAPEST.curated_tours is None
+    assert BUDAPEST.hero is not None
+    assert BUDAPEST.hero.file.endswith(".jpg")
+    assert BUDAPEST.hero.credit.endswith("· Wikimedia Commons")
 
 
 def test_minimal_file_fills_defaults(tmp_path: Path) -> None:
@@ -77,6 +80,39 @@ def test_minimal_file_fills_defaults(tmp_path: Path) -> None:
     assert city.wikivoyage[0].include_subpages is True
     assert city.wikipedia_categories[0].require_coordinates is True
     assert city.district_guides == {"1": ("Old Town",)}
+    assert city.hero is None  # the photo is optional; the gate does not ask for one
+
+
+HERO = '\n[hero]\nfile = "Old Town.jpg"\ncredit = "A. Photographer (CC BY-SA 4.0)"\n'
+
+
+def test_the_hero_photo_is_read_from_its_table(tmp_path: Path) -> None:
+    city = load_city(_write(tmp_path, MINIMAL + HERO))
+    assert city.hero is not None
+    assert city.hero.file == "Old Town.jpg"
+    assert city.hero.credit == "A. Photographer (CC BY-SA 4.0)"
+
+
+def test_the_hero_table_is_read_strictly(tmp_path: Path) -> None:
+    with pytest.raises(CityConfigError, match=re.escape("[hero]: unknown key(s) url")):
+        load_city(_write(tmp_path, MINIMAL + HERO + 'url = "https://example.org"\n'))
+    with pytest.raises(CityConfigError, match=re.escape("[hero]: missing key(s)")):
+        load_city(_write(tmp_path, MINIMAL + '\n[hero]\nfile = "Old Town.jpg"\n'))
+
+
+def test_a_hero_photo_needs_its_credit(tmp_path: Path) -> None:
+    """A half-reviewed draft: a Commons file always travels with its credit."""
+    halves = (
+        '\n[hero]\nfile = "Old Town.jpg"\ncredit = ""\n',
+        '\n[hero]\nfile = ""\ncredit = "A. Photographer (CC BY-SA 4.0)"\n',
+    )
+    for text in halves:
+        with pytest.raises(CityConfigError, match="file and credit go together"):
+            load_city(_write(tmp_path, MINIMAL + text))
+
+    # Both empty is what `discover` writes when it found no free image.
+    city = load_city(_write(tmp_path, MINIMAL + '\n[hero]\nfile = ""\ncredit = ""\n'))
+    assert city.hero is not None and city.hero.file == ""
 
 
 def test_drafts_are_skipped_and_slugs_keyed(tmp_path: Path) -> None:
