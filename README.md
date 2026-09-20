@@ -10,7 +10,7 @@ sign-in come from the same domain: `infra/aws/`, ADR 0009).
 
 | Path | What | Stack |
 |---|---|---|
-| [`src/frontend/`](src/frontend/README.md) | Web app: landing, Google sign-in, dashboard, itinerary viewer, AI planner | Next.js 16 (static export) · React 19 · Tailwind v4 · TypeScript |
+| [`src/frontend/`](src/frontend/README.md) | Web app: landing, Google sign-in, AI planner (where saved trips are listed, opened and read) | Next.js 16 (static export) · React 19 · Tailwind v4 · TypeScript |
 | [`src/backend/services/core_api/`](src/backend/services/core_api/README.md) | Google OAuth, users, trips CRUD, JWT issuing | FastAPI · SQLAlchemy 2 · PostgreSQL · Alembic |
 | [`src/backend/services/ai_api/`](src/backend/services/ai_api/README.md) | Chat streaming over NVIDIA-hosted models; future RAG | FastAPI · httpx · SSE |
 | [`src/backend/libs/travel_common/`](src/backend/libs/travel_common/README.md) | Shared kernel: identity, settings, errors, JWT, app factory | Pydantic · PyJWT |
@@ -68,7 +68,7 @@ just stack-up       # the same plus the frontend export, on one origin http://lo
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `pr.yml` | pull request | path-filtered jobs: ruff, per-package tests (PostgreSQL for `core_api`), Docker builds, Compose stack e2e (export + APIs on one origin, seeded, signed in with a minted token), contract drift, eslint + Vitest + Playwright + `next build`, docs hygiene |
+| `pr.yml` | pull request | path-filtered jobs: ruff, per-package tests (PostgreSQL for `core_api`), Docker builds, Compose stack e2e (export + APIs on one origin, signed in with a minted token), contract drift, eslint + Vitest + Playwright + `next build`, docs hygiene |
 | `deploy.yml` | push to `main` touching `src/frontend/` | static export → S3 + CloudFront invalidation (AWS) |
 | `backend-images.yml` | push to `main` touching `src/backend/` | publishes `ghcr.io/manupm87/travel-ai-world/{core-api,ai-api}` |
 | `deploy-backend.yml` | manual | copies the images to GCP or AWS and runs Terraform (plan by default) |
@@ -79,10 +79,10 @@ Runbooks: [docker](docs/runbooks/docker.md) · [deploy](docs/runbooks/deploy.md)
 ## Roadmap
 
 - [x] Landing page, EN/ES i18n, light/dark theme
-- [x] Google OAuth 2.0, dashboard and itinerary viewer
+- [x] Google OAuth 2.0, saved trips listed and reopened in the planner
 - [x] Backend split into `core_api` and `ai_api` with a shared library; AI chat streaming
 - [x] CI/CD: path-filtered checks, contract checks, image publishing, Pages deploy, Terraform for two clouds
-- [x] Dashboard and viewer backed by `core_api` trips instead of mocks
+- [x] Trips backed by `core_api`: one city each, a phase derived from the dates, read-only once they start (ADR 0019)
 - [ ] Structured itineraries from chat, saved through `core_api`
 - [ ] RAG over the scraped city data (`ai_api` `Retriever` port)
 - [ ] PDF export

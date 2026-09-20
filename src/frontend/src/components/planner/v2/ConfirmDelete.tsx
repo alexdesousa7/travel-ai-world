@@ -26,10 +26,13 @@ export interface ConfirmDeleteProps {
  * Once "Delete trip" is pressed the dialog locks: Cancel, Escape and the
  * backdrop all stop answering, because the request is already on its way and
  * closing the dialog would not call it back — it would only hide the fact.
+ *
+ * Deleting is the one write core_api allows in every phase, so a trip that is
+ * happening now or already happened can be thrown away from here too.
  */
 export function ConfirmDelete({ trip, onConfirm, onCancel }: ConfirmDeleteProps) {
   const { t } = useLanguage();
-  const r = t.dashboard.remove;
+  const r = t.plan.trips.remove;
   const titleId = useId();
   const descriptionId = useId();
 

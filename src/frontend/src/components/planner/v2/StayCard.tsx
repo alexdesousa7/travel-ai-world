@@ -18,7 +18,8 @@ export interface StayCardProps {
   selectedStopId?: string | null;
   /** Without it the card is plain text: nothing to select, no detail to open. */
   onSelectStop?: (id: string | null) => void;
-  onChange: () => void;
+  /** Without it the card offers no way to change the stay: a locked trip. */
+  onChange?: () => void;
 }
 
 /**
@@ -81,7 +82,11 @@ export function StayCard({
               {stopGlyph(stop)}
             </span>
           )}
-          {nights === null ? p.stayNoNights : interpolate(p.stay, { nights })}
+          {nights === null
+            ? p.stayNoNights
+            : nights === 1
+              ? p.stayOne
+              : interpolate(p.stay, { nights })}
         </span>
         <span className="text-[15px] font-medium leading-tight text-text-primary">
           {stay.title}
@@ -133,14 +138,16 @@ export function StayCard({
               <ExternalLink size={10} aria-hidden="true" />
             </a>
           )}
-          <button
-            type="button"
-            onClick={onChange}
-            aria-label={`${p.change}: ${stay.title}`}
-            className="ml-auto shrink-0 rounded-lg border border-border-soft px-2.5 py-1 text-xs text-text-secondary transition hover:border-accent/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            {p.change}
-          </button>
+          {onChange && (
+            <button
+              type="button"
+              onClick={onChange}
+              aria-label={`${p.change}: ${stay.title}`}
+              className="ml-auto shrink-0 rounded-lg border border-border-soft px-2.5 py-1 text-xs text-text-secondary transition hover:border-accent/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              {p.change}
+            </button>
+          )}
         </div>
       </Card>
     </div>

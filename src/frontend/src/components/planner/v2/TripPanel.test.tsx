@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, renderWithProviders, screen, within } from "@/test/render";
 import en from "@/i18n/en";
@@ -23,6 +23,19 @@ import {
 import { toMapStops } from "./mapStops";
 import { TripPanel } from "./TripPanel";
 
+// The empty pane lists the account's trips (TRA-196); the list owns its own
+// request, and this suite is about the panel, not about that list.
+vi.mock("@/hooks/useTrips", () => ({
+  useTrips: () => ({
+    trips: [],
+    status: "ready" as const,
+    error: null,
+    reload: vi.fn(),
+    remove: vi.fn(),
+    rename: vi.fn(),
+  }),
+}));
+
 const p = en.plan.panel;
 const DEEP_LINK = "https://www.google.com/travel/flights?q=Flights%20from%20MAD%20to%20BUD";
 
@@ -41,7 +54,8 @@ const bathsGroup: OptionGroupState = {
 
 function renderPanel(
   state: Partial<PlannerState> = {},
-  save: Partial<UseSaveTripResult> = {}
+  save: Partial<UseSaveTripResult> = {},
+  props: Partial<ComponentProps<typeof TripPanel>> = {}
 ) {
   const onSave = vi.fn();
   const handlers = {
@@ -52,6 +66,7 @@ function renderPanel(
     onToggleShortlist: vi.fn(),
     onAskAlternatives: vi.fn(),
     onReset: vi.fn(),
+    onShowTrips: vi.fn(),
   };
   const saveState: UseSaveTripResult = {
     status: "idle",
@@ -88,6 +103,7 @@ function renderPanel(
         onSelectStop={setSelectedStopId}
         save={saveState}
         {...handlers}
+        {...props}
       />
     );
   }
@@ -497,7 +513,7 @@ describe("TripPanel", () => {
 
     // "Start over" empties the itinerary, then a new one arrives.
     setState({ itinerary: EMPTY_ITINERARY });
-    expect(screen.getByText(en.plan.checklist.title)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: en.plan.trips.title })).toBeInTheDocument();
 
     setState({ itinerary });
     expect(wholeTripTab()).toHaveAttribute("aria-selected", "true");
@@ -521,10 +537,54 @@ describe("TripPanel", () => {
     ).toHaveLength(3);
   });
 
-  it("shows the checklist while there is no itinerary", () => {
-    const { onGenerate } = renderPanel({ itinerary: EMPTY_ITINERARY, missing: [] });
+  it("offers nothing core_api would refuse on a trip that is over", () => {
+    renderPanel({}, {}, { lockedPhase: "past" });
+
+    expect(screen.getByText(en.plan.trips.phase.past)).toBeInTheDocument();
+    expect(screen.queryByText(p.draft)).toBeNull();
+    expect(screen.queryByRole("button", { name: p.save })).toBeNull();
+    expect(screen.queryByRole("button", { name: p.reset })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(`^${p.change}`) })).toBeNull();
+
+    // The trip itself is still there to read.
+    expect(
+      screen.getByRole("heading", {
+        name: interpolate(p.heading, { count: 3, destination: "Budapest" }),
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("says what `?trip=` is doing instead of leaving the pane blank", () => {
+    const { onShowTrips } = renderPanel({}, {}, { openTrip: { status: "not-found" } });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(en.plan.trips.notFoundTitle);
+    fireEvent.click(screen.getByRole("button", { name: en.plan.trips.title }));
+    expect(onShowTrips).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists the account's trips while nothing has been asked yet", () => {
+    const { onShowTrips } = renderPanel({ itinerary: EMPTY_ITINERARY, missing: [] });
+
+    expect(
+      screen.getByRole("heading", { name: en.plan.trips.title })
+    ).toBeInTheDocument();
+    expect(screen.getByText(en.plan.trips.emptyTitle)).toBeInTheDocument();
+    expect(screen.queryByText(en.plan.checklist.title)).not.toBeInTheDocument();
+    expect(onShowTrips).not.toHaveBeenCalled();
+  });
+
+  it("shows the checklist once the conversation has started", () => {
+    const { onGenerate, onShowTrips } = renderPanel({
+      itinerary: EMPTY_ITINERARY,
+      missing: [],
+      messages: [{ id: "m1", kind: "text", role: "user", content: "3 days in Budapest" }],
+    });
 
     expect(screen.getByText(en.plan.checklist.title)).toBeInTheDocument();
+
+    // The way back to the trips is still one press away.
+    fireEvent.click(screen.getByRole("button", { name: en.plan.trips.title }));
+    expect(onShowTrips).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole("heading", { name: interpolate(p.heading, { count: 3, destination: "Budapest" }) })
     ).not.toBeInTheDocument();
