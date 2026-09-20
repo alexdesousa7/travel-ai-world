@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -22,12 +21,19 @@ interface HeaderProps {
 }
 
 /**
- * Global Navigation Header.
+ * Global navigation.
  *
- * Composes the brand, marketing links, theme and language switchers, the
- * primary CTA and the user menu, plus the mobile drawer and the login modal.
+ * Quiet by design: the wordmark, one action, and — once signed in — the
+ * account menu. On the marketing pages language and theme live in the footer,
+ * so the top of the page holds nothing that competes with what you came to
+ * type. The signed-in shell (`app/(app)/layout.tsx`) has no footer, so there
+ * the two controls stay in the bar on desktop and in the drawer on small
+ * viewports — they are the reader's own and must be reachable everywhere.
+ * Scrolling turns the bar to glass instead of hiding the aurora behind an
+ * opaque block.
  *
- * @param variant - `landing` shows the marketing links; `dashboard` hides them.
+ * @param variant - `landing` shows the marketing links; `dashboard` hides them
+ *   and carries language and theme instead.
  */
 export default function Header({ variant = "landing" }: HeaderProps) {
   const { t } = useLanguage();
@@ -37,8 +43,6 @@ export default function Header({ variant = "landing" }: HeaderProps) {
   const [loginOpen, setLoginOpen] = useState(false);
 
   const openLogin = () => setLoginOpen(true);
-  const ctaHref = isAuthenticated ? "/dashboard" : "#planner";
-  const ctaLabel = isAuthenticated ? t.nav.dashboard : t.nav.planMyTrip;
 
   return (
     <>
@@ -47,7 +51,7 @@ export default function Header({ variant = "landing" }: HeaderProps) {
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
           scrolled
-            ? "bg-bg-primary/95 backdrop-blur-md border-b border-border"
+            ? "bg-glass-bg backdrop-blur-xl border-b border-glass-border"
             : "bg-transparent"
         )}
       >
@@ -58,24 +62,30 @@ export default function Header({ variant = "landing" }: HeaderProps) {
 
           <div className="flex-1 hidden lg:block" />
 
-          {/* Desktop actions */}
-          <div className="hidden md:flex items-center gap-4 lg:gap-6">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            <Button href={ctaHref} size="sm">
-              {ctaLabel}
-            </Button>
-            <UserMenu onLogin={openLogin} />
-          </div>
+          <div className="flex items-center gap-3 md:gap-4">
+            {variant === "dashboard" && (
+              <span className="hidden md:flex items-center gap-3">
+                <LanguageSwitcher />
+                <ThemeToggle />
+              </span>
+            )}
 
-          {/* Mobile actions */}
-          <div className="flex md:hidden items-center gap-3">
-            <Link
-              href={ctaHref}
-              className="bg-accent hover:bg-accent-hover transition-colors text-white text-[10px] font-medium px-3 py-1.5 rounded-md uppercase tracking-wider"
-            >
-              {ctaLabel}
-            </Link>
+            {isAuthenticated ? (
+              <Button href="/plan/" size="sm">
+                {t.nav.openPlanner}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={openLogin}>
+                {t.auth.login}
+              </Button>
+            )}
+
+            {isAuthenticated && (
+              <span className="hidden md:block">
+                <UserMenu onLogin={openLogin} />
+              </span>
+            )}
+
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -83,7 +93,7 @@ export default function Header({ variant = "landing" }: HeaderProps) {
               aria-haspopup="dialog"
               aria-expanded={drawerOpen}
               aria-controls={MOBILE_DRAWER_ID}
-              className="p-2 text-text-primary hover:bg-bg-surface rounded-lg transition-colors flex items-center justify-center"
+              className="md:hidden p-2 text-text-primary hover:bg-bg-surface rounded-lg transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Menu size={24} aria-hidden="true" />
             </button>

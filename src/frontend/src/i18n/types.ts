@@ -46,11 +46,6 @@ export interface Testimonial {
   highlight: boolean;
 }
 
-export interface FooterLinkGroup {
-  title: string;
-  items: string[];
-}
-
 // The shape every locale file MUST satisfy.
 // TypeScript will error on import if any key is missing.
 export interface Translations {
@@ -58,7 +53,8 @@ export interface Translations {
     howItWorks: string;
     features: string;
     reviews: string;
-    planMyTrip: string;
+    /** The header action once you are signed in. */
+    openPlanner: string;
     dashboard: string;
     openMenu: string;
     closeMenu: string;
@@ -395,9 +391,7 @@ export interface Translations {
     ctaSecondary: string;
   };
   footer: {
-    tagline: string;
-    links: FooterLinkGroup[];
-    social: string[];
+    /** "© {year} Kyrian World" — the year is interpolated at render time. */
     copyright: string;
   };
   dashboard: {
