@@ -1,0 +1,139 @@
+# Madrid (Wikidata Q2807), discovered and reviewed on 2026-09-21.
+# Madrid is the city represented by Q2807; the discoverer's class warning is a Wikidata taxonomy mismatch.
+
+slug = "madrid"
+name = "Madrid"
+aliases = ["madrid"]
+language = "en"
+wikipedia_lang = "en"
+curated_tours = "curated/madrid/tours.toml"
+# OpenStreetMap relation of the city (Wikidata P402): selects the area for the boundaries and the place queries.
+osm_relation = 5326784
+# Only used when `osm_relation` is unset.
+osm_area = "Madrid"
+# The country the planner names on a trip, and its ISO 3166-1 alpha-2 code.
+country = "Spain"
+country_code = "ES"
+district_admin_level = 9
+centre = [40.4169, -3.7033]
+timezone = "Europe/Madrid"
+# Wikidata districts (P150): Arganzuela (Q2000929), Carabanchel (Q1001991), Castellana (Q4781), Centro (Q1763376), Chamberí (Q1763370), Ciudad Lineal (Q1763694), Fuencarral-El Pardo (Q656196), Hortaleza (Q1928529), Latina (Q794954), Moncloa-Aravaca (Q2017682), Moratalaz (Q2076109), Puente de Vallecas (Q2003054), Retiro (Q2002296), Usera (Q953368), Vicálvaro (Q589403), Villa de Vallecas (Q1947988), Villaverde (Q919536)
+districts = [
+    "Arganzuela",
+    "Centro",
+    "Chamberí-Castellana",
+    "La Latina-Austrias",
+    "Malasaña-Chueca",
+    "Moncloa",
+    "Northern Suburbs",
+    "Retiro-Paseo del Arte",
+    "Salamanca",
+    "Sol-Letras-Lavapiés",
+    "Southern Suburbs",
+]
+
+# From OSM relation 5326784 (Nominatim), rounded outwards.
+[bbox]
+south = 40.31
+west = -3.89
+north = 40.65
+east = -3.51
+
+# The city's photo, shown on the trip overview: the Wikidata image (P18), free on Commons.
+[hero]
+file = "Madrid (38624991251).jpg"
+credit = "Dmitry Dzhus from London (CC BY 2.0) · Wikimedia Commons"
+
+[[wikivoyage]]
+lang = "en"
+root = "Madrid"
+include_subpages = true  # 11 district pages
+
+[[wikivoyage]]
+lang = "es"
+root = "Madrid"
+include_subpages = false  # no district pages
+
+# 17 pages
+[[wikipedia.categories]]
+name = "Tourist attractions in Madrid"
+
+# 28 pages
+[[wikipedia.categories]]
+name = "Museums in Madrid"
+
+# 6 pages
+[[wikipedia.categories]]
+name = "Bridges in Madrid"
+
+# 15 pages
+[[wikipedia.categories]]
+name = "Parks in Madrid"
+
+# 4 pages
+[[wikipedia.categories]]
+name = "Churches in Madrid"
+
+# 52 pages
+[[wikipedia.categories]]
+name = "Monuments and memorials in Madrid"
+
+# 13 pages
+[[wikipedia.categories]]
+name = "Buildings and structures in Madrid"
+require_coordinates = true
+
+# 37 pages
+[[wikipedia.categories]]
+name = "Palaces in Madrid"
+
+# 14 pages
+[[wikipedia.categories]]
+name = "Theatres in Madrid"
+
+# 5 pages
+[[wikipedia.categories]]
+name = "Libraries in Madrid"
+require_coordinates = true
+
+# 5 pages
+[[wikipedia.categories]]
+name = "Cemeteries in Madrid"
+
+# 9 pages
+[[wikipedia.categories]]
+name = "Fountains in Madrid"
+
+# 3 pages
+[[wikipedia.categories]]
+name = "Renaissance architecture in Madrid"
+require_coordinates = true
+
+# 14 pages
+[[wikipedia.categories]]
+name = "Baroque architecture in Madrid"
+require_coordinates = true
+
+# OSM district name (the boundaries carry no `ref` tag) → the Wikivoyage guide(s) covering it.
+[district_guides]
+"Arganzuela" = ["Arganzuela"]
+"Barajas" = []  # no dedicated Wikivoyage guide
+"Carabanchel" = []  # no dedicated Wikivoyage guide
+"Centro" = ["Centro"]
+"Chamartín" = []  # no dedicated Wikivoyage guide
+"Chamberí" = ["Chamberí-Castellana"]
+"Ciudad Lineal" = []  # no dedicated Wikivoyage guide
+"Fuencarral-El Pardo" = []  # no dedicated Wikivoyage guide
+"Hortaleza" = []  # no dedicated Wikivoyage guide
+"Latina" = ["La Latina-Austrias"]
+"Moncloa-Aravaca" = ["Moncloa"]
+"Moratalaz" = []  # no dedicated Wikivoyage guide
+"Puente de Vallecas" = []  # no dedicated Wikivoyage guide
+"Retiro" = ["Retiro-Paseo del Arte"]
+"Salamanca" = ["Salamanca"]
+"San Blas - Canillejas" = []  # no dedicated Wikivoyage guide
+"Tetuán" = []  # no dedicated Wikivoyage guide
+"Usera" = []  # no dedicated Wikivoyage guide
+"Vicálvaro" = []  # no dedicated Wikivoyage guide
+"Villa de Vallecas" = []  # no dedicated Wikivoyage guide
+"Villaverde" = []  # no dedicated Wikivoyage guide

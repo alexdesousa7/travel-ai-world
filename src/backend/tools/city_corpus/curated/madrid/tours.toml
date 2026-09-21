@@ -1,0 +1,67 @@
+# Madrid tours, maintained by hand. Facts checked on 2026-09-21 against each
+# operator's own website. The entries below are public, scheduled tours with a
+# published meeting point, schedule, duration and language. Marketplaces and
+# resellers were not used.
+
+[[tour]]
+id = "ogo-old-town-english"
+name = "Free Walking Tour Madrid - Old Town"
+operator = "OgoTours"
+operator_url = "https://www.ogotours.com/"
+url = "https://www.ogotours.com/madrid/free-tour-madrid/"
+tour_type = "walking"
+price_model = "tip-based"
+summary = "A daily introduction to Madrid's historic centre, linking Puerta del Sol, Plaza Mayor, San Miguel Market, the Royal Palace and Almudena Cathedral with local history and anecdotes."
+meeting_point = "Puerta del Sol, by the Equestrian Statue of Carlos III; look for the green OgoTours umbrella"
+address = "Puerta del Sol, 28013 Madrid"
+lat = 40.4169
+lon = -3.7035
+start_times = ["10:45"]
+days = "daily except December 23-27 and January 1"
+duration_minutes = 150
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = "The operator says groups are limited to 10 and booking guarantees departure."
+
+[[tour]]
+id = "ogo-letras-prado"
+name = "Tour Barrio de las Letras - Paseo del Prado"
+operator = "OgoTours"
+operator_url = "https://ogotours.es/"
+url = "https://ogotours.es/tour-barrio-de-las-letras-madrid-apasionante/"
+tour_type = "walking"
+price_model = "paid"
+summary = "A scheduled afternoon walk through Madrid's literary quarter and the Prado boulevard, following Cervantes and Lope de Vega before continuing past the Prado, Cibeles and Puerta de Alcala."
+meeting_point = "Puerta del Sol, by the Equestrian Statue of Carlos III; look for the OgoTours sign"
+address = "Puerta del Sol, 28013 Madrid"
+lat = 40.4169
+lon = -3.7035
+start_times = ["16:00"]
+days = "Tuesday to Saturday except December 23-27 and January 1"
+duration_minutes = 150
+languages = ["Spanish"]
+booking_required = true
+checked = 2026-09-21
+notes = "The website lists 15 EUR, or 12 EUR for online reservations."
+
+[[tour]]
+id = "secret-food-madrid"
+name = "Secret Food Tours: Madrid"
+operator = "Secret Food Tours"
+operator_url = "https://www.secretfoodtours.com/"
+url = "https://www.secretfoodtours.com/madrid/food-tours-madrid/"
+tour_type = "food"
+price_model = "paid"
+summary = "A small-group food walk through Madrid's historic centre, tasting Iberian meats, a squid sandwich, vermouth, tapas, Spanish omelette, local drinks and a seasonal pastry."
+meeting_point = "Outside Sol metro at the Oso y Madrono statue, in front of the Apple Store; look for the orange umbrella"
+address = "Puerta del Sol, 28013 Madrid"
+lat = 40.4170253
+lon = -3.7026212
+start_times = ["11:00"]
+days = "Monday to Friday"
+duration_minutes = 210
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = "The operator's page lists weekend departures at 10:00; the weekday 11:00 schedule is recorded here."
