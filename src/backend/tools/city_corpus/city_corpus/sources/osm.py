@@ -53,6 +53,8 @@ QUERIES: tuple[Query, ...] = (
     ),
 )
 USEFUL_TAGS = ("wikidata", "website", "opening_hours", "stars", "cuisine")
+# Gunter Demnig's stones come in three shapes (stone, threshold, head stone).
+SMALL_MEMORIALS = frozenset({"stolperstein", "stolperschwelle", "kopfstein", "plaque"})
 MATCH_DISTANCE_M = 75.0
 MIN_CONTAINED_NAME = 6
 MIN_TEXT_CHARS = 40
@@ -175,6 +177,12 @@ def _is_useful(query: Query, tags: dict[str, str]) -> bool:
     # Small galleries without a Wikidata item have no photo for a card and are rarely
     # sights; notable ones have an item (decided on TRA-139).
     if tags.get("tourism") == "gallery" and not _wikidata(tags):
+        return False
+    # A stumbling stone or a wall plaque marks a person or an event, not a place to
+    # spend a morning: Berlin tags 7,362 Stolpersteine `historic=memorial`, most
+    # with a website, which would have outnumbered its sights three to one. The
+    # notable memorials come from Wikipedia's `Monuments and memorials in X`.
+    if tags.get("memorial") in SMALL_MEMORIALS:
         return False
     if query.key == "baths" and tags.get("leisure") == "sports_centre":
         return tags.get("bath:type") == "thermal" or bool(

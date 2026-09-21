@@ -1,5 +1,34 @@
 [
   {
+    "slug": "berlin",
+    "name": "Berlin",
+    "country": "Germany",
+    "country_code": "DE",
+    "aliases": [
+      "berlin",
+      "berlín"
+    ],
+    "centre": [
+      52.5167,
+      13.3833
+    ],
+    "timezone": "Europe/Berlin",
+    "documents": 12551,
+    "built_at": "2026-09-21T18:27:18Z",
+    "intro": {
+      "en": {
+        "text": "Berlin is Germany's capital and largest city. Within the city limits, Berlin in 2022 had a population of 3.7 million.\n\nBerlin is coming into its own again as a cosmopolitan capital of one of Europe's wealthiest nations. \"Arm aber sexy\" (poor but sexy), as a former mayor would have it, Berlin attracts young people, students, and a creative bohème like few other cities in the world.",
+        "source_url": "https://en.wikivoyage.org/wiki/Berlin"
+      },
+      "es": {
+        "text": "Berlín es la capital de Alemania y, a la vez, uno de los 16 estados federales (Länder) que la componen. Con alrededor de 3,5 millones de habitantes en la ciudad y más de 4,5 en su área metropolitana, es también la ciudad más poblada del país.\n\nBerlín es famosa por su historia como capital de Prusia desde épocas medievales y de Alemania desde su creación como Imperio, además de por su carácter cosmopolita y tolerante. Destacan su vibrante vida nocturna, sus múltiples cafés, bares y discotecas, el arte urbano, sus museos, palacios y otros sitios de carácter histórico.",
+        "source_url": "https://es.wikivoyage.org/wiki/Berl%C3%ADn"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Cityscape_Berlin.jpg&width=1200",
+    "image_credit": "Thomas Wolf, www.foto-tw.de (CC BY-SA 3.0) · Wikimedia Commons"
+  },
+  {
     "slug": "bologna",
     "name": "Bologna",
     "country": "Italy",
