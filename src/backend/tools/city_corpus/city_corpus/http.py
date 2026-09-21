@@ -38,6 +38,9 @@ SLOW_HOSTS = {
     "api.open-meteo.com": 1.0,
     "nominatim.openstreetmap.org": 1.0,
 }
+# Hosts that answer slower than the client's 60 s: the place queries ask Overpass
+# for `[timeout:240]`, and Berlin's took longer than a minute under load (TRA-33).
+SLOW_READ_SECONDS = {"overpass-api.de": 250.0}
 
 
 class CacheMiss(RuntimeError):
@@ -129,13 +132,15 @@ class ApiClient:
     ) -> dict[str, Any]:
         host = httpx.URL(url).host
         delay = SLOW_HOSTS.get(host, 2.0)
+        read = SLOW_READ_SECONDS.get(host)
+        timeout = httpx.Timeout(60.0, read=read) if read else httpx.USE_CLIENT_DEFAULT
         for attempt in range(1, MAX_ATTEMPTS + 1):
             self._sleep(SLOW_HOSTS.get(host, POLITE_DELAY_SECONDS))
             try:
                 if post:
-                    response = self._client.post(url, data=params)
+                    response = self._client.post(url, data=params, timeout=timeout)
                 else:
-                    response = self._client.get(url, params=params)
+                    response = self._client.get(url, params=params, timeout=timeout)
             except httpx.TransportError as exc:
                 logger.warning("%s: %s (attempt %d)", url, exc, attempt)
             else:

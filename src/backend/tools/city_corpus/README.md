@@ -39,7 +39,9 @@ manifest reports documents per category and what each one skipped.
    same normalised name within 75 m) adds `osm_id`, `opening_hours`, `stars`, `cuisine`,
    `wheelchair` (and a missing `wikidata` or Commons file) to it. Other elements with a name and at
    least one of `wikidata`, `website`, `opening_hours`, `stars`, `cuisine` become new documents.
-   Galleries need a Wikidata id, and swimming pools need thermal tags or a bath name.
+   Galleries need a Wikidata id, and swimming pools need thermal tags or a bath name. Small
+   memorials (`memorial=stolperstein`, `stolperschwelle`, `kopfstein`, `plaque`) are never sights:
+   Berlin tags 7,362 stumbling stones, most with a website.
 3. **Wikidata + Commons**: for every document with a Wikidata id, fill `lat`/`lon` and `url` when
    missing, add `name_es`, `heritage` and `entity_id` (documents about the same entity share it).
    `image_url` is a 640 px Commons thumbnail of the first free-licensed file among the Wikidata image
