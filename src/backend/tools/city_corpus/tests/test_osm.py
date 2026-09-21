@@ -123,6 +123,24 @@ def test_places_keep_named_useful_elements_once() -> None:
     assert stats.timestamp == "2026-09-17T10:00:00Z"
 
 
+def test_small_memorials_are_not_sights() -> None:
+    """Stumbling stones and wall plaques carry a name and a website (Berlin: 6,504
+    of them would have become `see` documents), yet nobody visits one."""
+    memorial = {"historic": "memorial", "website": "https://www.stolpersteine.de"}
+    elements = [
+        _node(1, 47.5, 19.05, name="Anna Levy", memorial="stolperstein", **memorial),
+        _node(2, 47.5, 19.05, name="Here lived X", memorial="plaque", **memorial),
+        _node(
+            3, 47.5, 19.05, name="Shoes on the Danube", memorial="sculpture", **memorial
+        ),
+    ]
+    found = osm.places(
+        [(QUERY["see"], {"elements": elements})], BUDAPEST, osm.OsmStats()
+    )
+
+    assert [p.osm_id for p in found] == ["node/3"]
+
+
 def test_names_match_normalised_and_contained() -> None:
     assert osm.names_match("Café Gerbeaud", "cafe gerbeaud")
     assert osm.names_match("Gerbeaud Cukrászda", "Gerbeaud")  # 8 chars, whole words

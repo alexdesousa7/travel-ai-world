@@ -70,6 +70,11 @@ STANDARD_CATEGORIES: tuple[tuple[str, bool], ...] = (
     ("Renaissance architecture in {city}", True),
     ("Baroque architecture in {city}", True),
     ("Gothic architecture in {city}", True),
+    # Berlin: 54 art museums and galleries, 6 castles, 7 Lutheran churches
+    # (its `Churches in` holds five pages and subcategories).
+    ("Art museums and galleries in {city}", False),
+    ("Castles in {city}", False),
+    ("Lutheran churches in {city}", False),
 )
 # Instance-of classes that make a search hit a city without a second look.
 CITY_CLASSES = {

@@ -180,7 +180,13 @@ vectors for a rehearsal.
 ## Known pitfalls
 
 - **Overpass** answers 429, or a timeout inside a 200 body, when busy; the client waits and backs
-  off. Never parallelise its queries.
+  off, and reads for up to 250 s (a big city's query outlasts a minute). Never parallelise its
+  queries. A build that gives up keeps the queries it finished in `.cache/`: run it again.
+- **Small memorials** (Stolpersteine, plaques) carry a name and a website in OSM and would flood
+  `see` (Berlin: 6,504 of them); the OSM source skips them. Look at the report's `see` count: a
+  city several times Budapest's usually means another such tag, fixed in `sources/osm.py`.
+- **Windows**: set `PYTHONUTF8=1` (the commands print `→` and names like `Neukölln`, which the
+  console's cp1252 cannot encode).
 - **Wikidata** folds its query service's lag into `maxlag`, and it can sit at minutes for hours;
   read-only requests are re-sent without the parameter. A stalled `discover` is usually this.
 - **Broad Wikipedia categories** hold embassies, ministries and companies next to the sights;
