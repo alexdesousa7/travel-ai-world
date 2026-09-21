@@ -100,7 +100,7 @@ class DistrictLocator:
         guides: dict[str, tuple[str, ...]],
         anchors: Iterable[tuple[str, float, float]] = (),
     ) -> None:
-        self._boundaries = [b for b in boundaries if b.ref in guides]
+        self._boundaries = [b for b in boundaries if guides.get(b.ref)]
         for boundary in self._boundaries:
             prepare(boundary.shape)
         self._guides = guides

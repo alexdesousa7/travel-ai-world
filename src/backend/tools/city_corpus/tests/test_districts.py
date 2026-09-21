@@ -87,6 +87,15 @@ def test_gaps_fall_back_to_a_nearby_listing_only() -> None:
     assert locator.locate(47.60, 19.30) is None
 
 
+def test_boundary_without_guides_is_ignored() -> None:
+    locator = DistrictLocator(
+        parse_boundaries(OVERPASS),
+        {"1": (), "2": ("Belváros",)},
+        ANCHORS,
+    )
+    assert locator.locate(47.42, 19.02) is None
+
+
 def test_area_is_selected_by_relation_id_when_configured() -> None:
     # Budapest keeps the name query: its Overpass cache keys must not change.
     assert area_selector(BUDAPEST) == 'area["name"="Budapest"]["admin_level"="8"]->.a;'

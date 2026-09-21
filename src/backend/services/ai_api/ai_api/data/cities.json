@@ -80,5 +80,33 @@
     },
     "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Budapest%2C_Hungary_%28explored%29_%2814995308504%29.jpg&width=1200",
     "image_credit": "Thomas Depenbusch (Depi) (CC BY 2.0) · Wikimedia Commons"
+  },
+  {
+    "slug": "madrid",
+    "name": "Madrid",
+    "country": "Spain",
+    "country_code": "ES",
+    "aliases": [
+      "madrid"
+    ],
+    "centre": [
+      40.4169,
+      -3.7033
+    ],
+    "timezone": "Europe/Madrid",
+    "documents": 5999,
+    "built_at": "2026-09-21T19:25:28Z",
+    "intro": {
+      "en": {
+        "text": "Madrid is Spain's capital and largest city. A city that has been marked by Spain's varied and tumultuous history, Madrid has some of Europe's most impressive cultural and architectural heritage, which includes grand avenues, plazas, buildings and monuments, world-class art galleries and museums, highly popular football teams, and cultural events of international fame for everyone. Madrid is also renowned for gastronomic delights and a nightlife lasting up until dawn.\n\nMadrid is more often than not disregarded by tourists who gravitate to other parts of the country.",
+        "source_url": "https://en.wikivoyage.org/wiki/Madrid"
+      },
+      "es": {
+        "text": "Madrid es la capital y ciudad más grande de España. Forma parte de la Comunidad de Madrid y se encuentra justo en el centro del país. Mosca",
+        "source_url": "https://es.wikivoyage.org/wiki/Madrid"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Madrid_%2838624991251%29.jpg&width=1200",
+    "image_credit": "Dmitry Dzhus from London (CC BY 2.0) · Wikimedia Commons"
   }
 ]
