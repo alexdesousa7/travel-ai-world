@@ -109,6 +109,79 @@ like a hit. `--offline` therefore works for this stage too, a rebuild with a war
 byte-identical, and a dead hotel site is dialled once and never again. Commons is paced at one
 second per request (`SLOW_HOSTS`).
 
+## Chains (amended 2026-09-22, TRA-211)
+
+The first version of this stage dropped 156 chain hotels across the three cities — Budapest 21,
+Berlin 71, Madrid 65 — and a corpus that offers every hostal in Madrid and no Four Seasons is not
+offering Madrid. Measured on those 156: **41** sites answer 403 to any client that is not a
+browser (Marriott, Hilton, NH, Radisson), and when a chain does answer, its `og:image` is a logo
+or a brand banner — IHG serves a Maldives resort for the Crowne Plaza Madrid; **16** have a brand
+URL that redirects to the group's platform (`ibis.com` → `all.accor.com`) and were refused by the
+same-site rule, although the page the hop lands on carries the hotel's own photograph; **19**
+answered a perfectly good `og:image` and were dropped anyway, because the same hotel appears twice
+(OpenStreetMap and Wikivoyage) and the shared-picture rule read the duplicate as a chain asset;
+**32** have no URL at all; **17** sites are dead; **6** point at booking.com. Wikidata's 176 items
+for those hotels carry almost no media (P18 0, P373 2, sitelinks 5), but a *search by name* finds
+the flagships with a photograph: Hilton Budapest, Hotel Adlon, the Banco Español de Crédito
+building the Four Seasons Madrid was built into.
+
+Each of those is a different mistake, so each gets its own rule.
+
+1. **A picture two documents of the same hotel share is still that hotel's.** The shared-picture
+   rule now asks whether the claimants are one hotel or several: the same `entity_id`, the same
+   folded name, or fifty metres apart with one name written inside the other. Only distinct
+   hotels sharing a picture lose it, and `shared` in the manifest counts only those.
+2. **Hotel groups are listed** (`tools/city_corpus/city_corpus/config/hotel_groups.py`, copied
+   into `ai_api/infrastructure/site_previews.py`, which may not import the tool). A redirect
+   whose target's registrable domain is a listed group is the hotel's own site, subdomains
+   included. On such a page the preview is refused when its path is a brand asset
+   (`logo|brand|generic|default|placeholder|maldives`), and for a group that publishes one
+   picture on every page whatever the hotel the preview is not read at all: the largest-picture
+   rule looks for the house's own photograph further down. That list (`OG_SKIPPED_DOMAINS`) is
+   empty, and measured empty. IHG was the candidate the issue named — it offers a Maldives resort
+   for the Crowne Plaza Madrid — but it publishes the right photograph for the Crowne Plaza
+   Budapest, and skipping the group's preview took that hotel out of the corpus; the banner is
+   caught by its own path (`maldives`) instead. a&o really does serve the lobby of its Venice
+   hostel to every house, but its gallery is loaded by script, so the page a build fetches holds
+   no picture of the house and skipping the preview only cost two hostels theirs. A group belongs
+   on that list when both halves hold: the same preview twice, and the house's own photograph in
+   the markup. Nothing else changes for the rest of the web — the allowlist is twenty-six
+   domains, not a relaxation of the same-site rule.
+3. **The hotel's Wikidata item, found by name near its coordinates**, is a new tier between
+   Commons and the homepage. `wbsearchentities` for the name with its lodging words stripped, in
+   English, in Spanish and in the city's language; an item is the hotel only when its P625 is
+   within 300 m of it — tighter than the 500 m a photograph is allowed, because an item is the
+   building and the next hotel down the road is a different one. Then P18, else the first free
+   geotagged file of its P373 Commons category, else its article's lead picture, every one of
+   them licence-checked as usual. It runs for a hotel that already carries a `wikidata` id too:
+   the enrichment stage found no free P18, but the item may still have a category or an article.
+4. **A person is the last source.** `curated/<city>/hotels.toml` holds `[[hotel]]` entries with a
+   `match`, the `image_url` of the picture the hotel publishes of itself, its `credit`, the
+   `source_url` it was read on and a `checked` date — the twin of `curated/<city>/tours.toml`,
+   with the same discipline: the hotel's own site, never a reseller, nothing copied. It is applied
+   **before** every other source, verified with the same `HEAD`, and a failing entry is a warning
+   that lets the hotel fall through. A `match` that names no hotel or several stops the build. A
+   curated `image_url` may point at Wikimedia Commons, which `DENIED_HOSTS` refuses for every
+   automatic source: that list stops a hotel's own `website` tag from being an encyclopaedia
+   article, and it should not stop a person handing the build the only licence-clean photograph of
+   a building whose owner's site answers 403 to everything.
+   The report's new **Notable hotels without a photo** list, from a chain-name regex, says which
+   hotels want an entry and why the rules could not picture them (`403`, `no url`, `dead`,
+   `no picture`, `shared picture`). The readiness gate does not fail on it: a curated file is a
+   person's afternoon, and a city should not be un-indexable for want of one.
+
+One thing the Wikidata tier exposed in `ApiClient`: asking `wbsearchentities` once per unpictured
+hotel is enough load for Wikimedia's search to shed some of it (`cirrussearch-too-busy-error`).
+That was being read as a permanent API error, so a handful of hotels silently lost the source and
+the answer was never cached — two builds off the same cache would differ. It is now retried like
+`maxlag`, together with the two other codes that clear on their own (`readonly`, the wiki's
+database in read-only mode, and `internal_api_error_*`, an exception inside the API). The retry is
+bounded by the client's `MAX_ATTEMPTS`: a code that never clears still ends the fetch with an
+error, it only costs the build its backoff first. Every other API error still raises at once.
+
+What did **not** change: a hotel without a photo still leaves the corpus, Commons is still asked
+by name and place, and the hot-linking bargain is the same for a curated URL as for a preview.
+
 ## Consequences
 
 - Every stay the planner offers has a picture of itself. Budapest keeps 206 of its 415 located
@@ -141,6 +214,11 @@ second per request (`SLOW_HOSTS`).
 - The live lookups stay for `eat`, `drink` and `see`: those categories have no such rule, their
   cards are suggestions rather than commitments, and a restaurant with no photo is still worth
   offering.
+- The chains are back (TRA-211), and the corpus now has a hand-written input for photographs as
+  well as for tours. That is a maintenance cost with no automatic check behind it: a curated URL
+  can rot, and only the `checked` date and the 400-day warning say when someone last looked. It is
+  the cost of a Four Seasons card, and the alternative — a scraper against a booking platform —
+  is neither licence-clean nor allowed.
 - Revisit when a city's hotels come from somewhere other than OpenStreetMap, or when the
   homepage heuristic starts picking staff portraits and breakfast buffets often enough to
   notice — the answer then is a stricter fourth source, not a blank card.

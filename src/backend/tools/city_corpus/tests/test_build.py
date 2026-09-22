@@ -135,22 +135,25 @@ def test_the_photo_stage_counters_reach_the_manifest(
     monkeypatch.setattr(
         photos,
         "resolve",
-        lambda client, city, documents: ([hotel], counters),
+        lambda client, city, documents, curated: ([hotel], counters),
     )
     result = BuildResult(documents=[hotel, blind])
 
-    _resolve_photos(BUDAPEST, ApiClient(tmp_path), result)
+    _resolve_photos(BUDAPEST, ApiClient(tmp_path), result, tmp_path / "curated")
     info = write(tmp_path / "out", BUDAPEST, result)
 
     assert result.documents == [hotel]
     assert info["enrichment"]["photos"] == {
+        "curated": 0,
         "site": 1,
         "facebook": 0,
         "commons": 0,
+        "wikidata": 0,
         "page": 0,
         "dropped": 1,
         "shared": 0,
         "dropped_examples": ["Hotel Astra"],
+        "notable_without_photo": [],
     }
 
 
@@ -211,6 +214,54 @@ def test_client_caches_and_retries(tmp_path: Path) -> None:
     assert offline.get(url, params).data == {"query": {"ok": True}}
     with pytest.raises(CacheMiss):
         offline.get(url, {"action": "query", "titles": "Pest"})
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "cirrussearch-too-busy-error",
+        "readonly",
+        "internal_api_error_DBQueryError",
+    ],
+    ids=["search-busy", "read-only", "internal"],
+)
+def test_a_search_backend_that_is_too_busy_is_asked_again(
+    tmp_path: Path, code: str
+) -> None:
+    """These codes mean "not now", not "never": Wikimedia's search sheds load under
+    pressure, the database goes read-only, the API throws. Giving up would cost the
+    photo stage a source and leave nothing in the cache, so two builds would differ
+    (TRA-211). `internal_api_error` arrives with the exception class appended."""
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if len(calls) == 1:
+            error = {"code": code, "info": "not now"}
+            return httpx.Response(200, json={"error": error})
+        return httpx.Response(200, json={"search": [{"id": "Q42"}]})
+
+    client = ApiClient(
+        tmp_path, transport=httpx.MockTransport(handler), sleep=lambda _: None
+    )
+    url = "https://www.wikidata.org/w/api.php"
+    params: dict[str, str | int] = {"action": "wbsearchentities", "search": "hilton"}
+
+    assert client.get(url, params).data == {"search": [{"id": "Q42"}]}
+    assert len(calls) == 2
+
+
+def test_an_api_error_that_is_not_the_backend_being_busy_still_raises(
+    tmp_path: Path,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"error": {"code": "badvalue"}})
+
+    client = ApiClient(
+        tmp_path, transport=httpx.MockTransport(handler), sleep=lambda _: None
+    )
+    with pytest.raises(RuntimeError, match="API error"):
+        client.get("https://www.wikidata.org/w/api.php", {"action": "wbgetentities"})
 
 
 def test_query_service_lag_does_not_hold_a_read(tmp_path: Path) -> None:
