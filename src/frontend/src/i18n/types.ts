@@ -184,6 +184,10 @@ export interface Translations {
       saveError: string;
       saveRetry: string;
       reset: string;
+      /** Beside a saved trip: "New trip" leaves it and opens an empty planner. */
+      newTripHint: string;
+      /** "Start over" clears the conversation but stays on the same trip. */
+      resetHint: string;
       /** "Route {from} → {to}" */
       route: string;
       searchFlights: string;
@@ -287,7 +291,10 @@ export interface Translations {
     trips: {
       /** The heading over the list, and the header's way back to it. */
       title: string;
-      /** Starts a new trip from the home. */
+      /**
+       * Starts a new trip: from the home, and in the planner beside a saved
+       * trip or one that is not there (TRA-223).
+       */
       newTrip: string;
       /** The heading over each group of the list, keyed by phase. */
       groups: Record<TripPhase, string>;
