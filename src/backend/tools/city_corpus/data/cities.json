@@ -82,6 +82,32 @@
     "image_credit": "Thomas Depenbusch (Depi) (CC BY 2.0) · Wikimedia Commons"
   },
   {
+    "slug": "los-angeles",
+    "name": "Los Angeles",
+    "country": "United States",
+    "country_code": "US",
+    "aliases": [
+      "los angeles",
+      "los ángeles",
+      "los-angeles"
+    ],
+    "centre": [
+      34.0522,
+      -118.2437
+    ],
+    "timezone": "America/Los_Angeles",
+    "documents": 7050,
+    "built_at": "2026-09-26T22:06:06Z",
+    "intro": {
+      "en": {
+        "text": "Los Angeles is a city of diverse cultures, and many of them are showcased in and around the city's Downtown. While Downtown L.A. has been considered primarily a business and manufacturing hub for the last several decades, its long-heralded revival has really gained some traction as new restaurants, retail chains, boutiques, and trendy hotels open at a rapid pace.",
+        "source_url": "https://en.wikivoyage.org/wiki/Los_Angeles/Downtown"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Los_Angeles_with_Mount_Baldy.jpg&width=1200",
+    "image_credit": "Alek Leckszas (CC BY-SA 4.0) · Wikimedia Commons"
+  },
+  {
     "slug": "madrid",
     "name": "Madrid",
     "country": "Spain",

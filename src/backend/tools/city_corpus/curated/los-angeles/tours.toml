@@ -1,0 +1,66 @@
+# Los Angeles tours, maintained by hand. Facts checked on 2026-09-26 against
+# the Los Angeles Conservancy's own event pages. These are public, scheduled
+# weekly tours with published start times, durations and meeting points.
+
+[[tour]]
+id = "historic-downtown"
+name = "Historic Downtown: Old Buildings, New Stories"
+operator = "Los Angeles Conservancy"
+operator_url = "https://www.laconservancy.org/"
+url = "https://www.laconservancy.org/tours-events/events-calendar/historic-downtown-walking-tour/"
+tour_type = "walking"
+price_model = "paid"
+summary = "A guided introduction to Downtown Los Angeles architecture and history, visiting the Central Library, Bradbury Building, Bunker Hill, Angels Flight and Grand Central Market."
+meeting_point = "Pershing Square"
+address = "532 S Olive St, Los Angeles, CA 90013"
+lat = 34.048396
+lon = -118.253022
+start_times = ["09:45"]
+days = "Saturdays"
+duration_minutes = 120
+languages = ["English"]
+booking_required = true
+checked = 2026-09-26
+notes = "The operator lists $25 general admission and $18 youth/member tickets. It ends near Grand Central Market at 3rd Street and Broadway."
+
+[[tour]]
+id = "broadway-theatre-district"
+name = "Curtains Up on Broadway: L.A.'s Historic Theatre District"
+operator = "Los Angeles Conservancy"
+operator_url = "https://www.laconservancy.org/"
+url = "https://www.laconservancy.org/tours-events/events-calendar/broadway-historic-theatre-and-commercial-district-walking-tour/"
+tour_type = "walking"
+price_model = "paid"
+summary = "A walk through Broadway's historic movie-palace district, exploring the street where Los Angeles' entertainment industry began and the changing uses of its landmark theatres."
+meeting_point = "Pershing Square"
+address = "532 S Olive St, Los Angeles, CA 90013"
+lat = 34.048396
+lon = -118.253022
+start_times = ["10:00"]
+days = "Saturdays"
+duration_minutes = 165
+languages = ["English"]
+booking_required = true
+checked = 2026-09-26
+notes = "The operator lists $25 general admission and $18 youth/member tickets. Theatre interiors depend on availability; the end point is typically near Broadway and 8th Street."
+
+[[tour]]
+id = "art-deco-downtown"
+name = "Art Deco L.A.: Zigzags, Spires, and Stories"
+operator = "Los Angeles Conservancy"
+operator_url = "https://www.laconservancy.org/"
+url = "https://www.laconservancy.org/tours-events/events-calendar/art-deco/"
+tour_type = "walking"
+price_model = "paid"
+summary = "A Downtown Los Angeles architecture walk focused on 1920s and 1930s Art Deco, including geometric facades, historic interiors and the craftsmanship behind the city's landmark buildings."
+meeting_point = "Pershing Square"
+address = "532 S Olive St, Los Angeles, CA 90013"
+lat = 34.048396
+lon = -118.253022
+start_times = ["10:15"]
+days = "Saturdays"
+duration_minutes = 120
+languages = ["English"]
+booking_required = true
+checked = 2026-09-26
+notes = "The operator lists $25 general admission and $18 youth/member tickets. It ends near the Eastern Columbia building; additional location details are sent after registration."

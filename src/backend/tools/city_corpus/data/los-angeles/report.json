@@ -1,0 +1,617 @@
+{
+  "city": "los-angeles",
+  "built_at": "2026-09-26T22:06:06Z",
+  "documents": 7050,
+  "listings": 3711,
+  "prose": 3339,
+  "sources": [
+    "curated",
+    "open-meteo",
+    "openstreetmap",
+    "wikipedia",
+    "wikivoyage"
+  ],
+  "categories": [
+    "climate",
+    "do",
+    "drink",
+    "eat",
+    "history",
+    "neighbourhood",
+    "practical",
+    "see",
+    "sleep",
+    "tour",
+    "transport"
+  ],
+  "by_category_source": {
+    "climate": {
+      "open-meteo": 12,
+      "wikivoyage": 1
+    },
+    "do": {
+      "openstreetmap": 182,
+      "wikivoyage": 74
+    },
+    "drink": {
+      "openstreetmap": 129,
+      "wikivoyage": 41
+    },
+    "eat": {
+      "openstreetmap": 2889,
+      "wikivoyage": 94
+    },
+    "history": {
+      "wikipedia": 2662,
+      "wikivoyage": 9
+    },
+    "neighbourhood": {
+      "wikivoyage": 7
+    },
+    "practical": {
+      "wikivoyage": 7
+    },
+    "see": {
+      "openstreetmap": 130,
+      "wikipedia": 594,
+      "wikivoyage": 107
+    },
+    "sleep": {
+      "openstreetmap": 54,
+      "wikivoyage": 24
+    },
+    "tour": {
+      "curated": 3,
+      "openstreetmap": 1,
+      "wikivoyage": 1
+    },
+    "transport": {
+      "wikivoyage": 29
+    }
+  },
+  "named_by_category": {
+    "climate": 12,
+    "do": 251,
+    "drink": 168,
+    "eat": 2980,
+    "history": 2662,
+    "practical": 4,
+    "see": 824,
+    "sleep": 72,
+    "tour": 5,
+    "transport": 1
+  },
+  "located_by_category": {
+    "do": 244,
+    "drink": 168,
+    "eat": 2977,
+    "history": 2421,
+    "practical": 4,
+    "see": 767,
+    "sleep": 70,
+    "tour": 5,
+    "transport": 1
+  },
+  "pictured_by_category": {
+    "do": 61,
+    "drink": 6,
+    "eat": 24,
+    "history": 2058,
+    "practical": 1,
+    "see": 529,
+    "sleep": 70
+  },
+  "districts": [
+    "Downtown",
+    "Eastside",
+    "Hollywood",
+    "Northwest",
+    "South",
+    "West",
+    "Wilshire"
+  ],
+  "places_by_district": {
+    "Downtown": 1037,
+    "Eastside": 221,
+    "Hollywood": 616,
+    "Northwest": 703,
+    "South": 278,
+    "West": 692,
+    "Wilshire": 611
+  },
+  "small_districts": [],
+  "described_districts": [
+    "Downtown",
+    "Eastside",
+    "Hollywood",
+    "Northwest",
+    "South",
+    "West",
+    "Wilshire"
+  ],
+  "price_tiers": {
+    "eat": {
+      "1": 32,
+      "2": 39,
+      "3": 12,
+      "untiered": 2900
+    },
+    "sleep": {
+      "1": 0,
+      "2": 2,
+      "3": 8,
+      "untiered": 68
+    }
+  },
+  "climate_months": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12"
+  ],
+  "climate_missing": [],
+  "curated_tours": 3,
+  "reclassified_tours": 2,
+  "tours_by_type": {
+    "other": 2,
+    "walking": 3
+  },
+  "tour_names": [
+    "Art Deco L.A.: Zigzags, Spires, and Stories",
+    "Curtains Up on Broadway: L.A.'s Historic Theatre District",
+    "Historic Downtown: Old Buildings, New Stories",
+    "Paramount Pictures Studio Tour"
+  ],
+  "smoke": {
+    "see": {
+      "museum": [
+        {
+          "name": "Southwest Museum of the American Indian",
+          "district": "Eastside",
+          "score": 12.83
+        },
+        {
+          "name": "Valley Relics Museum",
+          "district": null,
+          "score": 12.71
+        },
+        {
+          "name": "Los Angeles Live Steamers Railroad Museum",
+          "district": "Northwest",
+          "score": 12.64
+        }
+      ],
+      "cathedral": [
+        {
+          "name": "Cathedral of Saint Vibiana",
+          "district": "Downtown",
+          "score": 12.71
+        },
+        {
+          "name": "St. Anne Melkite Catholic Cathedral (North Hollywood, California)",
+          "district": null,
+          "score": 12.08
+        },
+        {
+          "name": "Cathedral of Our Lady of the Angels",
+          "district": "Downtown",
+          "score": 11.95
+        }
+      ],
+      "viewpoint": [
+        {
+          "name": "City Hall Observation Deck",
+          "district": "Downtown",
+          "score": 10.69
+        },
+        {
+          "name": "Dolby Family Terrace",
+          "district": "Wilshire",
+          "score": 10.69
+        }
+      ]
+    },
+    "do": {
+      "market": [
+        {
+          "name": "Farmers Market",
+          "district": "Wilshire",
+          "score": 11.95
+        },
+        {
+          "name": "Nijiya Market",
+          "district": "West",
+          "score": 11.79
+        },
+        {
+          "name": "Flower District",
+          "district": "Downtown",
+          "score": 11.1
+        }
+      ]
+    },
+    "eat": {
+      "traditional restaurant": [
+        {
+          "name": "Boran",
+          "district": "Northwest",
+          "score": 21.79
+        },
+        {
+          "name": "WOOD",
+          "district": "Northwest",
+          "score": 21.79
+        },
+        {
+          "name": "BBQ+Rice",
+          "district": "Northwest",
+          "score": 21.39
+        }
+      ],
+      "street food": [
+        {
+          "name": "Be U - Vietnamese Street Food & Comfort Food",
+          "district": "Northwest",
+          "score": 23.99
+        },
+        {
+          "name": "Box Thai Street Food",
+          "district": null,
+          "score": 23.22
+        },
+        {
+          "name": "Chinese Street Food",
+          "district": "South",
+          "score": 23.22
+        }
+      ]
+    },
+    "drink": {
+      "craft beer bar": [
+        {
+          "name": "Library Bar",
+          "district": "Downtown",
+          "score": 22.48
+        },
+        {
+          "name": "Alma's Cider and Beer",
+          "district": "Northwest",
+          "score": 22.3
+        },
+        {
+          "name": "Western Station Beer and Wine",
+          "district": "Eastside",
+          "score": 22.3
+        }
+      ],
+      "cocktail bar": [
+        {
+          "name": "Gallery Bar",
+          "district": "Downtown",
+          "score": 22.71
+        },
+        {
+          "name": "4100 Bar",
+          "district": "Northwest",
+          "score": 11.79
+        },
+        {
+          "name": "6th Street Sports Bar",
+          "district": null,
+          "score": 11.79
+        }
+      ]
+    },
+    "sleep": {
+      "boutique hotel": [
+        {
+          "name": "The Roosevelt Hotel",
+          "district": "Hollywood",
+          "score": 22.48
+        },
+        {
+          "name": "Beverly Hills Plaza Hotel",
+          "district": null,
+          "score": 11.79
+        },
+        {
+          "name": "Conrad Los Angeles Hotel",
+          "district": "Downtown",
+          "score": 11.79
+        }
+      ],
+      "hostel": [
+        {
+          "name": "Venice Beach Hostel",
+          "district": null,
+          "score": 11.79
+        },
+        {
+          "name": "Orange Drive Hostel",
+          "district": "Hollywood",
+          "score": 11.61
+        },
+        {
+          "name": "HollywoodHostels",
+          "district": "Hollywood",
+          "score": 10.69
+        }
+      ]
+    },
+    "tour": {
+      "free walking tour": [
+        {
+          "name": "Art Deco L.A.: Zigzags, Spires, and Stories",
+          "district": "Downtown",
+          "score": 32.08
+        },
+        {
+          "name": "Curtains Up on Broadway: L.A.'s Historic Theatre District",
+          "district": "Downtown",
+          "score": 32.08
+        },
+        {
+          "name": "Historic Downtown: Old Buildings, New Stories",
+          "district": "Downtown",
+          "score": 32.08
+        }
+      ]
+    }
+  },
+  "hotel_photos": {
+    "curated": 0,
+    "site": 27,
+    "facebook": 0,
+    "commons": 6,
+    "wikidata": 4,
+    "page": 15,
+    "dropped": 81,
+    "shared": 2,
+    "dropped_examples": [
+      "AC Hotel Beverly Hills",
+      "Ace Hotel DTLA",
+      "BLVD Hotel & SPA",
+      "Banana Bungalow Hollywood",
+      "Best Western",
+      "Best Western Burbank Airport Inn",
+      "Best Western Hollywood Plaza Inn",
+      "Best Western Los Angeles World Port Hotel",
+      "Best Western Plus Carriage Inn",
+      "Best Western Plus Dragon Gate Inn"
+    ],
+    "notable_without_photo": [
+      {
+        "name": "AC Hotel Beverly Hills",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Burbank Airport Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Hollywood Plaza Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Los Angeles World Port Hotel",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Plus Carriage Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Plus Dragon Gate Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Plus Glendale",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Plus La Mid-Town Hotel",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Royal Palace Inn & Suites",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Woodland Hills Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Courtyard",
+        "reason": "403"
+      },
+      {
+        "name": "Courtyard Los Angeles Century City/Beverly Hills",
+        "reason": "403"
+      },
+      {
+        "name": "Courtyard Los Angeles LAX/Century Boulevard",
+        "reason": "403"
+      },
+      {
+        "name": "Courtyard Los Angeles Sherman Oaks",
+        "reason": "403"
+      },
+      {
+        "name": "DoubleTree",
+        "reason": "403"
+      },
+      {
+        "name": "Dream Hollywood, by Hyatt",
+        "reason": "403"
+      },
+      {
+        "name": "Embassy Suites by Hilton Los Angeles International Airport North",
+        "reason": "403"
+      },
+      {
+        "name": "Four Points by Sheraton Los Angeles International Airport",
+        "reason": "403"
+      },
+      {
+        "name": "H Hotel Los Angeles, Curio Collection by Hilton",
+        "reason": "403"
+      },
+      {
+        "name": "Hampton Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Hampton Inn & Suites",
+        "reason": "403"
+      },
+      {
+        "name": "Hilton Garden Inn",
+        "reason": "403"
+      },
+      {
+        "name": "Hilton Garden Inn LAX Los Angeles Airport",
+        "reason": "403"
+      },
+      {
+        "name": "Homewood Suites by Hilton Los Angeles International Airport",
+        "reason": "403"
+      },
+      {
+        "name": "Hyatt House LA - University Medical Center",
+        "reason": "403"
+      },
+      {
+        "name": "Hyatt Place LAX / Century Blvd",
+        "reason": "403"
+      },
+      {
+        "name": "Hyatt Regency Los Angeles International Airport",
+        "reason": "403"
+      },
+      {
+        "name": "Marriott Beverly Hills",
+        "reason": "403"
+      },
+      {
+        "name": "Radisson",
+        "reason": "403"
+      },
+      {
+        "name": "Sheraton",
+        "reason": "403"
+      },
+      {
+        "name": "Sheraton Gateway Los Angeles Hotel",
+        "reason": "403"
+      },
+      {
+        "name": "Sheraton Grand Los Angeles",
+        "reason": "403"
+      },
+      {
+        "name": "Travelodge Hollywood-Vermont/Sunset",
+        "reason": "dead"
+      },
+      {
+        "name": "Warner Center Marriott",
+        "reason": "dead"
+      }
+    ]
+  },
+  "readiness": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "Located see + history + do places",
+        "threshold": "≥ 150",
+        "measured": "3432",
+        "passed": true
+      },
+      {
+        "name": "Located eat places",
+        "threshold": "≥ 100",
+        "measured": "2977",
+        "passed": true
+      },
+      {
+        "name": "Sleep documents",
+        "threshold": "≥ 20",
+        "measured": "78",
+        "passed": true
+      },
+      {
+        "name": "Located sleep places",
+        "threshold": "≥ 10",
+        "measured": "70",
+        "passed": true
+      },
+      {
+        "name": "Pictured located sleep places",
+        "threshold": "≥ 10",
+        "measured": "70",
+        "passed": true
+      },
+      {
+        "name": "Districts",
+        "threshold": "≥ 5",
+        "measured": "7",
+        "passed": true
+      },
+      {
+        "name": "Districts with a neighbourhood document",
+        "threshold": "≥ 5",
+        "measured": "7",
+        "passed": true
+      },
+      {
+        "name": "Pictured share of located see + history places",
+        "threshold": "≥ 50%",
+        "measured": "81%",
+        "passed": true
+      },
+      {
+        "name": "Climate normals",
+        "threshold": "= 12",
+        "measured": "12",
+        "passed": true
+      },
+      {
+        "name": "Curated tours",
+        "threshold": "≥ 3",
+        "measured": "3",
+        "passed": true
+      },
+      {
+        "name": "Tour documents",
+        "threshold": "≥ 3",
+        "measured": "5",
+        "passed": true
+      }
+    ],
+    "thresholds": {
+      "located_sights": 150,
+      "located_eat": 100,
+      "sleep": 20,
+      "located_sleep": 10,
+      "pictured_sleep": 10,
+      "districts": 5,
+      "described_districts": 5,
+      "pictured_sights_share": 0.5,
+      "climate_normals": 12,
+      "curated_tours": 3,
+      "tour_documents": 3
+    }
+  }
+}
