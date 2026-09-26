@@ -1,0 +1,158 @@
+# Los Angeles, California (Wikidata Q65), discovered and reviewed on 2026-09-26.
+# Wikidata has no P150 districts. OSM has 32 level-10 Neighborhood Council areas,
+# mostly in the San Fernando Valley, not a complete partition of the city's
+# Wikivoyage travel districts. Only Los Feliz maps clearly to Northwest; the
+# other boundaries remain unassigned rather than receiving misleading guides.
+
+slug = "los-angeles"
+name = "Los Angeles"
+aliases = ["los angeles", "los ángeles"]
+language = "en"
+wikipedia_lang = "en"
+# OpenStreetMap relation of the city (Wikidata P402): selects the area for the boundaries and the place queries.
+osm_relation = 207359
+# Only used when `osm_relation` is unset.
+osm_area = "Los Angeles"
+# The country the planner names on a trip, and its ISO 3166-1 alpha-2 code.
+country = "United States"
+country_code = "US"
+district_admin_level = 10
+centre = [34.0522, -118.2437]
+timezone = "America/Los_Angeles"
+districts = [
+    "Downtown",
+    "Eastside",
+    "Hollywood",
+    "Northwest",
+    "South",
+    "West",
+    "Wilshire",
+]
+
+# From OSM relation 207359 (Nominatim), rounded outwards.
+[bbox]
+south = 33.65
+west = -118.67
+north = 34.34
+east = -118.15
+
+# The city's photo, shown on the trip overview: the Wikidata image (P18), free on Commons.
+[hero]
+file = "Los Angeles with Mount Baldy.jpg"
+credit = "Alek Leckszas (CC BY-SA 4.0) · Wikimedia Commons"
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/Downtown"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/Eastside"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/Hollywood"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/Northwest"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/South"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/West"
+include_subpages = false
+
+[[wikivoyage]]
+lang = "en"
+root = "Los Angeles/Wilshire"
+include_subpages = false
+
+# 40 pages
+[[wikipedia.categories]]
+name = "Tourist attractions in Los Angeles"
+
+# 90 pages
+[[wikipedia.categories]]
+name = "Museums in Los Angeles"
+
+# 88 pages
+[[wikipedia.categories]]
+name = "Parks in Los Angeles"
+
+# 47 pages
+[[wikipedia.categories]]
+name = "Churches in Los Angeles"
+
+# 41 pages
+[[wikipedia.categories]]
+name = "Monuments and memorials in Los Angeles"
+
+# 145 pages
+[[wikipedia.categories]]
+name = "Buildings and structures in Los Angeles"
+require_coordinates = true
+
+# 17 pages
+[[wikipedia.categories]]
+name = "Synagogues in Los Angeles"
+
+# 52 pages
+[[wikipedia.categories]]
+name = "Theatres in Los Angeles"
+
+# 40 pages
+[[wikipedia.categories]]
+name = "Libraries in Los Angeles"
+require_coordinates = true
+
+# 22 pages
+[[wikipedia.categories]]
+name = "Cemeteries in Los Angeles"
+
+# 91 pages
+[[wikipedia.categories]]
+name = "Art museums and galleries in Los Angeles"
+
+# OSM district name (the boundaries carry no `ref` tag) → the Wikivoyage guide(s) covering it.
+[district_guides]
+"Arleta Neighborhood Council District" = []
+"Canoga Park Neighborhood Council District" = []
+"Chatsworth Neighborhood Council District" = []
+"Encino Neighborhood Council District" = []
+"Granada Hills North Neighborhood Council District" = []
+"Granada Hills South Neighborhood Council District" = []
+"Greater Toluca Lake Neighborhood Council District" = []
+"Greater Valley Glen Neighborhood Council District" = []
+"Lake Balboa Neighborhood Council District" = []
+"Los Feliz Neighborhood Council District" = ["Northwest"]
+"Mission Hills Neighborhood Council District" = []
+"North Hills East Neighborhood Council District" = []
+"North Hills West Neighborhood Council District" = []
+"North Hollywood Neighborhood Council District" = []
+"North Hollywood Northeast Neighborhood Council District" = []
+"North Hollywood West Neighborhood Council District" = []
+"Northridge East Neighborhood Council District" = []
+"Northridge South Neighborhood Council District" = []
+"Northridge West Neighborhood Council District" = []
+"Pacoima Neighborhood Council" = []
+"Panorama City Neighborhood Council District" = []
+"Porter Ranch Neighborhood Council District" = []
+"Reseda" = []
+"Sherman Oaks Neighborhood Council District" = []
+"Studio City Neighborhood Council District" = []
+"Sylmar Neighborhood Council District" = []
+"Tarzana Neighborhood Council District" = []
+"Valley Village Neighborhood Council District" = []
+"Van Nuys Neighborhood Council District" = []
+"West Hills Neighborhood Council District" = []
+"Winnetka Neighborhood Council District" = []
+"Woodland Hills-Warner Center Neighborhood Council District" = []
