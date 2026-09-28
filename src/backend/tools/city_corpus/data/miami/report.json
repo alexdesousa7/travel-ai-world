@@ -1,10 +1,11 @@
 {
   "city": "miami",
   "built_at": "2026-09-21T18:47:27Z",
-  "documents": 1249,
-  "listings": 633,
+  "documents": 1252,
+  "listings": 636,
   "prose": 616,
   "sources": [
+    "curated",
     "open-meteo",
     "openstreetmap",
     "wikipedia",
@@ -60,6 +61,7 @@
       "wikivoyage": 21
     },
     "tour": {
+      "curated": 3,
       "wikivoyage": 1
     },
     "transport": {
@@ -75,7 +77,7 @@
     "practical": 60,
     "see": 182,
     "sleep": 69,
-    "tour": 1,
+    "tour": 4,
     "transport": 11
   },
   "located_by_category": {
@@ -86,6 +88,7 @@
     "practical": 1,
     "see": 152,
     "sleep": 68,
+    "tour": 3,
     "transport": 5
   },
   "pictured_by_category": {
@@ -108,10 +111,10 @@
   "places_by_district": {
     "Coconut Grove": 129,
     "Design District": 50,
-    "Downtown": 382,
-    "Little Havana": 138,
+    "Downtown": 383,
+    "Little Havana": 139,
     "MiMo Boulevard": 62,
-    "Midtown": 104,
+    "Midtown": 105,
     "Overtown": 38
   },
   "small_districts": [],
@@ -153,13 +156,17 @@
     "12"
   ],
   "climate_missing": [],
-  "curated_tours": 0,
+  "curated_tours": 3,
   "reclassified_tours": 1,
   "tours_by_type": {
-    "food": 1
+    "food": 2,
+    "walking": 2
   },
   "tour_names": [
-    "Little Havana Food Tour"
+    "Downtown Miami Historic District Architectural Walking Tour",
+    "Little Havana Food Tour",
+    "Miami Little Havana Food & Culture Walking Tour",
+    "Wynwood Walls Street Art & Neighborhood Walking Tour"
   ],
   "smoke": {
     "see": {
@@ -298,15 +305,25 @@
     "tour": {
       "free walking tour": [
         {
-          "name": "Little Havana Food Tour",
+          "name": "Downtown Miami Historic District Architectural Walking Tour",
+          "district": "Downtown",
+          "score": 34.28
+        },
+        {
+          "name": "Wynwood Walls Street Art & Neighborhood Walking Tour",
+          "district": "Midtown",
+          "score": 34.28
+        },
+        {
+          "name": "Miami Little Havana Food & Culture Walking Tour",
           "district": "Little Havana",
-          "score": 11.61
+          "score": 34.09
         }
       ]
     }
   },
   "readiness": {
-    "passed": false,
+    "passed": true,
     "checks": [
       {
         "name": "Located see + history + do places",
@@ -359,14 +376,14 @@
       {
         "name": "Curated tours",
         "threshold": "≥ 3",
-        "measured": "0",
-        "passed": false
+        "measured": "3",
+        "passed": true
       },
       {
         "name": "Tour documents",
         "threshold": "≥ 3",
-        "measured": "1",
-        "passed": false
+        "measured": "4",
+        "passed": true
       }
     ],
     "thresholds": {

@@ -1,21 +1,22 @@
 {
   "city": "miami",
   "built_at": "2026-09-21T18:47:27Z",
-  "documents": 1249,
-  "listings": 633,
-  "listings_with_coordinates": 521,
+  "documents": 1252,
+  "listings": 636,
+  "listings_with_coordinates": 524,
   "by_source": {
+    "curated": 3,
     "open-meteo": 12,
     "openstreetmap": 453,
     "wikipedia": 520,
     "wikivoyage": 264
   },
   "by_lang": {
-    "en": 1212,
+    "en": 1215,
     "es": 37
   },
   "by_kind": {
-    "listing": 633,
+    "listing": 636,
     "prose": 616
   },
   "by_category": {
@@ -28,17 +29,17 @@
     "practical": 77,
     "see": 184,
     "sleep": 74,
-    "tour": 1,
+    "tour": 4,
     "transport": 38
   },
   "by_district": {
     "(city-wide)": 283,
     "Coconut Grove": 142,
     "Design District": 66,
-    "Downtown": 393,
-    "Little Havana": 149,
+    "Downtown": 394,
+    "Little Havana": 150,
     "MiMo Boulevard": 66,
-    "Midtown": 106,
+    "Midtown": 107,
     "Overtown": 44
   },
   "districts_missing": [],
@@ -88,7 +89,7 @@
     },
     "districts_assigned_by_boundary": 393,
     "tours": {
-      "curated": 0,
+      "curated": 3,
       "reclassified_as_tour": 1,
       "reclassify_entries_missing": 0
     }

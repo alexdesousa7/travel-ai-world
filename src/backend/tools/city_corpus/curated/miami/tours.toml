@@ -1,0 +1,80 @@
+# Tours revisados para Miami.
+
+[[tour]]
+id = "bobbys-little-havana-food-culture"
+name = "Miami Little Havana Food & Culture Walking Tour"
+operator = "Bobby's Bike Hike Miami"
+operator_url = "https://www.bobbysbikehike.com/miami/"
+url = "https://www.bobbysbikehike.com/miami/tour/miami-little-havana-food-culture-walking-tour/"
+tour_type = "food"
+price_model = "paid"
+summary = """
+Paseo guiado por Little Havana con degustaciones cubanas y cubanoamericanas,
+historia migratoria, Domino Park, lugares destacados de Calle Ocho, el memorial
+de Bahía de Cochinos y una parada relacionada con la elaboración de puros."""
+meeting_point = "El Cristo Restaurant"
+address = "1543 SW 8th St, Miami, FL 33135"
+lat = 25.765908
+lon = -80.220383
+start_times = ["11:30", "16:00"]
+days = "daily"
+duration_minutes = 180
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = """
+La cabecera de la página publica tres horas y salidas diarias a las 11:30 y
+16:00. Una sección inferior indica aproximadamente 2,5 horas; conviene revisar
+esa discrepancia en la próxima actualización."""
+
+[[tour]]
+id = "bobbys-wynwood-walls-street-art"
+name = "Wynwood Walls Street Art & Neighborhood Walking Tour"
+operator = "Bobby's Bike Hike Miami"
+operator_url = "https://www.bobbysbikehike.com/miami/"
+url = "https://www.bobbysbikehike.com/miami/tour/wynwood-walls-street-art-walking-tour/"
+tour_type = "walking"
+price_model = "paid"
+summary = """
+Paseo por Wynwood centrado en sus murales, artistas y transformación desde un
+distrito industrial hasta un referente de arte urbano. Incluye la entrada a
+Wynwood Walls y visitas a murales y galerías del vecindario."""
+meeting_point = "La Sandwicherie Wynwood"
+address = "169 NW 23rd St Unit 102, Miami, FL 33127"
+lat = 25.799313
+lon = -80.198466
+start_times = ["09:00", "15:30"]
+days = "daily"
+duration_minutes = 90
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = "Llegar 15 minutos antes. El operador indica que se realiza con lluvia."
+
+[[tour]]
+id = "mcad-downtown-historic-district"
+name = "Downtown Miami Historic District Architectural Walking Tour"
+operator = "Miami Center for Architecture & Design"
+operator_url = "https://miamicad.org/"
+url = "https://miamicad.org/walking-tour/"
+tour_type = "walking"
+price_model = "paid"
+summary = """
+Paseo de arquitectura e historia por el distrito financiero de Downtown Miami,
+guiado por un arquitecto o especialista local. Trata edificios históricos,
+estilos arquitectónicos y las personas que dieron forma al centro de la ciudad."""
+meeting_point = "In front of Julia & Henry's"
+address = "200 E Flagler St, Miami, FL 33131"
+lat = 25.774110
+lon = -80.189885
+start_times = ["10:00"]
+days = "selected dates published on the operator's registration calendar, usually Saturdays"
+duration_minutes = 120
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = "El registro comienza a las 09:45. El operador indica que se realiza con lluvia."
+
+[reclassify]
+include = []
+exclude = []
