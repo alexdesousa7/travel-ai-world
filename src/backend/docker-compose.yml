@@ -1,18 +1,17 @@
-# Local stack: PostgreSQL + core_api + ai_api + the frontend export behind one
-# nginx origin, the same shape as CloudFront in production.
+# Local stack: DynamoDB Local + core_api + ai_api + the frontend
+# export behind one nginx origin, the same shape as CloudFront in production.
 #
 #   just stack-up           full stack: frontend export built for :8080 + everything below
 #   just docker-up          backend only (no Node needed; "/" answers 404, /api/* works)
 #   http://localhost:8080   -> proxy: "/" static export, /api/* core_api, /api/v1/ai/* ai_api
 #   http://localhost:8000   -> core_api directly
 #   http://localhost:8001   -> ai_api directly
+#   http://localhost:8002   -> DynamoDB Local (in memory: tables and items vanish on restart)
 #
 # Each service reads its own .env (copy the .env.example next to it).
-# SECRET_KEY must be identical in both. The ${DB_*} values below are
-# interpolated by Compose, so pass --env-file services/core_api/.env (as
-# `just docker-up` does) to keep PostgreSQL and core_api on the same credentials.
-# PostgreSQL itself receives only those three values, never the service's .env
-# (which holds SECRET_KEY and the Google client secret).
+# SECRET_KEY must be identical in both. core_api keeps everything in DynamoDB
+# Local (ADR 0023) and creates its table there at start; ai_api writes the
+# turn traces to its own table there (ADR 0024). There is no SQL database.
 #
 # The proxy bind-mounts ../frontend/out (the static export, gitignored) read-only.
 # Docker creates a missing bind-mount source as a root-owned directory, which
@@ -42,12 +41,15 @@ services:
     image: travel-ai-world/core-api:local
     env_file: services/core_api/.env
     environment:
-      - DB_SERVER=db_postgres
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb:8000
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_REGION=eu-west-1
     ports:
       - "8000:8000"
     depends_on:
-      db_postgres:
-        condition: service_healthy
+      dynamodb:
+        condition: service_started
     restart: unless-stopped
 
   ai_api:
@@ -59,26 +61,25 @@ services:
     env_file: services/ai_api/.env
     environment:
       - CORE_API_URL=http://core_api:8000
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb:8000
+      # The trace of every turn (ADR 0024), table created at start-up.
+      - INTERACTIONS_TABLE=travel-ai-local-interactions
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_REGION=eu-west-1
     ports:
       - "8001:8000"
+    depends_on:
+      dynamodb:
+        condition: service_started
     restart: unless-stopped
 
-  db_postgres:
-    image: postgres:16-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-postgres}
+  # DynamoDB (ADR 0023), in memory: tables and items vanish on restart. The
+  # services create their tables here (endpoint override set); on AWS
+  # Terraform owns them.
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
+      - "8002:8000"
+    restart: unless-stopped

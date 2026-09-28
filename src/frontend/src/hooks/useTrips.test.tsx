@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, UnauthorizedError } from "@/services/http";
+import { PLANNER_DRAFT_KEY, readSavedTripId, writeSavedTripId } from "@/services/plannerDraft";
 import { readToken, writeSession } from "@/services/session";
 import { deleteTrip, listTrips, updateTrip } from "@/services/trips";
 import { makeTripSummary } from "@/test/fixtures";
@@ -29,6 +30,7 @@ const auth = (isAuthenticated: boolean) =>
     login: vi.fn(),
     loginWithRedirect: vi.fn(),
     completeLogin: vi.fn(),
+    isAdmin: false,
     logout: vi.fn(),
   });
 
@@ -174,6 +176,54 @@ describe("useTrips", () => {
       expect(result.current.trips.map((t) => t.id)).toEqual(["a", "b"]);
       expect(result.current.status).toBe("ready");
     });
+
+    describe("the tab's planner draft (TRA-223)", () => {
+      const DRAFT = JSON.stringify({ version: 1, draft: {} });
+
+      beforeEach(() => {
+        sessionStorage.setItem(PLANNER_DRAFT_KEY, DRAFT);
+        writeSavedTripId("a");
+      });
+
+      afterEach(() => {
+        sessionStorage.clear();
+      });
+
+      it("goes with the trip it was saved as", async () => {
+        listTripsMock.mockResolvedValue([makeTripSummary({ id: "a" })]);
+        deleteTripMock.mockResolvedValue(undefined);
+        const { result } = renderHook(() => useTrips());
+        await waitFor(() => expect(result.current.status).toBe("ready"));
+
+        await act(() => result.current.remove("a"));
+
+        expect(readSavedTripId()).toBeNull();
+        expect(sessionStorage.getItem(PLANNER_DRAFT_KEY)).toBeNull();
+      });
+
+      it("stays when another trip is deleted", async () => {
+        listTripsMock.mockResolvedValue([makeTripSummary({ id: "a" }), makeTripSummary({ id: "b" })]);
+        deleteTripMock.mockResolvedValue(undefined);
+        const { result } = renderHook(() => useTrips());
+        await waitFor(() => expect(result.current.status).toBe("ready"));
+
+        await act(() => result.current.remove("b"));
+
+        expect(readSavedTripId()).toBe("a");
+        expect(sessionStorage.getItem(PLANNER_DRAFT_KEY)).toBe(DRAFT);
+      });
+
+      it("stays when the API refuses", async () => {
+        listTripsMock.mockResolvedValue([makeTripSummary({ id: "a" })]);
+        deleteTripMock.mockRejectedValue(new ApiError(403, "Not yours"));
+        const { result } = renderHook(() => useTrips());
+        await waitFor(() => expect(result.current.status).toBe("ready"));
+
+        await expect(act(() => result.current.remove("a"))).rejects.toBeInstanceOf(ApiError);
+
+        expect(readSavedTripId()).toBe("a");
+      });
+    });
   });
 
   describe("rename", () => {
@@ -181,10 +231,11 @@ describe("useTrips", () => {
       listTripsMock.mockResolvedValue([makeTripSummary({ id: "a", title: "Old" })]);
       updateTripMock.mockResolvedValue({
         id: "a",
-        user_id: 1,
+        user_id: "0b6f7c1e-5d3a-4c8e-9f21-7a4b2c9d1e60",
         phase: "upcoming",
         created_at: "2026-01-01T00:00:00Z",
         updated_at: "2026-01-02T00:00:00Z",
+        planner_session_id: null,
         title: "New",
         city_slug: "budapest",
         city: "Budapest",

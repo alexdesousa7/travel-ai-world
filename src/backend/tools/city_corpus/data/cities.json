@@ -1,5 +1,34 @@
 [
   {
+    "slug": "berlin",
+    "name": "Berlin",
+    "country": "Germany",
+    "country_code": "DE",
+    "aliases": [
+      "berlin",
+      "berlín"
+    ],
+    "centre": [
+      52.5167,
+      13.3833
+    ],
+    "timezone": "Europe/Berlin",
+    "documents": 12240,
+    "built_at": "2026-09-22T16:58:45Z",
+    "intro": {
+      "en": {
+        "text": "Berlin is Germany's capital and largest city. Within the city limits, Berlin in 2022 had a population of 3.7 million.\n\nBerlin is coming into its own again as a cosmopolitan capital of one of Europe's wealthiest nations. \"Arm aber sexy\" (poor but sexy), as a former mayor would have it, Berlin attracts young people, students, and a creative bohème like few other cities in the world.",
+        "source_url": "https://en.wikivoyage.org/wiki/Berlin"
+      },
+      "es": {
+        "text": "Berlín es la capital de Alemania y, a la vez, uno de los 16 estados federales (Länder) que la componen. Con alrededor de 3,5 millones de habitantes en la ciudad y más de 4,5 en su área metropolitana, es también la ciudad más poblada del país.\n\nBerlín es famosa por su historia como capital de Prusia desde épocas medievales y de Alemania desde su creación como Imperio, además de por su carácter cosmopolita y tolerante. Destacan su vibrante vida nocturna, sus múltiples cafés, bares y discotecas, el arte urbano, sus museos, palacios y otros sitios de carácter histórico.",
+        "source_url": "https://es.wikivoyage.org/wiki/Berl%C3%ADn"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Cityscape_Berlin.jpg&width=1200",
+    "image_credit": "Thomas Wolf, www.foto-tw.de (CC BY-SA 3.0) · Wikimedia Commons"
+  },
+  {
     "slug": "bologna",
     "name": "Bologna",
     "country": "Italy",
@@ -37,8 +66,8 @@
       19.0402
     ],
     "timezone": "Europe/Budapest",
-    "documents": 6330,
-    "built_at": "2026-09-17T23:14:43Z",
+    "documents": 6105,
+    "built_at": "2026-09-22T16:58:32Z",
     "intro": {
       "en": {
         "text": "Budapest is the capital city of Hungary. With a unique, youthful atmosphere, world-class classical music scene, a pulsating nightlife increasingly appreciated among European youth, and last but not least, an exceptional offer of natural thermal baths, Budapest is one of Europe's most delightful and enjoyable cities. Due to the exceedingly scenic setting, and its architecture it is nicknamed \"Paris of the East\".\n\nThe modern-day Budapest results from the amalgamation of two historic cities lying right opposite each other over the Danube river.",
@@ -51,6 +80,60 @@
     },
     "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Budapest%2C_Hungary_%28explored%29_%2814995308504%29.jpg&width=1200",
     "image_credit": "Thomas Depenbusch (Depi) (CC BY 2.0) · Wikimedia Commons"
+  },
+  {
+    "slug": "los-angeles",
+    "name": "Los Angeles",
+    "country": "United States",
+    "country_code": "US",
+    "aliases": [
+      "los angeles",
+      "los ángeles",
+      "los-angeles"
+    ],
+    "centre": [
+      34.0522,
+      -118.2437
+    ],
+    "timezone": "America/Los_Angeles",
+    "documents": 7050,
+    "built_at": "2026-09-26T22:06:06Z",
+    "intro": {
+      "en": {
+        "text": "Los Angeles is a city of diverse cultures, and many of them are showcased in and around the city's Downtown. While Downtown L.A. has been considered primarily a business and manufacturing hub for the last several decades, its long-heralded revival has really gained some traction as new restaurants, retail chains, boutiques, and trendy hotels open at a rapid pace.",
+        "source_url": "https://en.wikivoyage.org/wiki/Los_Angeles/Downtown"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Los_Angeles_with_Mount_Baldy.jpg&width=1200",
+    "image_credit": "Alek Leckszas (CC BY-SA 4.0) · Wikimedia Commons"
+  },
+  {
+    "slug": "madrid",
+    "name": "Madrid",
+    "country": "Spain",
+    "country_code": "ES",
+    "aliases": [
+      "madrid"
+    ],
+    "centre": [
+      40.4169,
+      -3.7033
+    ],
+    "timezone": "Europe/Madrid",
+    "documents": 5574,
+    "built_at": "2026-09-22T16:58:22Z",
+    "intro": {
+      "en": {
+        "text": "Madrid is Spain's capital and largest city. A city that has been marked by Spain's varied and tumultuous history, Madrid has some of Europe's most impressive cultural and architectural heritage, which includes grand avenues, plazas, buildings and monuments, world-class art galleries and museums, highly popular football teams, and cultural events of international fame for everyone. Madrid is also renowned for gastronomic delights and a nightlife lasting up until dawn.\n\nMadrid is more often than not disregarded by tourists who gravitate to other parts of the country.",
+        "source_url": "https://en.wikivoyage.org/wiki/Madrid"
+      },
+      "es": {
+        "text": "Madrid es la capital y ciudad más grande de España. Forma parte de la Comunidad de Madrid y se encuentra justo en el centro del país. Mosca",
+        "source_url": "https://es.wikivoyage.org/wiki/Madrid"
+      }
+    },
+    "image_url": "https://commons.wikimedia.org/w/index.php?title=Special:FilePath/Madrid_%2838624991251%29.jpg&width=1200",
+    "image_credit": "Dmitry Dzhus from London (CC BY 2.0) · Wikimedia Commons"
   },
   {
     "slug": "miami",

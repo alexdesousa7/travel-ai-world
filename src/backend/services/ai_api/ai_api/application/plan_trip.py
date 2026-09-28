@@ -18,18 +18,33 @@ import logging
 import re
 import unicodedata
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Literal, cast
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 from travel_common.exceptions import DomainError
 
 from ai_api.application.cards import card_from_document, cards_for, title_of
-from ai_api.application.language import Language, detect_language
-from ai_api.application.photos import ensure_photos
+from ai_api.application.language import (
+    RECENT_MESSAGES,
+    Language,
+    detect_language,
+)
+from ai_api.application.photos import PhotoTally, ensure_photos
+from ai_api.application.progress import PackingProgress
 from ai_api.application.structured import complete_json
+from ai_api.application.tracing import (
+    NullTracer,
+    TurnTracer,
+    clip_query,
+    current_tracer,
+    filters_payload,
+    traced_llm_stream,
+)
 from ai_api.application.validate import Placed, strip_prices, validate_day
 from ai_api.domain.models import (
     City,
@@ -39,7 +54,14 @@ from ai_api.domain.models import (
     Photo,
     RetrievalFilters,
 )
-from ai_api.domain.ports import LLMProvider, PhotoFinder, Retriever, WeatherForecast
+from ai_api.domain.ports import (
+    LLMProvider,
+    PhotoFinder,
+    Retriever,
+    SitePreviewFinder,
+    WeatherForecast,
+)
+from ai_api.domain.tracing import Phase
 from ai_api.infrastructure.static_flight_search import route_for
 from ai_api.prompts import (
     ASK_MISSING_PROMPT,
@@ -89,9 +111,6 @@ logger = logging.getLogger(__name__)
 SIGHT_CATEGORIES = ("see", "do", "tour", "history")
 EAT_CATEGORIES = ("eat",)
 DRINK_CATEGORIES = ("drink",)
-# Categories whose fallback photo is first a pictured place of the same
-# category; anything else (neighbourhood, transport, ...) borrows a sight.
-PHOTO_CATEGORIES = frozenset({"see", "do", "tour", "history", "eat", "drink", "sleep"})
 STAY_CATEGORIES = ("sleep",)
 
 EAT_DRINK = frozenset({*EAT_CATEGORIES, *DRINK_CATEGORIES})
@@ -116,16 +135,20 @@ NAMED_LIMIT = 10
 NAMED_COUNT = 3
 """Most places one ask may name and see offered first (TRA-186)."""
 
-# Activities per part of the day, by pace. The draft is complete on its own
-# (decision 8): every part listed here gets filled when the corpus allows.
+# Activities per part of the day, by pace. The draft is complete on its own:
+# every part listed here gets filled when the corpus allows.
 PART_PLAN: dict[Pace, dict[DayPart, int]] = {
     "relaxed": {"morning": 1, "afternoon": 1, "evening": 1},
     "balanced": {"morning": 1, "afternoon": 1, "evening": 1, "night": 1},
     "intense": {"morning": 2, "afternoon": 2, "evening": 1, "night": 1},
 }
 
+# Whole phrases only (the closing `\b`): "generally", "in general" or "I cannot
+# decide" are questions to answer, not a request to draft the whole trip. The
+# page's button sends "Generate the trip" / "Genera el viaje".
 GENERATE_WORDS = re.compile(
-    r"\b(generate|generar|genera|choose for me|elige|decide|sorpr[eé]nd)",
+    r"\b(?:generate|generar|genera|choose for me|you decide|decide for me"
+    r"|decide t[uú]|elige t[uú]|elige por m[ií]|sorpr[eé]nde(?:me|nos))\b",
     re.IGNORECASE,
 )
 ALTERNATIVES_ASK = re.compile(
@@ -175,6 +198,9 @@ MONTH_NAMES: dict[str, list[str]] = {
         "diciembre",
     ],
 }
+OPEN_METEO_HOST = "api.open-meteo.com"
+"""Where the forecast comes from, as the trace names it."""
+
 NORMALS_PATTERN = re.compile(r"highs\s+(-?\d+)\s*°C\s+and\s+lows\s+(-?\d+)\s*°C")
 
 
@@ -228,6 +254,8 @@ class Intent(BaseModel):
     part: DayPart | None = None
     query: str | None = None
     cheaper: bool = False
+    # Another neighbourhood rather than another hotel in this one (TRA-247).
+    area: bool = False
 
 
 # ─── Turn context ────────────────────────────────────────────────────────────
@@ -243,9 +271,22 @@ class Turn:
     stay_id: str | None
     used_ids: set[str] = field(default_factory=set)
     used_titles: list[frozenset[str]] = field(default_factory=list)
-    # A corpus photo per category (or district), searched once per turn even
+    # A neighbourhood's borrowed corpus photo, by district, searched once per turn even
     # when several cards ask at the same time (they await the same task).
     corpus_photos: dict[str, asyncio.Task[Photo | None]] = field(default_factory=dict)
+    # The request's trace (ADR 0024); records nothing outside a request.
+    tracer: TurnTracer = field(default_factory=NullTracer)
+    # Told of every phase that is announced: the page's progress (TRA-242).
+    on_phase: Callable[[Phase, int | None], None] | None = None
+
+    def phase(
+        self, name: Phase, *, announce: bool = True, days: int | None = None
+    ) -> None:
+        """The steps from here on belong to `name`, in the trace and — unless
+        `announce` is false — on the page, as packing the suitcase."""
+        self.tracer.phase(name)
+        if announce and self.on_phase is not None:
+            self.on_phase(name, days)
 
     def use(self, document: Document) -> None:
         self.used_ids.add(document.id)
@@ -266,9 +307,12 @@ class Turn:
 
 def _read_turn(request: PlannerTurn) -> Turn:
     brief = request.brief or TripBrief.empty()
+    # The traveller's latest words decide against the page's language, never
+    # the whole transcript: an early message does not outvote a later switch.
     texts = [m.content for m in request.history if m.role == "user"]
     if request.message:
         texts.append(request.message)
+    texts = texts[-RECENT_MESSAGES:]
     used: set[str] = set()
     if request.itinerary is not None:
         if request.itinerary.stay_card_id:
@@ -283,7 +327,7 @@ def _read_turn(request: PlannerTurn) -> Turn:
     return Turn(
         request=request,
         brief=brief,
-        language=detect_language(texts),
+        language=detect_language(texts, request.language),
         stay_id=(request.itinerary.stay_card_id if request.itinerary else None),
         used_ids=used,
     )
@@ -441,6 +485,11 @@ def _keep_known(picks: Sequence[Pick], known: Mapping[str, Document]) -> list[Pi
     return kept
 
 
+def _unknown(picks: Sequence[Pick], known: Mapping[str, Document]) -> list[str]:
+    """Ids the model returned that were never retrieved: dropped, counted."""
+    return list(dict.fromkeys(p.id for p in picks if p.id not in known))
+
+
 def _fill(picks: list[Pick], candidates: Sequence[Document], count: int) -> list[Pick]:
     """Top candidates up to `count` when the model picked too few or unknown ids."""
     chosen = {p.id for p in picks}
@@ -509,6 +558,28 @@ def _merge_brief(brief: TripBrief, update: BriefUpdate) -> TripBrief:
     return TripBrief.model_validate(values)
 
 
+def _next_year(day: date) -> date:
+    try:
+        return day.replace(year=day.year + 1)
+    except ValueError:  # 29 February
+        return day + timedelta(days=365)
+
+
+def _ahead(brief: TripBrief, today: date) -> TripBrief:
+    """Dates that are still ahead (TRA-244): a trip that starts today or earlier
+    is ongoing or over, which core_api locks (ADR 0019) — the planner could
+    draft it, but the traveller could never save it. "1 to 3 September" said on
+    24 September means next year's, so a start on or before today moves a
+    year on, and the end with it, the nights unchanged."""
+    start, end = brief.start_date, brief.end_date
+    if start is None or start > today:
+        return brief
+    while start <= today:
+        start = _next_year(start)
+        end = _next_year(end) if end is not None else None
+    return brief.model_copy(update={"start_date": start, "end_date": end})
+
+
 def _day_count(brief: TripBrief, cap: int) -> int:
     if brief.start_date and brief.end_date and brief.end_date >= brief.start_date:
         return min(cap, (brief.end_date - brief.start_date).days + 1)
@@ -523,6 +594,21 @@ def _date_of(brief: TripBrief, day: int) -> date | None:
     return brief.start_date + timedelta(days=day - 1)
 
 
+@dataclass(frozen=True, slots=True)
+class _Finished:
+    """The turn's task is over: `error` is what it raised, if anything."""
+
+    error: Exception | None
+
+
+def _city_name(brief: TripBrief, cities: Sequence[City]) -> str | None:
+    """The destination as the progress names it: the covered city, else as typed."""
+    city = resolve_city(brief.destination, cities)
+    if city is not None:
+        return city.name
+    return (brief.destination or "").strip() or None
+
+
 # ─── The use case ────────────────────────────────────────────────────────────
 
 
@@ -534,6 +620,7 @@ class PlanTrip:
         *,
         weather: WeatherForecast | None = None,
         photos: PhotoFinder | None = None,
+        previews: SitePreviewFinder | None = None,
         cities: Sequence[City],
         max_days: int = 7,
         candidates: int = 8,
@@ -543,6 +630,7 @@ class PlanTrip:
         self._retriever = retriever
         self._weather = weather
         self._photos = photos
+        self._previews = previews
         if not cities:
             raise ValueError("PlanTrip needs at least one city")
         self._cities = tuple(cities)
@@ -551,7 +639,16 @@ class PlanTrip:
         self._today = today
 
     async def __call__(self, request: PlannerTurn) -> AsyncIterator[PlannerEvent]:
-        turn = _read_turn(request)
+        tracer = current_tracer()
+        tracer.phase("open")
+        with tracer.sync_span("chain", "read_turn") as span:
+            turn = _read_turn(request)
+            span.payload["details"] = {
+                "language": turn.language,
+                "used_ids": len(turn.used_ids),
+                "has_stay": turn.stay_id is not None,
+            }
+        turn.tracer = tracer
         action = request.action
         if isinstance(action, SelectAction):
             events = self._on_select(turn, action)
@@ -559,8 +656,65 @@ class PlanTrip:
             events = self._on_remove(turn, action)
         else:
             events = self._on_message(turn)
-        async for event in events:
-            yield event
+        try:
+            async for event in self._with_progress(turn, events):
+                yield event
+        finally:
+            city = resolve_city(turn.brief.destination, self._cities)
+            tracer.city = city.slug if city is not None else tracer.city
+            tracer.language = turn.language
+
+    async def _with_progress(
+        self, turn: Turn, events: AsyncIterator[PlannerEvent]
+    ) -> AsyncIterator[PlannerEvent]:
+        """The turn's events with its progress between them (TRA-242).
+
+        A phase starts inside the turn's own code, often right before a model
+        call that takes seconds; its `progress` must reach the page then, not
+        after. So the turn runs as a task feeding a queue, a phase puts its
+        event on the same queue the moment it starts, and this reads the
+        queue in order. Closing the stream cancels the task.
+        """
+        queue: asyncio.Queue[PlannerEvent | _Finished] = asyncio.Queue()
+        packing = PackingProgress(
+            turn.language,
+            turn.brief,
+            lambda brief: _city_name(brief, self._cities),
+        )
+
+        def announce(step: Phase, days: int | None) -> None:
+            event = packing.phase(step, days=days)
+            if event is not None:
+                queue.put_nowait(event)
+
+        turn.on_phase = announce
+        announce("open", None)
+
+        async def run() -> None:
+            try:
+                async for event in events:
+                    for out in packing.around(event):
+                        queue.put_nowait(out)
+            except Exception as exc:  # re-raised on the reading side
+                queue.put_nowait(_Finished(exc))
+            else:
+                queue.put_nowait(_Finished(None))
+
+        task = asyncio.create_task(run())
+        try:
+            while True:
+                item = await queue.get()
+                if isinstance(item, _Finished):
+                    if item.error is not None:
+                        raise item.error
+                    return
+                yield item
+        finally:
+            turn.on_phase = None
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
     # ── Messages ─────────────────────────────────────────────────────────
 
@@ -594,19 +748,33 @@ class PlanTrip:
             async for event in self._find_options(turn, kind, slot, intent.query):
                 yield event
         elif intent.intent == "change_stay":
-            async for event in self._hotel_options(turn, None, cheaper=intent.cheaper):
+            async for event in self._change_stay(turn, intent, district=None):
                 yield event
         else:
             async for event in self._chat(turn):
                 yield event
+
+    async def _change_stay(
+        self, turn: Turn, intent: Intent, *, district: str | None
+    ) -> AsyncIterator[PlannerEvent]:
+        """A step back to the stay (TRA-247): the neighbourhoods again when the
+        traveller wants another area, else other hotels in the one they chose
+        (`district`, or the current stay's)."""
+        if intent.area:
+            async for event in self._neighbourhood_options(turn):
+                yield event
+            return
+        async for event in self._hotel_options(turn, district, cheaper=intent.cheaper):
+            yield event
 
     async def _before_stay(self, turn: Turn) -> AsyncIterator[PlannerEvent]:
         """Brief first; then neighbourhoods, or the whole draft on request.
 
         Once the neighbourhoods have been offered (the transcript holds the
         sentence that introduced them) and the message changes nothing in the
-        brief, the user is talking, not answering the checklist: answer as chat
-        instead of offering the same carousel again.
+        brief, the user is talking, not answering the checklist. It may be a
+        step back — another neighbourhood, other hotels (TRA-247) — which
+        offers that carousel again; anything else is answered as chat.
         """
         offered = _neighbourhoods_offered(turn)
         if (
@@ -616,24 +784,34 @@ class PlanTrip:
         ):
             brief = await self._extract_brief(turn)
             if brief == turn.brief:
-                async for event in self._chat(turn):
+                intent = await self._classify(turn)
+                if intent.intent == "change_stay":
+                    events = self._change_stay(
+                        turn, intent, district=_hotels_offered_in(turn)
+                    )
+                else:
+                    events = self._chat(turn)
+                async for event in events:
                     yield event
                 return
             turn.brief = brief
         else:
             brief = await self._extract_brief(turn)
+        not_covered: str | None = None
         if brief.destination and resolve_city(brief.destination, self._cities) is None:
-            yield text(
-                planner_text(
-                    turn.language,
-                    "not_covered",
-                    cities=join_names([c.name for c in self._cities], turn.language),
-                    destination=brief.destination,
-                )
+            not_covered = planner_text(
+                turn.language,
+                "not_covered",
+                cities=join_names([c.name for c in self._cities], turn.language),
+                destination=brief.destination,
             )
             brief = brief.model_copy(update={"destination": None})
         turn.brief = brief
+        # The list is written down first, then Kiri says why the destination is
+        # not on it (TRA-243): the page packs in the same order either way.
         yield brief_event(brief)
+        if not_covered is not None:
+            yield text(not_covered)
         if brief.missing():
             async for event in self._ask_missing(turn):
                 yield event
@@ -648,7 +826,7 @@ class PlanTrip:
 
     async def _extract_brief(self, turn: Turn) -> TripBrief:
         if not turn.message:
-            return turn.brief
+            return _ahead(turn.brief, self._today())
         messages = [
             Message("system", self._persona(turn)),
             Message(
@@ -663,11 +841,17 @@ class PlanTrip:
             Message("user", turn.message),
         ]
         try:
-            update = await complete_json(self._provider, messages, BriefUpdate)
+            update = await complete_json(
+                self._provider,
+                messages,
+                BriefUpdate,
+                name="extract_brief",
+                template=BRIEF_EXTRACTION_PROMPT,
+            )
         except DomainError as exc:
             logger.warning("Brief kept as the client sent it: %s", exc.message)
-            return turn.brief
-        return _merge_brief(turn.brief, update)
+            return _ahead(turn.brief, self._today())
+        return _ahead(_merge_brief(turn.brief, update), self._today())
 
     async def _ask_missing(self, turn: Turn) -> AsyncIterator[PlannerEvent]:
         missing = turn.brief.missing()
@@ -684,7 +868,14 @@ class PlanTrip:
             *turn.history(6),
             Message("user", turn.message or "(the user updated the checklist)"),
         ]
-        async for delta in self._provider.stream(messages):
+        turn.phase("zip")
+        async for delta in traced_llm_stream(
+            self._provider,
+            messages,
+            name="ask_missing",
+            tracer=turn.tracer,
+            template=ASK_MISSING_PROMPT,
+        ):
             yield text(delta)
 
     # ── Neighbourhoods and hotels ────────────────────────────────────────
@@ -693,8 +884,15 @@ class PlanTrip:
         query = " ".join(
             ["neighbourhood to stay", *turn.brief.interests, turn.brief.pace or ""]
         )
+        turn.phase("wardrobe")
         found = await self._search(
-            turn, query, ("neighbourhood",), limit=24, districts=(), tier=None
+            turn,
+            query,
+            ("neighbourhood",),
+            limit=24,
+            districts=(),
+            tier=None,
+            purpose="neighbourhoods",
         )
         by_district: dict[str, Document] = {}
         for document in found:
@@ -718,37 +916,38 @@ class PlanTrip:
             count=OPTIONS_COUNT,
             language=LANGUAGE_NAMES[turn.language],
         )
-        picks = await self._pick(turn, prompt, candidates, OPTIONS_COUNT)
+        turn.phase("fold")
+        picks = await self._pick(
+            turn,
+            prompt,
+            candidates,
+            OPTIONS_COUNT,
+            name="rank_neighbourhoods",
+            template=RANK_NEIGHBOURHOODS_PROMPT,
+        )
+        turn.phase("weigh")
         return await self._with_photos(
             turn,
             [card_from_document(known[p.id], self._clean(turn, p.why)) for p in picks],
         )
 
     async def _corpus_photo(self, turn: Turn, card: OptionCard) -> Photo | None:
-        """A picture from the corpus for a card that has none of its own: a
-        sight of the neighbourhood for a neighbourhood card, else a pictured
-        place of the same city and category (a restaurant for a restaurant),
-        credited as that place's photo. One search per category per turn."""
-        if card.category == "neighbourhood" and card.district:
-            photo = await self._pictured_place(
-                turn,
-                f"district:{card.district}",
-                f"{card.district} landmark",
-                SIGHT_CATEGORIES,
-                districts=(card.district,),
-            )
-            if photo is not None:
-                return photo
-        if card.category in PHOTO_CATEGORIES:
-            photo = await self._pictured_place(
-                turn, f"category:{card.category}", card.category, (card.category,)
-            )
-            if photo is not None:
-                return photo
-        # No pictured place of that kind: a sight of the city still shows
-        # where the trip is, which the neutral placeholder cannot.
+        """A picture from the corpus for a neighbourhood card that has none of
+        its own: a pictured sight of that district, credited as that sight's.
+
+        Only a neighbourhood: a district *is* its landmarks, while a
+        restaurant is not another restaurant (TRA-206). A venue the corpus,
+        Commons and its own site have no photo of takes the placeholder.
+        One search per district per turn.
+        """
+        if card.category != "neighbourhood" or not card.district:
+            return None
         return await self._pictured_place(
-            turn, "category:sight", " ".join(SIGHT_CATEGORIES), SIGHT_CATEGORIES
+            turn,
+            f"district:{card.district}",
+            f"{card.district} landmark",
+            SIGHT_CATEGORIES,
+            districts=(card.district,),
         )
 
     async def _pictured_place(
@@ -782,6 +981,7 @@ class PlanTrip:
                 limit=self._candidate_count,
                 districts=districts,
                 tier=None,
+                purpose="photos",
             )
         except DomainError as exc:
             logger.warning("No corpus photo for %s: %s", key, exc.message)
@@ -801,6 +1001,7 @@ class PlanTrip:
         if not cards:
             yield text(planner_text(turn.language, "no_neighbourhoods"))
             return
+        turn.phase("zip")
         yield text(planner_text(turn.language, "neighbourhoods"))
         yield options(
             "nb",
@@ -824,20 +1025,30 @@ class PlanTrip:
             ((), None),
         ]
         found: list[Document] = []
-        for districts, tier_max in attempts:
+        turn.phase("wardrobe")
+        for step, (districts, tier_max) in enumerate(attempts):
             found = await self._search(
                 turn,
                 query,
                 STAY_CATEGORIES,
-                limit=self._candidate_count,
+                # Twice as many, because the unpictured ones are dropped next.
+                limit=self._candidate_count * 2,
                 districts=districts,
                 tier=tier_max,
+                purpose="hotels",
+                ladder_step=step,
             )
-            found = image_first(
+            # A stay is always shown with a photo of itself: the corpus
+            # resolves one for every hotel it keeps (ADR 0022), so a document
+            # without one is stale and is never offered as a place to sleep.
+            found = [
                 d
                 for d in found
-                if is_place(d) and d.id != turn.stay_id and d.id not in turn.used_ids
-            )
+                if is_place(d)
+                and has_image(d)
+                and d.id != turn.stay_id
+                and d.id not in turn.used_ids
+            ][: self._candidate_count]
             if len(found) >= OPTIONS_COUNT:
                 return found, district if districts else None
         return found, None
@@ -846,7 +1057,7 @@ class PlanTrip:
         self, turn: Turn, district: str | None, *, cheaper: bool = False
     ) -> AsyncIterator[PlannerEvent]:
         if district is None and turn.stay_id:
-            stay = await self._fetch_one(turn.stay_id)
+            stay = await self._fetch_one(turn, turn.stay_id)
             if stay is not None:
                 district = _district_of(stay)
         candidates, area = await self._hotel_candidates(turn, district, cheaper=cheaper)
@@ -861,12 +1072,22 @@ class PlanTrip:
             count=OPTIONS_COUNT,
             language=LANGUAGE_NAMES[turn.language],
         )
-        picks = await self._pick(turn, prompt, candidates, OPTIONS_COUNT)
+        turn.phase("fold")
+        picks = await self._pick(
+            turn,
+            prompt,
+            candidates,
+            OPTIONS_COUNT,
+            name="pick_hotels",
+            template=PICK_HOTELS_PROMPT,
+        )
+        turn.phase("weigh")
         cards = await self._with_photos(
             turn,
             [card_from_document(known[p.id], self._clean(turn, p.why)) for p in picks],
         )
         label = area or self._city(turn).name
+        turn.phase("zip")
         yield text(planner_text(turn.language, "hotels", district=label))
         yield options(
             f"hotels:{label}",
@@ -887,6 +1108,7 @@ class PlanTrip:
         if not candidates:
             yield text(planner_text(turn.language, "no_hotels"))
             return
+        turn.tracer.mark_used([candidates[0].id])
         [stay] = await self._with_photos(turn, [card_from_document(candidates[0])])
         async for event in self._set_stay_and_draft(turn, stay):
             yield event
@@ -912,10 +1134,20 @@ class PlanTrip:
         pace: Pace = brief.pace or "balanced"
         plan = PART_PLAN[pace]
 
-        route_ops = self._route_ops(brief)
+        tracer = turn.tracer
+        turn.phase("open")
+        with tracer.sync_span("tool", "flights", service="flights") as span:
+            route_ops = self._route_ops(brief)
+            link = getattr(route_ops[0], "deep_link", None) if route_ops else None
+            span.payload.update(
+                host=urlparse(link).netloc if link else None,
+                status="ok" if route_ops else "empty",
+                count=len(route_ops),
+            )
         if route_ops:
             yield patch(*route_ops)
 
+        turn.phase("wardrobe")
         weather, skeleton = await asyncio.gather(
             self._weather_by_day(turn, stay, days), self._skeleton(turn, stay, days)
         )
@@ -927,33 +1159,48 @@ class PlanTrip:
             # The title goes out before the searches and the pick, so the page
             # shows the day taking shape and the stream never sits silent long.
             yield patch(set_day_title(day, sketch.title))
+            # The trace has a fold and a weigh per day; the page is told the
+            # fold once, as the first day starts, and the weigh with the last.
+            turn.phase("fold", announce=day == 1, days=days)
             picks = await self._day_picks(turn, sketch, days, plan)
+            turn.phase("weigh", announce=day == days)
             ops: list[Op] = []
             placed: list[Placed] = []
             price_seen = False
+            stripped = 0
             slots: list[Slot] = []
             cards: list[OptionCard] = []
             for part in DAY_PARTS:
                 for document, why in picks.get(part, []):
                     clean, found = strip_prices(why)
                     price_seen = price_seen or found
+                    stripped += int(found)
                     slots.append(Slot(day=day, part=part))
                     cards.append(card_from_document(document, clean))
                     turn.use(document)
+            if stripped:
+                with tracer.sync_span("chain", "strip_prices") as span:
+                    span.payload["details"] = {"day": day, "stripped": stripped}
             for slot, card in zip(
                 slots, await self._with_photos(turn, cards), strict=True
             ):
                 ops.append(put_activity(slot, card))
                 placed.append(Placed(slot=slot, card=card))
-            ops.extend(
-                validate_day(
+            with tracer.sync_span("chain", "validate_day") as span:
+                warnings = validate_day(
                     day,
                     placed,
                     pace=pace,
                     on=_date_of(brief, day),
                     language=turn.language,
                 )
-            )
+                span.payload["details"] = {
+                    "day": day,
+                    "warnings": [w.code for w in warnings],
+                }
+                if warnings:
+                    span.level = "warning"
+            ops.extend(warnings)
             if price_seen:
                 ops.append(
                     warn(
@@ -972,6 +1219,7 @@ class PlanTrip:
             if ops:
                 yield patch(*ops)
 
+        turn.phase("zip")
         yield text(planner_text(turn.language, "draft_done", days=days))
 
     def _route_ops(self, brief: TripBrief) -> list[Op]:
@@ -999,9 +1247,15 @@ class PlanTrip:
         end = brief.start_date + timedelta(days=days - 1)
         found: dict[date, DayWeather] = {}
         if self._weather is not None and stay.lat is not None and stay.lon is not None:
-            for w in await self._weather.daily(
-                stay.lat, stay.lon, brief.start_date, end
-            ):
+            async with turn.tracer.span(
+                "tool", "weather", service="open-meteo", host=OPEN_METEO_HOST
+            ) as span:
+                forecast = await self._weather.daily(
+                    stay.lat, stay.lon, brief.start_date, end
+                )
+                span.payload["status"] = "ok" if forecast else "empty"
+                span.payload["count"] = len(forecast)
+            for w in forecast:
                 found[w.day] = w
         result: dict[int, DayWeather] = {}
         normals: dict[int, DayWeather | None] = {}
@@ -1027,7 +1281,9 @@ class PlanTrip:
         """The corpus's monthly normal (`om:climate:<city>:<MM>`), if indexed."""
         city = self._city(turn).slug
         try:
-            found = await self._retriever.fetch([f"om:climate:{city}:{on.month:02d}"])
+            found = await self._fetch(
+                turn, [f"om:climate:{city}:{on.month:02d}"], purpose="climate"
+            )
         except DomainError as exc:
             logger.warning("Climate normals unavailable: %s", exc.message)
             return None
@@ -1076,6 +1332,8 @@ class PlanTrip:
                 self._provider,
                 [Message("system", self._persona(turn)), Message("user", prompt)],
                 Skeleton,
+                name="skeleton",
+                template=SKELETON_PROMPT,
             )
         except DomainError as exc:
             logger.warning("Skeleton unavailable, using plain days: %s", exc.message)
@@ -1106,7 +1364,12 @@ class PlanTrip:
             else:
                 query = f"bar evening {theme}"
             found = await self._candidates(
-                turn, query, categories, sketch.districts, tier
+                turn,
+                query,
+                categories,
+                sketch.districts,
+                tier,
+                purpose=f"candidates:{sketch.day}:{part}",
             )
             return found[: max(self._candidate_count, count)]
 
@@ -1142,10 +1405,18 @@ class PlanTrip:
                     self._provider,
                     [Message("system", self._persona(turn)), Message("user", prompt)],
                     DayPicks,
+                    name=f"day_picks:{sketch.day}",
+                    template=DAY_PICKS_PROMPT,
                 )
+                dropped: list[str] = []
                 for part in plan:
                     allowed = {d.id: d for d in candidates.get(part, [])}
-                    picks_by_part[part] = _keep_known(getattr(answer, part), allowed)
+                    returned: list[Pick] = getattr(answer, part)
+                    picks_by_part[part] = _keep_known(returned, allowed)
+                    dropped.extend(_unknown(returned, allowed))
+                turn.tracer.note_picks(
+                    [p.id for kept in picks_by_part.values() for p in kept], dropped
+                )
             except DomainError as exc:
                 logger.warning(
                     "Day %d picked without the model: %s", sketch.day, exc.message
@@ -1162,6 +1433,7 @@ class PlanTrip:
             )
             chosen.update(p.id for p in picks)
             result[part] = [(known[p.id], p.why) for p in picks]
+        turn.tracer.mark_used(chosen)
         return result
 
     def _part_categories(
@@ -1180,6 +1452,8 @@ class PlanTrip:
         categories: tuple[str, ...],
         districts: Sequence[str],
         tier: int | None,
+        *,
+        purpose: str,
     ) -> list[Document]:
         """Places for a part of the day: the day's districts first, then the
         rest of the city (a bath or a market is worth a tram ride), and only
@@ -1193,7 +1467,7 @@ class PlanTrip:
         collected: list[Document] = []
         seen: set[str] = set()
         wanted = self._candidate_count + OPTIONS_COUNT
-        for districts_try, tier_try in attempts:
+        for step, (districts_try, tier_try) in enumerate(attempts):
             if len(collected) >= wanted:
                 break
             found = await self._search(
@@ -1203,6 +1477,8 @@ class PlanTrip:
                 limit=self._candidate_count + len(turn.used_ids),
                 districts=districts_try,
                 tier=tier_try,
+                purpose=purpose,
+                ladder_step=step,
             )
             taken = [*turn.used_titles, *(title_words(title_of(d)) for d in collected)]
             for document in _dedupe_by_title(found, taken):
@@ -1219,9 +1495,10 @@ class PlanTrip:
         self, turn: Turn, action: SelectAction
     ) -> AsyncIterator[PlannerEvent]:
         group = action.group_id
-        documents = await self._retriever.fetch(action.card_ids)
+        documents = await self._fetch(turn, action.card_ids, purpose="fetch")
         by_id = {d.id: d for d in documents}
         picked = [by_id[i] for i in action.card_ids if i in by_id]
+        turn.tracer.mark_used(d.id for d in picked)
         if not picked:
             yield text(planner_text(turn.language, "stale_group"))
             return
@@ -1244,7 +1521,9 @@ class PlanTrip:
         if slot is None:
             yield text(planner_text(turn.language, "stale_group"))
             return
+        turn.phase("weigh")
         cards = await self._with_photos(turn, cards_for(picked, {}))
+        turn.phase("zip")
         yield patch(*(put_activity(slot, card) for card in cards))
         yield text(
             planner_text(
@@ -1277,6 +1556,8 @@ class PlanTrip:
                     Message("user", turn.message),
                 ],
                 Intent,
+                name="classify",
+                template=INTENT_PROMPT,
             )
         except DomainError as exc:
             logger.warning("Intent unavailable, answering as chat: %s", exc.message)
@@ -1314,8 +1595,13 @@ class PlanTrip:
             categories, tier = SIGHT_CATEGORIES, None
         request = query or turn.message or " ".join(turn.brief.interests)
         await self._seed_used_titles(turn)
+        turn.phase("wardrobe")
         pinned = await self._named_places(turn, turn.message or request)
-        candidates = await self._candidates(turn, request, categories, (), tier)
+        turn.phase("fold")
+        where = f"{slot.day}:{part or 'any'}" if slot is not None else "any"
+        candidates = await self._candidates(
+            turn, request, categories, (), tier, purpose=f"candidates:{where}"
+        )
         candidates = _pin_candidates(
             pinned, [d for d in candidates if d.id not in turn.used_ids]
         )
@@ -1335,8 +1621,17 @@ class PlanTrip:
             count=OPTIONS_COUNT,
             language=LANGUAGE_NAMES[turn.language],
         )
-        picks = await self._pick(turn, prompt, candidates, OPTIONS_COUNT)
+        picks = await self._pick(
+            turn,
+            prompt,
+            candidates,
+            OPTIONS_COUNT,
+            name="pick_options",
+            template=PICK_OPTIONS_PROMPT,
+        )
         picks = _pin_picks(pinned, picks, OPTIONS_COUNT)
+        turn.tracer.mark_used(p.id for p in picks)
+        turn.phase("weigh")
         cards = await self._with_photos(
             turn,
             [card_from_document(known[p.id], self._clean(turn, p.why)) for p in picks],
@@ -1350,6 +1645,7 @@ class PlanTrip:
             )
             group_id = f"slot:{slot.day}:{part or 'morning'}"
             placed = Slot(day=slot.day, part=part or "morning")
+        turn.phase("zip")
         yield text(prompt_text)
         yield options(group_id, kind, prompt_text, cards, slot=placed)
 
@@ -1364,9 +1660,16 @@ class PlanTrip:
                 ),
             ),
         ]
+        turn.phase("wardrobe")
         try:
             passages = await self._search(
-                turn, turn.message, (), limit=6, districts=(), tier=None
+                turn,
+                turn.message,
+                (),
+                limit=6,
+                districts=(),
+                tier=None,
+                purpose="chat",
             )
         except DomainError as exc:
             logger.warning("Answering without retrieval: %s", exc.message)
@@ -1381,7 +1684,14 @@ class PlanTrip:
         messages.extend(turn.history())
         messages.append(Message("user", turn.message))
         answer: list[str] = []
-        async for delta in self._provider.stream(messages):
+        turn.phase("zip")
+        async for delta in traced_llm_stream(
+            self._provider,
+            messages,
+            name="chat",
+            tracer=turn.tracer,
+            template=CHAT_INTRO,
+        ):
             answer.append(delta)
             yield text(delta)
         # The places the prose just named are cards the traveller can add
@@ -1404,6 +1714,7 @@ class PlanTrip:
             if all(d.metadata.get("category") in EAT_DRINK for d in offered)
             else "experience"
         )
+        turn.tracer.mark_used(d.id for d in offered)
         # `why` stays empty: the answer above already explains every one of them.
         cards = await self._with_photos(turn, cards_for(offered, {}))
         yield options(
@@ -1419,14 +1730,20 @@ class PlanTrip:
     async def _with_photos(
         self, turn: Turn, cards: list[OptionCard]
     ) -> list[OptionCard]:
-        """Every card pictured: its own, one found on Commons, a place of the
-        same city and category from the corpus, or the neutral placeholder."""
-        return await ensure_photos(
-            cards,
-            self._photos,
-            city=self._city(turn).name,
-            fallback=lambda card: self._corpus_photo(turn, card),
-        )
+        """Every card pictured: its own, one found on Commons, the preview of
+        the venue's own site, a sight of the district for a neighbourhood
+        card, or the neutral placeholder — never another venue's photo."""
+        tally = PhotoTally()
+        async with turn.tracer.span("chain", "photos") as span:
+            pictured = await ensure_photos(
+                cards,
+                tally.finder(self._photos),
+                city=self._city(turn).name,
+                previews=tally.previews(self._previews),
+                fallback=lambda card: self._corpus_photo(turn, card),
+            )
+            span.payload["details"] = tally.sources(cards, pictured)
+        return pictured
 
     def _city(self, turn: Turn) -> City:
         """The city this turn plans: the brief's destination when it is one
@@ -1437,10 +1754,21 @@ class PlanTrip:
         return PLANNER_PERSONA.format(language=LANGUAGE_NAMES[turn.language])
 
     def _clean(self, turn: Turn, why: str) -> str:
-        return strip_prices(why)[0]
+        clean, found = strip_prices(why)
+        if found:
+            with turn.tracer.sync_span("chain", "strip_prices") as span:
+                span.payload["details"] = {"stripped": 1}
+        return clean
 
     async def _pick(
-        self, turn: Turn, prompt: str, candidates: Sequence[Document], count: int
+        self,
+        turn: Turn,
+        prompt: str,
+        candidates: Sequence[Document],
+        count: int,
+        *,
+        name: str,
+        template: str,
     ) -> list[Pick]:
         known = {d.id: d for d in candidates}
         try:
@@ -1448,12 +1776,17 @@ class PlanTrip:
                 self._provider,
                 [Message("system", self._persona(turn)), Message("user", prompt)],
                 Picks,
+                name=name,
+                template=template,
             )
             picks = _keep_known(answer.picks, known)
+            turn.tracer.note_picks([p.id for p in picks], _unknown(answer.picks, known))
         except DomainError as exc:
             logger.warning("Picking without the model: %s", exc.message)
             picks = []
-        return _fill(picks, candidates, count)
+        filled = _fill(picks, candidates, count)
+        turn.tracer.mark_used(p.id for p in filled)
+        return filled
 
     async def _search(
         self,
@@ -1464,16 +1797,47 @@ class PlanTrip:
         limit: int,
         districts: tuple[str, ...],
         tier: int | None,
+        purpose: str,
+        ladder_step: int | None = None,
     ) -> list[Document]:
+        """One search of the corpus, traced as a `retriever` step with its
+        `purpose` (`neighbourhoods`, `candidates:<day>:<part>`, `hotels`,
+        `named`, `chat`, `photos`) and the step of a widening ladder."""
         filters = RetrievalFilters(
             city=self._city(turn).slug,
             districts=districts,
             categories=categories,
             price_tier_max=tier,
         )
-        return await self._retriever.search(
-            query.strip() or "places", limit=limit, filters=filters
-        )
+        asked = query.strip() or "places"
+        async with turn.tracer.span(
+            "retriever",
+            f"search:{purpose}",
+            purpose=purpose,
+            query=clip_query(asked),
+            filters=filters_payload(filters),
+            k=limit,
+            ladder_step=ladder_step,
+        ) as span:
+            found = await self._retriever.search(asked, limit=limit, filters=filters)
+            turn.tracer.retrieved(span, found)
+        return found
+
+    async def _fetch(
+        self, turn: Turn, ids: Sequence[str], *, purpose: str
+    ) -> list[Document]:
+        """Documents by id (a selection, the trip's places, a climate normal),
+        traced as a `retriever` step."""
+        async with turn.tracer.span(
+            "retriever",
+            f"fetch:{purpose}",
+            purpose=purpose,
+            query=clip_query(" ".join(ids)),
+            k=len(ids),
+        ) as span:
+            found = await self._retriever.fetch(ids)
+            turn.tracer.retrieved(span, found)
+        return found
 
     async def _named_places(self, turn: Turn, ask: str) -> list[Document]:
         """The places the ask names by their own name, deterministically.
@@ -1489,7 +1853,13 @@ class PlanTrip:
             return []
         try:
             found = await self._search(
-                turn, ask, (), limit=NAMED_LIMIT, districts=(), tier=None
+                turn,
+                ask,
+                (),
+                limit=NAMED_LIMIT,
+                districts=(),
+                tier=None,
+                purpose="named",
             )
         except DomainError as exc:
             logger.warning("Looking up the named places failed: %s", exc.message)
@@ -1509,14 +1879,14 @@ class PlanTrip:
         if turn.used_titles or not turn.used_ids:
             return
         try:
-            held = await self._retriever.fetch(sorted(turn.used_ids))
+            held = await self._fetch(turn, sorted(turn.used_ids), purpose="fetch")
         except DomainError as exc:
             logger.warning("Could not read the itinerary's places: %s", exc.message)
             return
         turn.used_titles.extend(title_words(title_of(d)) for d in held)
 
-    async def _fetch_one(self, doc_id: str) -> Document | None:
-        found = await self._retriever.fetch([doc_id])
+    async def _fetch_one(self, turn: Turn, doc_id: str) -> Document | None:
+        found = await self._fetch(turn, [doc_id], purpose="fetch")
         return found[0] if found else None
 
 
@@ -1564,6 +1934,21 @@ def _neighbourhoods_offered(turn: Turn) -> bool:
         m.role == "assistant" and any(m.content.startswith(i) for i in intros)
         for m in turn.request.history
     )
+
+
+def _hotels_offered_in(turn: Turn) -> str | None:
+    """The district the latest hotel carousel was for, read back from the
+    sentence that introduced it: the server keeps no state, and the page's
+    transcript is where the neighbourhood the traveller chose is written."""
+    for message in reversed(turn.request.history):
+        if message.role != "assistant":
+            continue
+        for texts in PLANNER_TEXTS.values():
+            head, _, tail = texts["hotels"].partition("{district}")
+            if message.content.startswith(head) and message.content.endswith(tail):
+                district = message.content[len(head) : len(message.content) - len(tail)]
+                return district.strip() or None
+    return None
 
 
 def _itinerary_summary(turn: Turn) -> str:

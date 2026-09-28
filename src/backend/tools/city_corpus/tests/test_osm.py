@@ -123,6 +123,24 @@ def test_places_keep_named_useful_elements_once() -> None:
     assert stats.timestamp == "2026-09-17T10:00:00Z"
 
 
+def test_small_memorials_are_not_sights() -> None:
+    """Stumbling stones and wall plaques carry a name and a website (Berlin: 6,504
+    of them would have become `see` documents), yet nobody visits one."""
+    memorial = {"historic": "memorial", "website": "https://www.stolpersteine.de"}
+    elements = [
+        _node(1, 47.5, 19.05, name="Anna Levy", memorial="stolperstein", **memorial),
+        _node(2, 47.5, 19.05, name="Here lived X", memorial="plaque", **memorial),
+        _node(
+            3, 47.5, 19.05, name="Shoes on the Danube", memorial="sculpture", **memorial
+        ),
+    ]
+    found = osm.places(
+        [(QUERY["see"], {"elements": elements})], BUDAPEST, osm.OsmStats()
+    )
+
+    assert [p.osm_id for p in found] == ["node/3"]
+
+
 def test_names_match_normalised_and_contained() -> None:
     assert osm.names_match("Café Gerbeaud", "cafe gerbeaud")
     assert osm.names_match("Gerbeaud Cukrászda", "Gerbeaud")  # 8 chars, whole words
@@ -223,6 +241,80 @@ def test_merge_enriches_matches_and_creates_the_rest() -> None:
     assert hotel.url == "https://astra.hu"
     assert hotel.heading_path == "Budapest › Belváros › Sleep"
     assert (stats.merged, stats.new) == (2, 3)
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ({"contact:facebook": "HotelGellert"}, "https://www.facebook.com/HotelGellert"),
+        (
+            {"contact:facebook": "https://www.facebook.com/HotelGellert"},
+            "https://www.facebook.com/HotelGellert",
+        ),
+        (
+            {"contact:facebook": "http://facebook.com/HotelGellert"},
+            "https://facebook.com/HotelGellert",
+        ),
+        (
+            {"facebook": "www.facebook.com/HotelGellert"},
+            "https://www.facebook.com/HotelGellert",
+        ),
+        # `contact:facebook` wins over the bare tag.
+        (
+            {"contact:facebook": "First", "facebook": "Second"},
+            "https://www.facebook.com/First",
+        ),
+        ({"facebook": "Hotel Gellert"}, None),  # a caption, not a page
+        ({}, None),
+    ],
+)
+def test_facebook_pages_are_absolute_urls(
+    tags: dict[str, str], expected: str | None
+) -> None:
+    place = _place("node/50", 47.5, 19.05, Category.SLEEP, name="Hotel Gellért", **tags)
+    document = osm.merge([], [place], BUDAPEST, FixedDistrict(), osm.OsmStats())[0]  # type: ignore[arg-type]
+
+    assert document.facebook == expected
+
+
+def test_facebook_alone_does_not_make_a_document() -> None:
+    """A venue known by nothing but a Facebook page is not a venue (the tag is
+    not in `USEFUL_TAGS`); one that is already a document keeps its page."""
+    stats = osm.OsmStats()
+    elements = [
+        _node(60, 47.5, 19.05, name="Only Facebook", tourism="hotel", facebook="Only"),
+        _node(
+            61,
+            47.5,
+            19.05,
+            name="Hotel Kept",
+            tourism="hotel",
+            website="https://kept.hu",
+            **{"contact:facebook": "HotelKept"},
+        ),
+    ]
+    found = osm.places([(QUERY["sleep"], {"elements": elements})], BUDAPEST, stats)
+
+    assert [p.name for p in found] == ["Hotel Kept"]
+    [document] = osm.merge([], found, BUDAPEST, FixedDistrict(), osm.OsmStats())  # type: ignore[arg-type]
+    assert document.facebook == "https://www.facebook.com/HotelKept"
+
+
+def test_facebook_reaches_a_document_the_element_only_enriches() -> None:
+    documents = [_listing(category=Category.SLEEP, name="Hotel Gellért")]
+    place = _place(
+        "node/70",
+        47.49720,
+        19.04980,
+        Category.SLEEP,
+        name="Hotel Gellért",
+        **{"contact:facebook": "HotelGellert"},
+    )
+
+    assert (
+        osm.merge(documents, [place], BUDAPEST, FixedDistrict(), osm.OsmStats()) == []  # type: ignore[arg-type]
+    )
+    assert documents[0].facebook == "https://www.facebook.com/HotelGellert"
 
 
 @pytest.mark.parametrize(

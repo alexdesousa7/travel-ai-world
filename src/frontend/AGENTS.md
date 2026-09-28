@@ -13,12 +13,16 @@ TypeScript 5, Tailwind CSS v4.
   token refresh before authenticated calls), `session.ts` (the only owner of the `localStorage`
   session: token, profile, refresh token), `cognito.ts` (the deployed sign-in: managed login with
   code + PKCE, `/auth/callback/`, refresh, logout — no SDK), `auth.ts` (the local Google flow
-  through core_api), `chat.ts` (ai_api), `trips.ts` (`listTrips` reads the planner's list of trips from
+  through core_api), `chat.ts` (ai_api), `trips.ts` (`listTrips` reads the trips home's list from
   `GET /api/v1/trips/`; `getTrip` reads the one it reopens from `GET /api/v1/trips/{id}` and
   resolves `null` on 404 and on 403, so someone else's id looks exactly like a missing one; owns
   `toTrip`, the only place that turns a `TripResponse` into the `Trip` view model — ADR 0006),
   `tripDraft.ts` (`tripToDraft`, the pure inverse of the save: a saved trip back as the planner
-  draft it was written from).
+  draft it was written from), `users.ts` (`getMe`: `GET /users/me`, the account's `role` and
+  `subject`; `null` on 401/404) and `admin.ts` (the admin console's reads, TRA-222: `getStats`,
+  `listTurns`, `getTurn`, `listSessionTurns` on ai_api; `listAdminUsers`, `listAdminTrips`,
+  `getAdminTrip` on core_api; every shape the generated one, only the set query params sent,
+  `null` on 404 for the single reads).
   Components never `fetch` or touch the session storage.
   **The writes live there too**: `createTrip`, `updateTrip`, `deleteTrip`, and
   `saveDraftAsTrip(itinerary, brief, city, { title, tripId? })`, which stores a whole planner draft
@@ -42,7 +46,11 @@ TypeScript 5, Tailwind CSS v4.
   hydrates from; a child with no stored card is rebuilt from its columns. Keeping a saved trip in
   step with the draft as it changes, without pressing Save, is still TRA-146.
   `AuthContext.provider` (`"cognito" | "google"`) says which sign-in the build has; it is decided by
-  `NEXT_PUBLIC_COGNITO_DOMAIN` + `NEXT_PUBLIC_COGNITO_CLIENT_ID`.
+  `NEXT_PUBLIC_COGNITO_DOMAIN` + `NEXT_PUBLIC_COGNITO_CLIENT_ID`. `AuthContext.isAdmin` is
+  `user.role === "admin"`: whenever a session with a token exists and `isApiAvailable()`, the
+  provider calls `getMe()` once per signed-in account (on restore and right after a login) and
+  merges the role into the stored profile through `session.ts::updateStoredUser` — the only writer
+  of the storage still. A failure is silent; a profile without a role is not an admin.
   The one sanctioned exception is the planner map's tiles: `maplibre-gl` fetches
   `tiles.openfreemap.org` itself (ADR 0016). That is the library's own traffic, not app code —
   no component gains the right to call `fetch`.
@@ -53,8 +61,10 @@ TypeScript 5, Tailwind CSS v4.
   `getTrip`'s `null` is not-found too); `usePlanner.ts` drives the planner page over the pure reducer in
   `plannerReducer.ts` (every transition, including `applyItineraryOps`, is unit-tested without React;
   the hook owns the stream, aborts it on a new turn, and keeps the per-tab draft through
-  `services/plannerDraft.ts`; `hydrate(draft, tripId)` opens a saved trip in its place and
-  `startNew()` empties it, both moving the id "Save trip" writes to); `useSaveTrip.ts` owns "Save trip" (`idle | saving | saved | error`,
+  `services/plannerDraft.ts`, which also keeps the draft's planner session id — minted per draft,
+  sent with every turn as `session_id` beside `trip_id` so the backend's traces of one draft read
+  together (TRA-220); `hydrate(draft, tripId, sessionId?)` opens a saved trip in its place and
+  `startNew()` empties it with a new session, both moving the id "Save trip" writes to); `useSaveTrip.ts` owns "Save trip" (`idle | saving | saved | error`,
   the title in the reader's language, the resolved `PlannerCity` without which there is nothing
   valid to save, and the id of the trip the draft was saved as — the trip `?trip=` opened, or what
   this tab last wrote, kept beside the draft by `plannerDraft.ts` — so a second press updates that
@@ -77,10 +87,16 @@ TypeScript 5, Tailwind CSS v4.
 - **Two base URLs**: `NEXT_PUBLIC_API_URL` (core) and optional `NEXT_PUBLIC_AI_API_URL` (defaults to
   core, for single-origin deployments). Static builds set neither; features degrade gracefully via
   `isApiAvailable()` / `isAiAvailable()`.
-- Styling: CSS custom properties from `src/app/globals.css` (`--color-bg-primary`, `--color-accent`,
+- Styling: CSS custom properties from `src/app/globals.css` (`--color-bg-primary`, `--color-accent`
+  (sage: links and selection), `--color-action`/`--color-on-action` (the primary action is the text
+  colour as a fill: `bg-action text-on-action`, never `bg-accent text-white`),
   `--color-error/success/warning`, `--header-h`, `--shadow-accent-glow`, `--shadow-field-glow`,
-  `--glass-bg`/`--glass-border` — also `bg-glass-bg`/`border-glass-border` — and the three
-  `--aurora-*` lights); no `tailwind.config.js`.
+  `--glass-bg`/`--glass-border` — also `bg-glass-bg`/`border-glass-border` — the three
+  `--aurora-*` lights and `--aurora-dots`, the `--color-sticker-*` and the `--kiri-*` colours);
+  no `tailwind.config.js`. Fonts: `font-heading` (Outfit), `font-sans` (Plus Jakarta Sans),
+  `font-pixel` (Pixelify Sans, only what Kiri says), `font-mono` (admin only). Kiri is
+  `components/kiri/Kiri.tsx` (TRA-235). `ThemeContext` takes `"light" | "dark" | "system"`
+  (`preference`); `theme` is always the resolved `light | dark`.
   Use the tokens (`text-error`, `pt-(--header-h)`, `shadow-accent-glow`), not palette literals like
   `text-red-400` or `rgba(79,110,247,…)`. Compose classes with `cn()` (`src/utils/cn.ts`) so a
   consumer's `p-8` reliably overrides a primitive's `p-6`. **What the tokens are for — palette,
@@ -97,14 +113,57 @@ TypeScript 5, Tailwind CSS v4.
 - **Lint enforces the boundaries** (`eslint.config.mjs`): no `fetch` outside `src/services/`, no
   `@/types/generated/*` outside `src/services/` and `src/types/`, imports first, `console` is a
   warning. `tsconfig` has `noUncheckedIndexedAccess`:
-  key lookups on i18n ids (`TripStatus`, a `DayPart`) instead of indexing parallel arrays.
+  key lookups on i18n ids (`TripPhase`, a `DayPart`) instead of indexing parallel arrays.
 - Files: components `PascalCase.tsx`, utilities and hooks `camelCase.ts`, locales `<code>.ts`.
 - Routes live in groups: `app/(marketing)/` (public; layout = the aurora, Header and Footer in a
   `min-h-dvh` column whose `main` takes what the footer leaves, includes `auth/callback/`, where
   Cognito sends the browser back) and `app/(app)/` (signed-in; layout = shell + `ProtectedRoute`).
-  Do not wrap pages in `ProtectedRoute` again.
+  Do not wrap pages in `ProtectedRoute` again. `app/(admin)/` is the admin console (TRA-222, ADR
+  0024): its layout is the `app` header (no aurora, plain `bg-bg-primary`), `ProtectedRoute` and
+  `components/admin/AdminGate.tsx` — a spinner while the session is read, `NotAllowed` for anyone
+  who is not an admin, and `AdminShell` for the rest (a 240 px sticky sidebar from `lg`, a tab strip
+  below it, a dense content area with no max width). The header's **Admin** link (`ShieldCheck`,
+  desktop bar and drawer) exists only when `isAdmin`. Pages are static shells over client pages
+  (`admin/page.tsx` overview with `?range=30`, `turns/` with its filters in the URL, `turn/?id=`,
+  `trips/`, `users/`); hooks in `hooks/admin/` own the async state (`useAdminStats`, `useTurns`,
+  `useTurn`, `useAdminUsers` — every page read, `byId` and `bySubject` for the joins — and
+  `useAdminTrips`, the lists over one `useCursorList`); a 401 clears the session, a 403 is
+  `"forbidden"`. `components/admin/` holds the one `DataTable` (sticky header, numeric columns
+  right-aligned in `tabular-nums`, a scrolling wrapper, a real link in the first cell of a row with
+  an `href`), the `Pill` (a coloured dot and the word, never colour alone), the overview's
+  `KpiTiles` (over the pure `overview/kpis.ts`), `RangePicker` and `DailyChart` (hand-drawn SVG over
+  the pure `charts/scale.ts`: bars stacked by status over a separate output-tokens panel, focusable
+  days with a tooltip, an `sr-only` table), and the turns filters and table. `/admin/turn/?id=` is
+  the **turn inspector** (TRA-228): `useTurn` loads it, `useSessionPosition` (over `useSessionTurns`) places
+  it in its planner session (previous / next; `null` without a session or on failure), and
+  `components/admin/turn/TurnInspector.tsx` lays it out — from `lg` two columns (`TravellerView`
+  sticky on the left; on the right `TurnChips`, `TraceWaterfall` with `StepPanel` inline,
+  `BriefPanel` beside `ModelCalls`, `EventTimeline`, one `RetrievalPanel` per search), below `lg`
+  the traveller view and `InspectorSheet` (a bottom sheet, tabs Trace / city-kb / Model / Events).
+  The logic is pure and tested beside it: `waterfall.ts` (rows by phase, parent indent, scale,
+  minimum bar width), `calls.ts` (tabs, JSON vs text, validation chips), `retrievals.ts`
+  (filter chips, distance bars, purposes), `traveller.ts` (the ops read back) and `marks.ts` (the
+  numbered marks ① → events, ② → model output, ③ → the step that warned, ④ → the first city-kb
+  panel; a mark exists only when both ends do). Its fixture is `src/test/fixtures/admin-turn.ts`. `/admin/trip/?user=&id=`
+  (TRA-229) is anyone's saved trip, **read only**: `useAdminTrip` (`getAdminTrip` → `toTrip` →
+  `tripToDraft`; a malformed id is not-found without a request), `components/admin/trip/`
+  `TripHeader` (owner, city, dates, phase, ids with `CopyButton`), `AdminTripView` (the planner's
+  `RouteStrip`, `StayCard`, `TripOverview` and a selected day's `DayCard` with no handlers: no
+  Change, no Remove, no map) and `TripTurns` (`useSessionTurns`, up to 200 turns, over the shared
+  `TurnsTable`). Nothing on that page writes, and nothing may be added that does. Ids and JSON are `font-mono`
+  (JetBrains Mono, `--font-mono`, loaded in `app/layout.tsx`) — the only monospace in the app.
 - **The landing is the field** (TRA-190): `/` is `components/landing/AskField.tsx` and nothing else
-  — the question (the page's only `h1`, and the field's `aria-labelledby`), the field, the button.
+  — the question (the page's only `h1`, and the field's `aria-labelledby`), the field, the button,
+  and under them Kiri (`components/landing/KiriStage.tsx`, TRA-236): she rolls in along a dotted
+  floor, brakes, clicks her handle down and waits; she looks up when the field has the focus
+  (`AskComposer`'s `onFocusChange`), thinks while something is typed (`onAskChange`) and rolls off
+  when a signed-in ask is sent. All of it is `aria-hidden` decoration with nothing to press (no replay). The line under the field ("For now: Budapest, Bologna and Berlin", `hint`) is the
+  cities from `usePlannerCities` once there is a session, and the copy's own list before that.
+  Header (TRA-236): wordmark; language pill, theme button, the one action and the account menu on
+  every page; on a phone only the wordmark and the menu, a sheet from the right
+  (`MobileDrawer`: the trips, "Plan a trip", language and theme as segmented choices —
+  dark / light / system —, Kiri's suitcase with a sticker per city, the account and sign-out).
+  The footer is the copyright and the sources' credit, nothing to press.
   The field itself is `components/common/AskComposer.tsx` (TRA-199), shared with the signed-in home:
   the textarea, the typewriter placeholder, the auto-resize, Enter sends / Shift+Enter breaks the
   line, the send button's "Sending…" state, the conic focus ring and the fade on the way out. Its
@@ -133,6 +192,13 @@ TypeScript 5, Tailwind CSS v4.
   on `/dashboard/`, "Your trips" (`nav.tripsShort` below `sm`) everywhere else. The list's own
   headings are `h3` per group and `h4` per card, so it sits under whatever heading the surface
   gives it.
+  Since TRA-237 the home is the sketch's "Tus viajes": the ask is `AskComposer variant="compact"`
+  (one line, a round send button, the example ending in an ellipsis), and the list opens with
+  Kiri's suitcase — "Your suitcase carries N stickers", one chip per city (`utils/suitcase.ts`
+  `stickerCities`, which the phone menu counts too). `TripSummary` carries `days` and `stops`
+  (every activity and meal), counted by `toTripSummary` from the `itinerary_days` the list already
+  returns, so a card says "Oct 12 – Oct 15, 2026. 4 days, 11 stops"; the title is large, the city
+  gets its own line only when the title does not name it.
   `components/ui/TripCard.tsx` is the cover photo with a scrim of `--color-bg-primary` brought back
   up over it (so the copy clears 4.5:1 on either theme whatever the photo is), a stretched link on
   the title to `/plan/?trip=<id>` (`after:absolute after:inset-0`) and one `⋯` button above it: a
@@ -150,7 +216,7 @@ TypeScript 5, Tailwind CSS v4.
   `tabIndex={-1}`), Tab and Shift+Tab cycle inside it, Escape asks to close and the focus goes back
   to whatever opened it; `lockScroll` freezes the page behind a dialog tall enough to scroll.
   `onEscape: null` refuses Escape, which is what an action already in flight needs (`ConfirmDelete`
-  while the DELETE is on its way). `LoginModal`, `TripEditSheet` and `ConfirmDelete` all use it —
+  while the DELETE is on its way). `LoginModal`, `RenameTripDialog`, `ConfirmDelete` and `MobileDrawer` all use it —
   a new modal uses it too rather than writing a fourth trap. All three sit on the same surface,
   `bg-glass-bg backdrop-blur-xl border-glass-border` over the aurora, never an opaque card. The
   sign-in dialog adds its own `h2` ("Sign in to plan") as the label, the orbit `Mark` from
@@ -170,13 +236,15 @@ TypeScript 5, Tailwind CSS v4.
   ids (ADR 0011). Links to a trip are `/plan/?trip=${encodeURIComponent(id)}`.
 - The planner is `/plan/` (`app/(app)/plan/`, optionally `?q=<prompt>` from the landing's
   `AskField` or `?trip=<uuid>` for a saved trip), the same static-shell + client-page pattern: `PlannerClientPage.tsx` wires
-  `usePlanner` to `components/planner/v2/` (layout A from the TRA-136 mockups: `PlannerLayout`
-  with three desktop columns — chat ≈ 30 %, trip panel ≈ 40 %, map ≈ 30 % — and the same three as
-  mobile tabs, `ChatColumn` with `QuickReplies`, `OptionCarousel` and `OptionCard`, `TripPanel`
+  `usePlanner` to `components/planner/v2/` (the canvas's "Planificador", TRA-238: `PlannerLayout`
+  in two zones — the chat on the left (340–420 px, `.planner-sky`) and the trip on the right, where
+  the map is the background and the panel floats over its left side as a card; on a phone the same
+  two are tabs, Chat and Trip, and in Trip the map fills the pane with the panel as a sheet over its
+  lower part whose handle grows it to 92 % and back — `ChatColumn` with `QuickReplies`, `OptionCarousel` and `OptionCard`, `TripPanel`
   with `BriefChecklist`, `RouteStrip`, `StayCard`, `DayStrip`, `TripOverview`, `DayCard`,
   `WarningBadge` and the
-  `AlternativesSheet` behind every "Change", `ActivityDetail` over the day, `TripMap` in the
-  third column). The **"Change" sheet asks twice over** (TRA-184): it auto-asks on opening
+  `AlternativesSheet` behind every "Change", `ActivityDetail` over the day, `TripMap` behind
+  the trip, `ShareButton` — "Share" copies `/plan/?trip=<id>` once the trip is saved). The **"Change" sheet asks twice over** (TRA-184): it auto-asks on opening
   (TRA-160), a box above the list searches for what the traveller types instead ("a thermal bath")
   and "More options" pages. Both go through `usePlanner.askAlternatives(slot, { guidance, more })`,
   which writes the ask in the reader's language (`alternatives.askMessage` /
@@ -192,10 +260,9 @@ TypeScript 5, Tailwind CSS v4.
   and no day is selected, `TripPanel` renders `TripOverview` in the day `tabpanel` — the city's
   photo and its `intro` in the reader's language with an `en` fallback (`PlannerCity`, TRA-182,
   credited to Wikivoyage), a mosaic of up to six of the itinerary's own photos, and the simplified
-  list of days, each row opening its day. There is no whole-trip map: `PlannerLayout`'s `map` slot
-  is `ReactNode | null` and the overview passes `null`, so the trip pane spans both columns
-  (`lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]`) and the mobile tablist offers Chat and Trip alone
-  (an active Map tab falls back to Trip while rendering). Below the overview the
+  list of days, each row opening its day. The map stays behind the overview too (TRA-238), named
+  "Map of the trip" and centred on the city with no day's pins; `PlannerLayout`'s `map` slot is
+  still `ReactNode | null`, and `null` gives the panel the whole pane. Below the overview the
   itinerary is browsed **one day at a time** (TRA-176): `DayStrip` is a horizontal tablist of a
   leading "Whole trip" chip and one chip per day (date, forecast, how many experiences; arrows,
   Home/End, the selected chip kept in sight by
@@ -210,12 +277,17 @@ TypeScript 5, Tailwind CSS v4.
   also gives the map its `centre`. Day dates come from `src/utils/tripDates.ts`.
   The **map** (TRA-147, ADR 0016) is MapLibre GL over OpenFreeMap's keyless tiles: `mapStops.ts`
   is pure (`toMapStops(itinerary, selectedDay)` → the stay as an unnumbered "H" pin then the day's
-  located cards numbered in slot order, `[]` for the overview's `null`, plus `boundsOf`/`lineOf`),
+  located cards numbered in slot order, `[]` for the overview's `null`, plus `boundsOf`/`lineOf`,
+  and `toOptionMarks(groups, pendingGroupIds)` — the newest unanswered question's located places,
+  drawn as dashed rings labelled "Option: …", decoration that takes no click),
   `TripMap.tsx` is the region and
   the empty state and pulls `TripMapCanvas.tsx` in through `next/dynamic` with `ssr: false`
   (MapLibre needs `window`, and this keeps it out of every other route's bundle), and the canvas
   owns the instance: HTML markers, a straight `LineString` through the day (no routing — travel
-  times stay in `RouteStrip`), `fitBounds` per day and `setStyle` per theme. The canvas also tells
+  times stay in `RouteStrip`, drawn dashed in the text colour), `fitBounds` per day — padded for the
+  panel over the map (`fitPadding`: its width above `lg`, the sheet's share of the height below)
+  and fitted again on the map's `resize`, since on a phone it is born in a hidden tab — and
+  `setStyle` per theme. The canvas also tells
   MapLibre where its worker is (`setWorkerUrl` → `/maplibre/maplibre-gl-worker.js`, TRA-181):
   `scripts/copy-maplibre-worker.mjs` copies the worker and `maplibre-gl-shared` from
   `node_modules` into the gitignored `public/maplibre/` before `next dev`/`next build`
@@ -247,9 +319,8 @@ TypeScript 5, Tailwind CSS v4.
   module-level cache per tab). Merge it with `mergeCardDetail` (the card keeps its `why` and its
   photo); `unavailable` shows the card alone and says nothing, which is what demo mode always does.
   The wire contract
-  (SSE v2, TRA-142) is mirrored by hand in `src/types/planner.ts` until `ai_api` exports it through
-  `just contracts`; when it does, replace the declarations by re-exports of the generated types and
-  keep the helpers. A price is only ever a tier (`€`/`€€`/`€€€`), never a number. The recorded
+  (SSE v2, TRA-142) is generated: change `ai_api/schemas/planner_events.py` / `planner.py` and run
+  `just contracts`; `src/types/planner.ts` only re-exports `components["schemas"]` and adds helpers. A price is only ever a tier (`€`/`€€`/`€€€`), never a number. The recorded
   Budapest session lives in `src/data/planner-demo/session.ts` (real corpus ids, Wikimedia Commons
   photos with credits) and ships: `services/plannerDemo.ts` plays it as a synthetic backend
   whenever `streamPlannerTurn` finds no ai_api URL or a 404/405 on `/planner` (TRA-158), the hook
@@ -269,7 +340,12 @@ TypeScript 5, Tailwind CSS v4.
   every config, no backend) holds the whole contract. **"Save trip" writes the draft** (TRA-191):
   `SaveTripButton` renders `useSaveTrip`'s four states in the panel's header — the press, the
   spinner, "Saved" with the way into `/trip/?id=`, or what to do about a failure; a recorded demo
-  session, which belongs to nobody, keeps the button out of service and says so in its title. The page knows no city by name (TRA-168):
+  session, which belongs to nobody, keeps the button out of service and says so in its title.
+  The first write's id is kept at once (`saveDraftAsTrip`'s `onCreated`), so a retry after a
+  failed child write updates that trip instead of creating another; dates of today or earlier
+  block the save with a line saying why (`blocked: "past-dates"`: core_api would create the trip
+  already locked and refuse its days), and the quick replies' date pickers start tomorrow
+  (TRA-244). The page knows no city by name (TRA-168):
   `services/planner.ts::listCities` reads `GET /ai/planner/cities`, `hooks/usePlannerCities` loads it
   once, and `ChatColumn` turns it into one "Plan a trip to {city}" starter chip per city
   (`SuggestionChips`, only while the transcript is empty) and the destination hint of `QuickReplies`;
@@ -286,6 +362,50 @@ TypeScript 5, Tailwind CSS v4.
   and "Remove" and the alternatives sheet are not rendered — `onChange`/`onRemove` are optional on
   `DayCard`, `StayCard` and `ActivityDetail` for exactly that. core_api answers 409 `TRIP_LOCKED`
   to every one of those writes (ADR 0019), so the rule is enforced on both sides.
+  **`/plan/` without `?trip=` is a new trip** (TRA-223): when the tab's draft was saved as a trip,
+  the page drops it and its id (`clearPlannerDraft()`, in a lazy `useState` initializer that runs
+  before `usePlanner` and `useSaveTrip` read them), so nothing redirects to `?trip=` and `?q=`
+  starts the new trip; a draft never saved is still restored. A `?trip=` that is not found and is
+  the tab's own saved id drops the draft too, and `OpenTripNotice` offers "New trip" beside the
+  link home; `useTrips.remove` drops it when the deleted trip is the tab's. The panel's header
+  offers "New trip" (`onNewTrip`) while a saved, unlocked trip is open.
+  **Kiri's answer is packing a suitcase** (TRA-239, TRA-242). ai_api sends a `progress` event per
+  step (ADR 0025: `step`, `detail`, `sources`), which `parsePlannerEvents` validates and the
+  reducer takes as the truth once one arrives (`packing.live`, `detail`, `sources`); without it
+  (an older backend) the steps are told from the other events. The demo player adds them the way
+  the server would (`services/plannerDemo.ts` `withProgress`, splitting the recorded draft into a
+  patch per day). While streaming, `PackingStatus` is one compact card (the step, its sentence,
+  the clock, a bar of six, the steps a press away); the suitcase waits for the end (TRA-244).
+  When the turn packed the trip — it started with no days (`packing.daysBefore`) and folded some —
+  the canvas's `Suitcase` plays once, at its own pace (`REPLAY`, one stop every `TILE_MS`): the
+  lid's pockets "The list" (the brief) and "From the wardrobe" (the sources), the base's day
+  compartments filling stop by stop, the weight meter, the lid shutting (1.3 s), then the
+  boarding pass. Every other turn closes quietly, and reduced motion skips the replay.
+  The derivation and the rest: `plannerReducer` keeps `packing` (`PACKING_STEPS`: open → list →
+  wardrobe → fold → weigh → zip; `turn_started` opens it, `brief` makes the list, `options` is the
+  wardrobe, an `itinerary_patch` folds, a `warn` op weighs and sets `warned`, `turn_finished` zips,
+  a failure sets `failed`; never persisted, never backwards). `ChatColumn` puts `PackingStatus`
+  under the message that started the turn: while streaming the step, its line, a client-side clock
+  and a bar of six; when done "Suitcase closed in N s" for a turn that drafted the trip, "Added to
+  the suitcase" for the others (TRA-250), (", with a warning"), the `BoardingPass`
+  (brief + itinerary, only when the turn folded something into a trip) and "See how I packed". The
+  traveller's messages are bubbles on the right; Kiri's answers are plain text under her name tag
+  (`KiriTag`, Pixelify). A turn that ends asking, with at most `TAG_MAX_MISSING` (2) fields left
+  (TRA-251), shows a `LuggageTag` ("To decide" dashed,
+  the destination too when ai_api cleared one outside the corpus, TRA-243) over the quick replies,
+  and its suitcase does not close — nothing was packed; a failed turn is `LostLuggage` (`role="alert"`)
+  whose "Retry" is `usePlanner.retry()` — the failed turn sent again as it was, its message first
+  taken out of the transcript (`retry_prepared`) so it is not written twice; no retry on an
+  `unauthorized` failure. Warnings are stickers (`WarningBadge`): overloaded day "Overweight",
+  far and closed "fragile", unverified price "book ahead" colours.
+  **The trip pane follows the canvas's planner** (TRA-244): on a desktop the trip's name, dates,
+  travellers and actions (`TripHeader` `bar`) are portaled into the app header's slot
+  (`Header.tsx` `HEADER_SLOT_ID`, an empty spacer on every other page); below `lg` the same
+  header (`panel`) sits on top of the pane, title on its own line. The day strip is sticky; a day
+  is `DayCard`'s timeline (time, numbered stop, place and hours, a dotted line, "Change" and
+  "Remove"; an empty part is "+ Add a stop"; the next day one press away at its foot) and the
+  stay under it as one line (`StayCard compact`, "Sleeping in {district}"); the route and the
+  full stay card lead the overview only. Scrollers hide their bars (`scrollbar-none`).
   **Assistant text is Markdown** (TRA-183): every assistant bubble goes through
   `components/planner/MarkdownContent.tsx` (`react-markdown` + `remark-gfm`, a short tag
   allow-list — headings become bold paragraphs, links open in a new tab in `text-accent` — styling
@@ -309,17 +429,19 @@ TypeScript 5, Tailwind CSS v4.
   label above a heading anywhere in `src/`. A section says what it holds in its own heading; small
   type is sentence case. What is left of ALL-CAPS in the planner's cards (`DayCard`, `StayCard`,
   `OptionCard`, `ActivityDetail`, `AlternativesSheet`) is card micro-metadata, not eyebrows, and is
-  deliberately untouched. The trip viewer's sections sit on `transparent` `Section`s and glass
-  `Card`s so the aurora runs under the whole page; `Section`'s `primary`/`secondary` backgrounds
-  are unused and a new surface should not reach for them.
+  deliberately untouched. `Section`'s `primary`/`secondary` backgrounds are unused and a new
+  surface should not reach for them.
 - Tests: `renderWithProviders` from `src/test/render.tsx` and the typed builders in
   `src/test/fixtures.ts` (`src/test/fixtures/trip-budapest.ts` when a test needs a whole
-  `TripResponse`, `src/test/fixtures/planner-city.ts` when it needs a `PlannerCity`);
+  `TripResponse`, `src/test/fixtures/planner-city.ts` when it needs a `PlannerCity`,
+  `src/test/fixtures/admin.ts` for the admin routes' answers, shared with `e2e/admin.spec.ts`,
+  and `src/test/fixtures/admin-turn.ts` for the inspector's rich planner turn, its session and a
+  minimal chat turn, shared with `e2e/admin-turn.spec.ts`);
   assert on roles/names/`data-*` state and on `en.ts` copy, not on class names.
   Do not mock `Card`/`Section`/`Container`/`next/link` or `lucide-react` icon by icon.
 - Playwright, three configs over one `e2e/` folder: `playwright.config.ts` (`just test-e2e`: starts
-  `next dev` on :3000, the landing-page smoke suite, for the daily loop), `playwright.static.config.ts`
-  (`just test-e2e-static`: `next build` served on :3100, adds `prerender.spec.ts`; CI's `frontend`
+  `next dev` on :3000, every spec but `prerender.spec.ts`, for the daily loop), `playwright.static.config.ts`
+  (`just test-e2e-static`: `next build` served on :3100, every spec; CI's `frontend`
   job) and `playwright.stack.config.ts` (`just test-e2e-stack`: the running Compose stack on :8080,
   nothing started, every spec; CI's `e2e-stack` job). `trips.spec.ts` is the signed-in suite: there is no
   seed any more, so it creates the trips it needs through the REST API in `beforeAll` and deletes
@@ -336,7 +458,11 @@ TypeScript 5, Tailwind CSS v4.
   "map unavailable" fallback where there is none. `mobile.spec.ts` is the phone-viewport suite
   (`test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })`): it runs in
   all three configs, signs the planner in with a fake unsigned JWT and sends no turn, so it needs no
-  backend either.
+  backend either. `admin.spec.ts` (TRA-222) runs in all three too: every admin route is mocked with
+  `page.route` from `src/test/fixtures/admin.ts`, the stored profile carries `role`, and
+  `/api/v1/users/me` is mocked for the builds that have a core_api to ask. `admin-turn.spec.ts` (TRA-228) signs in
+  the same way and walks the inspector at 1440 px (figures, phases, model tabs, marks, a step
+  opened with Enter, previous / next) and at 390 px (the sheet, its four tabs, no sideways scroll).
 
 ## Commands
 

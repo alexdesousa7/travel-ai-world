@@ -13,8 +13,8 @@ docker build --build-arg SERVICE=ai_api   -t travel-ai-world/ai-api:local .
 
 Build context is the workspace root (`src/backend/`) because both images need `uv.lock` and
 `libs/travel_common`. The dependency layer is cached until a manifest changes; packages are
-installed non-editable so the runtime stage carries no source tree. Migrations are copied only
-when the service has an `alembic/` directory; the shared entrypoint runs them if present.
+installed non-editable so the runtime stage carries no source tree. The shared entrypoint only
+serves: there are no migrations (`core_api` keeps its data in DynamoDB, ADR 0023).
 
 CI publishes `ghcr.io/manupm87/travel-ai-world/core-api` and `.../ai-api` (tags: commit SHA and
 `latest`, platform `linux/amd64`) on every push to `main` touching `src/backend/`
@@ -36,28 +36,10 @@ uvicorn on `AWS_LWA_PORT=8000` and waits for the readiness path before the first
 The values are baked into the image (one tiny stage per service in the `Dockerfile`), so
 Terraform does not have to repeat them; the function's own environment can still override them.
 
-**Commands.** `core_api/ops.py` holds the commands an image can run instead of serving:
-`migrate` (`alembic upgrade head`), and nothing else: it is the whole surface `POST /events`
-exposes, so a command has to earn its place there (ADR 0019 retired the demo seed). Outside Lambda
-the entrypoint applies migrations at start, as before (`MIGRATE_ON_START=false` opts out). On
-Lambda (`AWS_LAMBDA_FUNCTION_NAME` is set) it does not, so a cold start never races a schema
-change; the deploy workflow runs them instead:
-
-```bash
-# CLI form: any container with the core-api image
-docker run --rm --env-file services/core_api/.env travel-ai-world/core-api:local migrate
-
-# Compose form: the running core_api container (its DB_SERVER already points at the stack's PostgreSQL)
-docker compose exec core_api /app/entrypoint.sh migrate
-
-# Lambda form: the adapter delivers a non-HTTP payload as POST /events (404 outside Lambda; never routed by the gateway)
-aws lambda invoke --function-name <core-api function> --cli-binary-format raw-in-base64-out \
-  --payload '{"command": "migrate"}' /dev/stdout
-```
-
-Every form ends in `core_api.ops.run_command`; an unknown command answers 400 (exit code 1 from
-the CLI). The deployed sequence, and what the TRA-196 migration deletes on its way through, is in
-[deploy.md](deploy.md#what-the-tra-196-migration-does-to-production-data).
+**No commands.** The images serve HTTP and nothing else: there is no direct-invocation
+command surface (the one-off `copy-from-postgres` and its `POST /events` route went with RDS in
+TRA-219). Developer-only helpers such as `python -m core_api.devtools token` run from a shell
+(`docker compose exec core_api ...` in the Compose stack), never through the function.
 
 **Trying it locally with the Runtime Interface Emulator** (optional; needs Docker and the
 [`aws-lambda-rie`](https://github.com/aws/aws-lambda-runtime-interface-emulator) binary in `~/.aws-lambda-rie/`):
@@ -72,12 +54,12 @@ curl -s -XPOST http://localhost:9000/2015-03-31/functions/function/invocations \
 
 The emulator does not support response streaming, hence `buffered` for the check; streaming is
 verified on the real function (TRA-121). CI checks on every PR that the adapter binary is in the
-image with the right settings and that `migrate` exits instead of serving.
+image with the right settings.
 
 ## Local stack
 
 ```bash
-just stack-up       # frontend export for :8080 + proxy + core_api + ai_api + PostgreSQL
+just stack-up       # frontend export for :8080 + proxy + core_api + ai_api + DynamoDB Local
 just docker-up      # the same without the frontend build (backend only, no Node needed)
 just docker-logs ai_api
 just docker-down    # or: just stack-down
@@ -88,13 +70,15 @@ just docker-down    # or: just stack-down
 | <http://localhost:8080> | nginx: the frontend export at `/`, `core_api` at `/api/*`, `ai_api` at `/api/v1/ai/*` |
 | <http://localhost:8000/docs> | core_api directly |
 | <http://localhost:8001/api/v1/ai/docs> | ai_api directly |
-| localhost:5432 | PostgreSQL (`DB_USER`/`DB_PASSWORD` from `core_api/.env`) |
+| <http://localhost:8002> | DynamoDB Local (`amazon/dynamodb-local`, in memory: empty after every restart) |
 
-`docker-compose.yml` reads `services/core_api/.env` and `services/ai_api/.env`; `DB_SERVER` and
-`CORE_API_URL` are overridden to the Compose service names. PostgreSQL receives only `POSTGRES_*`
-(interpolated from `DB_*` via `--env-file`), never the whole `.env`. The proxy waits for both
-services' health checks before it starts routing. Migrations run when `core_api` starts
-(`MIGRATE_ON_START`, see above), in both recipes.
+`docker-compose.yml` reads `services/core_api/.env` and `services/ai_api/.env`; `CORE_API_URL`
+is overridden to the Compose service name, and both services get
+`DYNAMODB_ENDPOINT_URL=http://dynamodb:8000` with dummy AWS keys (DynamoDB Local accepts any).
+Without Docker, `just dynamodb-local` serves the same API on `:8002` with moto. The proxy waits
+for both services' health checks before it starts routing. `core_api` depends on DynamoDB Local
+and creates its table there when it starts; a restarted stack starts empty. There is no SQL
+database in the stack.
 
 ## The stack as deployed
 
@@ -156,8 +140,8 @@ E2E_TOKEN=$(docker compose exec -T core_api python -m core_api.devtools token yo
 ```
 
 `just dev-token` runs `python -m core_api.devtools token <email>` with the host's
-`services/core_api/.env` (the Compose stack publishes PostgreSQL on :5432, so the same `.env`
-reaches it), creating the account when it is new; the container form needs no Python on the host
+`services/core_api/.env` (the Compose stack publishes DynamoDB Local on :8002, the `.env`'s
+`DYNAMODB_ENDPOINT_URL`, so the same `.env` reaches it), creating the account when it is new; the container form needs no Python on the host
 and is what CI uses. Either way the
 token is the HS256 JWT `POST /auth/google` would issue, signed with the stack's `SECRET_KEY`. The
 suite writes it into `localStorage` before the first navigation and is skipped without
@@ -181,9 +165,9 @@ build in under a minute from the cached dependency layer, so it uses no registry
 
 ## Troubleshooting
 
-- `core_api` restarts in a loop → migrations failed; `just docker-logs core_api`.
+- `core_api` restarts in a loop → it cannot reach DynamoDB Local or create its table; `just docker-logs core_api`.
 - A Lambda function never becomes ready → the readiness path answered non-2xx; check the function
   logs for the adapter's line and the app's startup errors (`SECRET_KEY`/`COGNITO_*`, database).
 - Chat answers arrive all at once → a proxy is buffering; nginx config sets `proxy_buffering off`
   and the app sends `X-Accel-Buffering: no`.
-- `ai_api` answers 503 on `/api/v1/ai/health/provider` → `NVIDIA_API_KEY` missing.
+- `ai_api` answers 503 on `/api/v1/ai/health/provider` → the active provider is not configured (`NVIDIA_API_KEY`, or `BEDROCK_CHAT_MODEL` with `LLM_PROVIDER=bedrock`).

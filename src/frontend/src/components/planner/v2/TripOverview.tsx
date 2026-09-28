@@ -56,8 +56,8 @@ function photosOf(itinerary: ItineraryDraft): Photo[] {
  * The whole trip at a glance (TRA-177): the destination's photo, what the
  * corpus says about it, a mosaic of the places the itinerary picked and the
  * simplified list of days. It is what the planner shows whenever an itinerary
- * exists and no day is selected, across the trip and map columns — there is no
- * whole-trip map, so the map column is simply not there while it is on screen.
+ * exists and no day is selected; the map stays behind the trip, centred on the
+ * city with no day's pins (TRA-238).
  *
  * A day's row opens that day, which is where the per-day view (`DayCard` and
  * the map beside it) takes over.
@@ -103,7 +103,7 @@ export function TripOverview({ itinerary, brief, city, onSelectDay }: TripOvervi
             className="aspect-[16/9] w-full rounded-2xl object-cover lg:aspect-[16/7]"
           />
           {hero.credit && (
-            <figcaption className="text-[10px] text-text-secondary">
+            <figcaption className="text-xs text-text-secondary">
               {interpolate(t.plan.card.imageCredit, { credit: hero.credit })}
             </figcaption>
           )}
@@ -124,7 +124,7 @@ export function TripOverview({ itinerary, brief, city, onSelectDay }: TripOvervi
             href={intro.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1 rounded-full border border-border-soft px-2 py-0.5 text-[10px] uppercase tracking-wider text-text-secondary transition hover:border-accent/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            className="inline-flex w-fit items-center gap-1 rounded-full border border-border-soft px-2 py-0.5 text-xs uppercase tracking-wider text-text-secondary transition hover:border-accent/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             {p.introCredit}
             <ExternalLink size={10} aria-hidden="true" />
@@ -187,7 +187,7 @@ export function TripOverview({ itinerary, brief, city, onSelectDay }: TripOvervi
                 </span>
 
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-text-secondary">
+                  <span className="text-xs font-medium uppercase tracking-wider text-text-secondary">
                     {interpolate(p.day, { day: day.day })}
                   </span>
                   {day.title && (

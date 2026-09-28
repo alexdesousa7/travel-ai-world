@@ -135,7 +135,7 @@ export function AlternativesSheet({
       >
         <div className="flex items-start gap-3 border-b border-border px-4 py-3">
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-text-secondary">
+            <span className="text-xs font-medium uppercase tracking-wider text-text-secondary">
               {a.title}
             </span>
             <h2 id={titleId} className="text-base font-medium text-text-primary">
@@ -176,14 +176,14 @@ export function AlternativesSheet({
             <button
               type="submit"
               disabled={disabled || guidance.trim().length === 0}
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-action px-3 py-1.5 text-xs font-medium text-on-action transition hover:bg-action-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {a.guideSubmit}
             </button>
           </form>
         )}
 
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 py-4">
+        <div className="flex flex-1 flex-col gap-3 scrollbar-none overflow-y-auto overscroll-y-contain px-4 py-4">
           {group
             ? cards.map((card) => (
                 <OptionCard

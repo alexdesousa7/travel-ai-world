@@ -1,100 +1,148 @@
 # AGENTS.md — core_api
 
-Read [`backend/AGENTS.md`](../../AGENTS.md) first. `core_api` owns authentication, users, trip data and chat conversations.
+Read [`backend/AGENTS.md`](../../AGENTS.md) first. `core_api` owns authentication, users, trip data and chat conversations,
+all of it in **one DynamoDB table** ([ADR 0023](../../../../docs/architecture/adr/0023-dynamodb-data-store.md)).
 
-## Request lifecycle (N-tier, dependencies point inward)
+## Layers (dependencies point inward)
 
 ```text
 api/v1/endpoints/*.py   HTTP only: parse, inject, call the service, return a schema
       ↓
-services/*.py           business rules; raise travel_common.exceptions.*; never import FastAPI
+services/*.py           use cases; raise travel_common.exceptions.*; never import FastAPI or boto3
       ↓
-repositories/*.py       SQLAlchemy only; never import Pydantic schemas
-      ↓
-models/*.py             tables (DeclarativeBase, SQLAlchemy 2 style)
+domain/ports.py         repository protocols the services depend on
+domain/models.py        plain dataclasses + their rules (check_invariants, phase, ensure_editable)
+      ↑
+infrastructure/dynamo/  the only adapter: table.py, keys.py, codec.py, repositories.py, backfill.py
 ```
 
+- **Only `infrastructure/dynamo/` imports boto3/botocore**, and nothing imports `devtools`
+  or `ops` (`tests/test_import_boundaries.py` checks all three).
 - **Settings are injected**, never imported as a singleton: `Depends(get_settings)` in dependables,
-  `get_settings()` at the composition root (`main.py`, `alembic/env.py`). The engine is built in the
-  app `lifespan` and the session factory lives on `app.state`; `get_db` reads it from the request.
-- `api/deps.py`: `get_current_user` runs the `Authenticate` use case (`services/auth_service.py`):
-  `travel_common.security.verify_token` **plus** the database. Local mode looks the account up by
-  the token's subject; Cognito mode upserts it from the claims (profile and `admin` group) on every
-  request. Inactive accounts are 401 in both. It returns an `AccountPrincipal`
-  (`auth/principal.py`: a `Principal` plus the `users.id`); `provide(Service, Model[, Repository])`
-  wires services — do not write per-entity factories.
+  `get_settings()` at the composition root (`main.py`). The app `lifespan` calls
+  `infrastructure/dynamo/table.py::open_table`: it builds the client
+  (`dynamodb_client(DYNAMODB_ENDPOINT_URL, AWS_REGION)`), puts a `DynamoTable` on `app.state`, and
+  creates the table **only when `DYNAMODB_ENDPOINT_URL` is set** (local, Compose, tests; on AWS
+  Terraform owns `travel-ai-core`). `CORE_TABLE` defaults to `travel-ai-local-core`, a name no real
+  table has.
+- `api/deps.py`: `get_table(request)` → `get_*_repository` → `get_*_service`. `get_current_user`
+  runs the `Authenticate` use case (`services/auth_service.py`): `travel_common.security.verify_token`
+  **plus** the account. Local tokens name the account by its id (a UUID; anything else is 401);
+  Cognito mode upserts the account from the claims (profile and `admin` group) and **writes only when
+  something changed**, so a request does not cost a write. Inactive accounts are 401 in both. It
+  returns an `AccountPrincipal` (`auth/principal.py`: a `Principal` plus the account's UUID).
 - **Local-mode sign-in is a use case** (`services/auth_service.py::SignIn`) behind the
   `IdentityVerifier` port (`auth/google.py`); `GoogleTokenInfoVerifier` is its only adapter. The
   `/auth` router is mounted only when `AUTH_MODE=local` (`api/v1/api_router.py::build_api_router`);
   with Cognito the pool issues the tokens. Tests override `get_identity_verifier` with a fake, and
   `tests/api/test_cognito_mode.py` builds a second app with `CognitoTestIssuer` settings.
-- **`Trip` is the aggregate root** (ADR 0005). Child collections are nested under
-  `/trips/{trip_id}/...` and authorised once by `get_owned_trip` (or `get_owned_itinerary_day`
-  for activities and meals). Services scope every query with `get_in(id, trip_id=...)` /
-  `list(page, trip_id=...)`; a child under another parent is a 404.
-- **A trip is one city, and its phase is derived** (ADR 0019). `Trip` carries `city_slug` (the
-  planner's name for the city, and the key that reopens the trip), `city`, `country`,
-  `country_code`, the centre, `origin` and `budget_tier`; there is no `destinations` table and no
-  stored `status`. `phase_of(start, end, today)` (in `models/trip.py`) answers
-  `upcoming | ongoing | past` and `TripResponse` exposes it as a `computed_field` on the server's
-  UTC date — nothing writes it, so a trip becomes ongoing and then past on its own.
+- **`Trip` is the aggregate root** (ADR 0005) and **one item**: its days, stays and journeys, and each
+  day's activities and meals, are embedded in the trip. Child collections are nested under
+  `/trips/{trip_id}/...` and resolved once by `get_owned_trip_node` / `get_owned_itinerary_day` (reads)
+  or their `editable` twins (writes), which return a `Located(trip, parent)`. A child write is: change
+  the aggregate, `trips.save(trip)` (`services/trip_children.py`: one `ChildKind` per collection,
+  generic list/get/create/update/delete). A child's `updated_at` moves when it is patched; the trip's
+  only when its own fields are. A child under another trip is a 404: the lookup never leaves the
+  caller's trip.
+- **A trip is one city, and its phase is derived** (ADR 0019). `phase_of(start, end, today)` (in
+  `domain/models.py`) answers `upcoming | ongoing | past` and `TripResponse` exposes it as a
+  `computed_field` on the server's UTC date — nothing stores it.
 - **Ongoing and past trips are read-only.** `Trip.ensure_editable()` raises `TripLocked` (409,
-  `TRIP_LOCKED`); `TripService.update` calls it, and **writes** resolve their parent through
-  `get_editable_trip` / `get_editable_itinerary_day` while reads keep `get_owned_*`. The lock is
-  the aggregate's, so it covers every child without an endpoint mentioning it. `DELETE
-  /trips/{id}` is never locked: removing a trip is not changing it.
-- **The planner's cards ride along.** `activities` and `meals` carry `source_ref` (the corpus id,
-  indexed), `part_of_day` and `card`; `accommodations` carry `source_ref` and `card`. `card` is an
-  opaque JSON object: core_api stores it and returns it untouched, and never interprets it — the
-  shape is ai_api's (`OptionCard`) and the two services share no code.
-- **`ChatThread` is a second root** (ADR 0013), owned by a user like a trip:
-  `get_owned_chat_thread` authorises once (403 for another user's thread) and its messages live
-  under `/chat-threads/{thread_id}/messages/`. Messages are append-only (list and append, no
-  PATCH or DELETE): `ChatMessageService.append` checks the entity and
-  `ChatMessageRepository.append` moves the thread's `updated_at`. Neither model declares
-  relationships on purpose: the foreign keys cascade in the database, so nothing lazy-loads.
-- `repositories/base.py` and `services/base.py` are generic and cover every child entity. A new
-  child entity is: `models/x.py` → register in `models/__init__.py` → `schemas/x.py`
-  (`XBase`, `XCreate`, `XUpdate = partial(XBase, "XUpdate")`, `XResponse`) → one `ChildResource`
-  entry in `api/v1/resources.py` → `just migration "add x"` → `just contracts`. Subclass
-  `BaseRepository`/`BaseService` only when the entity needs custom queries or rules (`Trip`, `User`).
-- Ownership: anything a user owns goes through `TripService.get_owned(id, principal)` (403 for
-  another user's trip), `ChatThreadService.get_owned` or `UserService.get_owned`.
-- Pagination: every list endpoint takes `Page` via `Depends(page_params)` (`skip`, `limit ≤ 500`).
-- Partial updates are `PATCH`; `PUT` is not used.
-- Aggregates the API returns whole must eager-load children (`lazy="selectin"`); async serializers
-  cannot lazy-load.
-- **Models** use the SQLAlchemy 2 typed style (`Mapped[...]`, `mapped_column`) and compose the mixins
-  in `models/base.py` (`UUIDPrimaryKeyMixin`, `TimestampMixin`, `TripChildMixin`,
-  `ItineraryDayChildMixin`, `CoordinatesMixin`, `LocationSnapshotMixin`, `PlannerCardMixin`,
-  `PartOfDayMixin`). Closed vocabularies live in
-  `models/enums.py` and are reused by the schemas (and therefore by the OpenAPI contract).
-- **Entity rules live on the entity**: override `check_invariants()` (see `Trip`,
-  `Accommodation`, `Transportation`) and raise `travel_common.exceptions.*`. `BaseService` calls it
-  before every create and update, so PATCH cannot break what POST enforces. Single-field formats
-  (`TimeOfDay`, `CountryCode`, `Money`, `Rating`, ...) are the `Annotated` types in `schemas/_types.py`.
-- **One transaction per request**: `db/session.py::unit_of_work` commits when the request succeeds
-  and rolls back on any exception (domain errors included). Repositories only `flush`; never call
-  `commit()` from a repository or a service.
-- **No demo seed** (ADR 0019): trips are made in the planner and saved through the API. `migrate`
-  is the whole of `ops.COMMANDS`, and therefore the whole surface `POST /events` exposes.
-- **Dev-only helpers live in `devtools.py`, never in `ops.py`**: `python -m core_api.devtools token
+  `TRIP_LOCKED`); `TripService.update` calls it, and writes resolve their parent through the
+  editable dependencies. `DELETE /trips/{id}` is never locked.
+- **The planner's cards ride along.** Activities, meals and accommodations carry `source_ref` and
+  `card`, an opaque JSON object core_api stores (as a JSON string, so `null`s and floats survive) and
+  returns untouched; its shape is ai_api's (`OptionCard`).
+- **`ChatThread` is a second root** (ADR 0013), stored without its messages. Messages are
+  append-only (list and append): `ChatMessageRepository.append` writes the message and moves the
+  thread's `updated_at` and `version` in one `TransactWriteItems`, and never lets a message sort
+  before the last one (`created_at = max(now, last + 1 µs)`).
+- **Ownership is the key.** Trips and threads live under `USER#<owner>`: `get_owned_*` reads with
+  the caller as owner, so **another user's trip or thread is 404**, not 403. User endpoints keep
+  their rules: `PATCH/DELETE /users/{id}` by someone else is 403, admin reads are 403 for non-admins.
+- **Admin reads** (ADR 0024) live in `api/v1/endpoints/admin.py` under `/admin`: every trip
+  (`TripService.list_all` → GSI2, newest first), any trip by owner and id (`get_any`), every
+  account (`UserService.list_page` → GSI1), each by cursor. The router's dependency
+  `audit_admin_read` checks the admin and logs `admin_read subject=… route=… target=…` once.
+- **`User.subject`** is the `sub` of the account's tokens: `upsert_from_identity` writes the
+  identity's subject (Cognito) or the account id (`subject_is_account_id=True`, local sign-in;
+  `devtools` sets it too), only when it changes. The AI traces name users by it, never by email.
+  `google_id` is kept as it was. **`Trip.planner_session_id`** links a trip to the planner
+  turns that made it; writable like any trip field, and locked with them.
+- Pagination: every list endpoint of the caller's own data takes `Page` via `Depends(page_params)` (`skip`, `limit ≤ 500`); the admin lists go by `cursor` instead;
+  a user's trips and threads come from one `Query` and are sorted and sliced in the service.
+- Partial updates are `PATCH`; `PUT` is not used. `services/__init__.py::apply_changes` sets the
+  fields the client sent, re-runs `check_invariants` and moves `updated_at`: PATCH cannot break
+  what POST enforces, and a rejected change is never saved. `partial()` keeps each field's type
+  (`null` only where the base allows it) and its constraints, so a PATCH body is validated like a
+  POST body (`tests/api/test_invariants.py::test_patch_refuses_what_post_refuses`): a value saved
+  past the schema would fail the response model on every later read.
+- **Entity rules live on the entity** (`domain/models.py`): `check_invariants()` raises
+  `travel_common.exceptions.*`. Single-field formats (`TimeOfDay`, `CountryCode`, `Money`, ...) are the
+  `Annotated` types in `schemas/_types.py`; closed vocabularies are `domain/enums.py`.
+
+## The table (ADR 0023)
+
+| Item | `PK` | `SK` |
+|---|---|---|
+| Account | `USER#<user_id>` | `PROFILE` (`GSI1PK=USERS`, `GSI1SK=<email>`: the admin list) |
+| Email uniqueness | `EMAIL#<email, lowercased>` | `EMAIL` → `{user_id}` |
+| Trip (whole aggregate) | `USER#<user_id>` | `TRIP#<trip_id>` (`GSI2PK=TRIPS`, `GSI2SK=<created_at, µs, UTC>#<trip_id>`: the admin list) |
+| Conversation | `USER#<user_id>` | `THREAD#<thread_id>` |
+| Message | `THREAD#<thread_id>` | `MSG#<created_at, µs, UTC>#<message_id>` |
+
+- **GSI2 projects a summary on AWS** (`INCLUDE`: `id`, `user_id`, `title`, `city_slug`, `city`,
+  `country_code`, dates, `image_url`, timestamps, `planner_session_id`, `version`), which is what
+  `TripSummary` (`domain/models.py`) decodes; locally `ensure_table` projects everything. A field
+  the admin list needs must be added to `non_key_attributes` in `infra/aws/dynamodb.tf` too.
+  Index pages go by cursor (`_index_page`: base64url of `LastEvaluatedKey`; a cursor that is not
+  one this index issued is `BadRequest`). Trips saved before GSI2 carry no `GSI2PK` and are
+  absent from the admin list until they are saved again.
+- **Optimistic concurrency**: profile, trip and thread carry `version`; creates are conditional on
+  `attribute_not_exists(PK)`, changes on `version = :expected`. A failed condition is `Conflict`
+  (409, "changed by another request, reload and retry"; a taken email: "email already registered").
+  The profile and its `EMAIL#` item are written in one transaction (an email change moves it).
+- **No cascades in the database**: deleting a thread deletes its messages first (batches of 25,
+  unprocessed items retried with backoff); deleting a user deletes every thread's messages, every
+  item under `USER#<id>` and the `EMAIL#` item.
+- **A trip over 350 KB** (its JSON) is `UnprocessableEntity("This trip is too large")`.
+- **No migrations.** A schema change is a change to the dataclass and, if needed, the codec
+  (`infrastructure/dynamo/codec.py`); **items already written must stay readable** — a field missing
+  from an old item takes the dataclass default. Rewriting old items, if ever needed, is a one-off
+  script run from a shell, never a route of the deployed service.
+- A new child entity: dataclass in `domain/models.py` (+ its list on the parent) → `schemas/x.py`
+  (`XBase`, `XCreate`, `XUpdate = partial(XBase, "XUpdate")`, `XResponse`) → a `ChildKind` in
+  `services/trip_children.py` → one `ChildResource` in `api/v1/resources.py` → `just contracts`.
+
+## Operations
+
+- The deployed function exposes no commands: nothing but HTTP under `/api/v1` reaches it. The
+  one-off copy from RDS (`copy-from-postgres`) ran on 2026-09-22 and was removed with RDS in
+  TRA-219.
+- **Dev-only helpers live in `devtools.py`**: `python -m core_api.devtools token
   <email>` (`just dev-token <email>`) prints the local-mode JWT the sign-in would issue for that
-  account (`sub` = its id, `email`, `role`, `exp`), **creating it when it is new**, so the
-  Playwright suite and the Playwright MCP sign in without Google. `ops.COMMANDS` is the surface `POST /events` exposes, so a
-  token minter must not be one of them; nothing in the service imports `devtools`
-  (`tests/test_devtools.py` checks both). Refuses in Cognito mode: those tokens come from the pool.
+  account (`sub` = its UUID, `email`, `role`, `exp`), **creating it when it is new**, so the
+  Playwright suite and the Playwright MCP sign in without Google. `--admin`
+  (`just dev-token <email> --admin`) stores `role=admin` first; without it the role is left alone. It honours
+  `DYNAMODB_ENDPOINT_URL` like the service. Nothing in the service imports `devtools`
+  (`tests/test_import_boundaries.py` checks it). Refuses in Cognito mode.
+- **One-off table operations live in `ops.py`** (the CLI) with the algorithm in the adapter
+  (`infrastructure/dynamo/backfill.py`): `python -m core_api.ops backfill-trip-index [--dry-run]`
+  (`just backfill-trip-index`) writes `GSI2PK`/`GSI2SK` on trips saved before TRA-227 with the
+  helpers `trip_item` uses (`keys.TRIPS_GSI2PK`, `keys.trip_gsi2_sk`). Idempotent, conditional
+  on `attribute_not_exists(GSI2PK)`; exits 1 on a `DomainError`. Nothing in the service imports it.
 
 ## Commands
 
 ```bash
+just dynamodb-local                # another terminal: moto on :8002 (the devcontainer has DynamoDB Local)
 uv run uvicorn core_api.main:app --reload --port 8000
 uv run python -m core_api.devtools token you@example.com   # local JWT for that account (just dev-token)
-uv run pytest                      # PostgreSQL: creates <DB_NAME>_test and empties it between tests
-                                   # each request gets its own session; use `db_session` only to arrange data
-uv run alembic upgrade head
-uv run alembic revision --autogenerate -m "message"   # review the file before committing
-uv run alembic check               # models and migrations agree (CI runs this)
+uv run python -m core_api.devtools token you@example.com --admin   # ... as an administrator
+uv run python -m core_api.ops backfill-trip-index --dry-run         # one-off GSI2 backfill (just backfill-trip-index)
+uv run pytest                      # moto in process, no database
 ```
 
-Env: `.env.example`. Never add `NVIDIA_*` here — that is `ai_api`'s.
+Tests: `tests/conftest.py` wraps every test in `mock_dynamodb()`, creates the table and overrides
+`get_table`; `make_user(email, role)` goes through the repository. Env: `.env.example`. Never add
+`NVIDIA_*` here — that is `ai_api`'s.

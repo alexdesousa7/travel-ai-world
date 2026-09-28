@@ -22,9 +22,11 @@ from city_corpus.models import (
 )
 from city_corpus.sources import (
     climate,
+    curated_hotels,
     districts,
     neighbourhoods,
     osm,
+    photos,
     tours,
     wikidata,
     wikipedia,
@@ -39,6 +41,7 @@ class Stage(StrEnum):
     WIKIPEDIA = "wikipedia"
     OPENSTREETMAP = "openstreetmap"  # also district boundaries
     WIKIDATA = "wikidata"  # and Commons image licences
+    PHOTOS = "photos"  # a photo for every hotel, or the hotel goes (TRA-208)
     CLIMATE = "climate"
     TOURS = "tours"  # curated/<city>/tours.toml
 
@@ -119,15 +122,15 @@ def collect(
         _enrich_wikidata(city, client, result)
     if locator:
         _assign_districts(result, locator)
+    if Stage.PHOTOS in stages:
+        _resolve_photos(city, client, result, curated_dir)
     if Stage.CLIMATE in stages:
         fetched = climate.fetch(client, city)
         result.fetched_at.append(fetched.fetched_at)
         result.documents += climate.documents(climate.aggregate(fetched.data), city)
     if Stage.TOURS in stages:
-        tours_file = (
-            curated_dir.parent / city.curated_tours
-            if city.curated_tours
-            else curated_dir / city.slug / "tours.toml"
+        tours_file = _curated_file(
+            curated_dir, city.slug, city.curated_tours, "tours.toml"
         )
         curated = tours.load(tours_file, city)
         tours.warn_stale(curated.tours, dt.date.today())
@@ -137,6 +140,15 @@ def collect(
         }
         result.documents += tours.documents(curated.tours, city, locator)
     return result
+
+
+def _curated_file(
+    curated_dir: Path, slug: str, configured: str | None, default: str
+) -> Path:
+    """`curated/<slug>/<default>`, or the path the city's TOML names instead."""
+    if configured:
+        return curated_dir.parent / configured
+    return curated_dir / slug / default
 
 
 def _collect_wikivoyage(
@@ -285,6 +297,30 @@ def _enrich_wikidata(city: CityConfig, client: ApiClient, result: BuildResult) -
         "image_files_free": free,
         "document_images_skipped_non_free": stats.images_non_free,
     }
+
+
+def _resolve_photos(
+    city: CityConfig, client: ApiClient, result: BuildResult, curated_dir: Path
+) -> None:
+    """A photo for every located `sleep` document, or out it goes (ADR 0022).
+
+    Last of the enrichment stages: it must see the images Wikidata and Commons
+    already found, and the districts the boundaries assigned, before deciding
+    that a hotel has no picture. The curated file is read here rather than in
+    the tours stage because its entries are bound to the documents this stage
+    is about to judge (TRA-211).
+    """
+    hotels_file = _curated_file(
+        curated_dir, city.slug, city.curated_hotels, "hotels.toml"
+    )
+    curated = curated_hotels.load(hotels_file)
+    curated_hotels.warn_stale(curated, dt.date.today())
+    result.documents, stats = photos.resolve(client, city, result.documents, curated)
+    result.enrichment["photos"] = stats.as_dict()
+    # Thousands of small fetches; `built_at` wants their newest, like every
+    # other stage's `fetched_at`.
+    if client.last_fetched_at:
+        result.fetched_at.append(client.last_fetched_at)
 
 
 def _assign_districts(result: BuildResult, locator: districts.DistrictLocator) -> None:

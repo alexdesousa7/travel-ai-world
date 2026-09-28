@@ -263,6 +263,16 @@ describe("toHistory", () => {
 
 // ─── plannerReducer ─────────────────────────────────────────────────────────
 
+/** A later question, so the hotels' group is no longer the newest key. */
+const NEIGHBOURHOOD_GROUP: Omit<OptionGroupState, "selectedIds" | "dismissedIds"> = {
+  group_id: GROUP_IDS.neighbourhoods,
+  kind: "neighbourhood",
+  prompt: "Where to stay?",
+  slot: null,
+  selection: "single",
+  cards: [NEIGHBOURHOODS.belvaros],
+};
+
 function hotelGroupState(): PlannerState {
   return plannerReducer(initialPlannerState(), {
     type: "event",
@@ -369,7 +379,6 @@ describe("plannerReducer — options event", () => {
 
   it("appends the next page to a group already on screen, without a second bubble", () => {
     let state = hotelGroupState();
-    state = plannerReducer(state, { type: "selected", groupId: GROUP_IDS.hotels, cardIds: [HOTELS.rum.id], slot: null });
     state = plannerReducer(state, { type: "dismissed", groupId: GROUP_IDS.hotels, cardId: HOTELS.mercure.id });
     const messagesBefore = state.messages.length;
 
@@ -396,10 +405,86 @@ describe("plannerReducer — options event", () => {
     ]);
     expect(group.prompt).toBe("Three more");
     // What the traveller did with the first page survives the second.
-    expect(group.selectedIds).toEqual([HOTELS.rum.id]);
     expect(group.dismissedIds).toEqual([HOTELS.mercure.id]);
     expect(state.messages).toHaveLength(messagesBefore);
     expect(state.pendingGroupIds).toEqual([GROUP_IDS.hotels]);
+  });
+
+  it("asks a stay again as a new question once one was chosen: fresh and at the foot (TRA-247)", () => {
+    let state = hotelGroupState();
+    state = plannerReducer(state, { type: "selected", groupId: GROUP_IDS.hotels, cardIds: [HOTELS.rum.id], slot: null });
+    state = plannerReducer(state, {
+      type: "event",
+      event: { type: "options", ...NEIGHBOURHOOD_GROUP },
+    });
+    state = plannerReducer(state, { type: "turn_started", message: "something cheaper" });
+    state = plannerReducer(state, { type: "event", event: { type: "text", delta: "Cheaper ones:" } });
+
+    state = plannerReducer(state, {
+      type: "event",
+      event: {
+        type: "options",
+        group_id: GROUP_IDS.hotels,
+        kind: "hotel",
+        prompt: "Cheaper ones",
+        slot: null,
+        selection: "single",
+        cards: [HOTELS.cheaper, HOTELS.mercure],
+      },
+    });
+
+    const group = state.groups[GROUP_IDS.hotels]!;
+    expect(group.cards.map((c) => c.id)).toEqual([HOTELS.cheaper.id, HOTELS.mercure.id]);
+    expect(group.selectedIds).toEqual([]);
+    expect(group.dismissedIds).toEqual([]);
+    // One bubble for the group, now under the sentence that asked for it.
+    const bubbles = state.messages.filter((m) => m.kind === "options" && m.groupId === GROUP_IDS.hotels);
+    expect(bubbles).toHaveLength(1);
+    expect(state.messages.at(-1)).toEqual({ id: expect.any(String), kind: "options", groupId: GROUP_IDS.hotels });
+    expect(new Set(state.messages.map((m) => m.id)).size).toBe(state.messages.length);
+    // The stay sheet reads the latest hotel group: this one moved last.
+    expect(Object.keys(state.groups).at(-1)).toBe(GROUP_IDS.hotels);
+    expect(state.pendingGroupIds.at(-1)).toBe(GROUP_IDS.hotels);
+    // The stay chosen earlier stays until another is picked.
+    expect(state.itinerary.stay).toEqual(HOTELS.rum);
+  });
+
+  it("keeps appending to a slot's group that already has a pick (the Change sheet's More)", () => {
+    const slotted: OptionGroupState = {
+      group_id: "slot:2:afternoon",
+      kind: "experience",
+      prompt: "Alternatives",
+      slot: { day: 2, part: "afternoon" },
+      selection: "single",
+      cards: [BATHS.szechenyi],
+      selectedIds: [BATHS.szechenyi.id],
+      dismissedIds: [],
+    };
+    let state: PlannerState = {
+      ...initialPlannerState(),
+      groups: { [slotted.group_id]: slotted },
+      messages: [{ id: "m1", kind: "options", groupId: slotted.group_id }],
+    };
+
+    state = plannerReducer(state, {
+      type: "event",
+      event: {
+        type: "options",
+        group_id: slotted.group_id,
+        kind: "experience",
+        prompt: "More",
+        slot: slotted.slot,
+        selection: "single",
+        cards: [BATHS.gellert],
+      },
+    });
+
+    expect(state.groups[slotted.group_id]?.cards.map((c) => c.id)).toEqual([
+      BATHS.szechenyi.id,
+      BATHS.gellert.id,
+    ]);
+    expect(state.groups[slotted.group_id]?.selectedIds).toEqual([BATHS.szechenyi.id]);
+    expect(state.messages).toHaveLength(1);
   });
 });
 
@@ -866,5 +951,111 @@ describe("initialPlannerState", () => {
     expect(state.itinerary).toEqual(EMPTY_ITINERARY);
     expect(state.shortlist).toEqual([]);
     expect(state.pendingGroupIds).toEqual([]);
+  });
+});
+
+// ─── Packing the suitcase (TRA-239) ─────────────────────────────────────────
+
+describe("plannerReducer — packing", () => {
+  const start = plannerReducer(initialPlannerState(), { type: "turn_started", message: "Budapest" });
+
+  it("opens the suitcase when a turn leaves", () => {
+    expect(initialPlannerState().packing).toBeNull();
+    expect(start.packing).toEqual({
+      step: "open",
+      folded: false,
+      warned: false,
+      failed: false,
+      detail: null,
+      sources: [],
+      live: false,
+      daysBefore: 0,
+    });
+  });
+
+  it("follows the events forward, never back: list, wardrobe, fold", () => {
+    let state = plannerReducer(start, {
+      type: "event",
+      event: { type: "brief", brief: EMPTY_BRIEF, missing: [...BRIEF_FIELDS] },
+    });
+    expect(state.packing?.step).toBe("list");
+
+    state = plannerReducer(state, {
+      type: "event",
+      event: { type: "itinerary_patch", ops: [{ op: "set_day_title", day: 1, title: "Pest" }] },
+    });
+    expect(state.packing?.step).toBe("fold");
+
+    state = plannerReducer(state, {
+      type: "event",
+      event: { type: "brief", brief: EMPTY_BRIEF, missing: [...BRIEF_FIELDS] },
+    });
+    expect(state.packing?.step).toBe("fold");
+  });
+
+  it("weighs the suitcase when a warning arrives, and zips it when the stream ends", () => {
+    const warn: ItineraryOp = {
+      op: "warn",
+      slot: null,
+      code: "overloaded_day",
+      message: "Day 2 is heavy",
+    } as ItineraryOp;
+    let state = plannerReducer(start, { type: "event", event: { type: "itinerary_patch", ops: [warn] } });
+    expect(state.packing).toMatchObject({ step: "weigh", warned: true });
+
+    state = plannerReducer(state, { type: "turn_finished" });
+    expect(state.packing).toMatchObject({ step: "zip", folded: true, warned: true, failed: false });
+  });
+
+  it("loses the luggage when the turn fails, and leaves it lost when the stream closes", () => {
+    const failed = plannerReducer(start, { type: "turn_failed", error: "generic" });
+    expect(failed.packing).toMatchObject({ step: "open", failed: true });
+
+    const errored = plannerReducer(start, {
+      type: "event",
+      event: { type: "error", error_code: "INTERNAL", message: "boom" },
+    } as never);
+    const closed = plannerReducer(errored, { type: "turn_finished" });
+    expect(closed.packing).toMatchObject({ failed: true });
+    expect(closed.packing?.step).not.toBe("zip");
+  });
+
+  it("takes the server's progress when it comes: the step, its sentence and the sources", () => {
+    const progress = (step: "wardrobe" | "list" | "fold", detail: string, sources: string[] = []) =>
+      ({ type: "event", event: { type: "progress", step, detail, sources } }) as const;
+    let state = plannerReducer(start, progress("wardrobe", "Looking through the guides for Budapest."));
+    expect(state.packing).toMatchObject({
+      step: "wardrobe",
+      detail: "Looking through the guides for Budapest.",
+    });
+
+    // A step already passed never takes the suitcase back, nor its sentence.
+    state = plannerReducer(state, progress("list", "Noting the destination."));
+    expect(state.packing).toMatchObject({ step: "wardrobe", detail: "Looking through the guides for Budapest." });
+
+    // The same step again brings the sources found since.
+    state = plannerReducer(state, progress("wardrobe", "Looking through the guides for Budapest.", ["Wikivoyage"]));
+    expect(state.packing?.sources).toEqual(["Wikivoyage"]);
+    state = plannerReducer(state, progress("fold", "Sharing the stops out over 4 days."));
+    expect(state.packing).toMatchObject({ step: "fold", sources: ["Wikivoyage"] });
+  });
+
+  it("once the server tells the progress, the other events no longer move it", () => {
+    const live = plannerReducer(start, {
+      type: "event",
+      event: { type: "progress", step: "open", detail: "Reading.", sources: [] },
+    });
+    const patched = plannerReducer(live, {
+      type: "event",
+      event: { type: "itinerary_patch", ops: [{ op: "set_day_title", day: 1, title: "Pest" }] },
+    });
+    expect(patched.packing).toMatchObject({ step: "open", folded: true, live: true, daysBefore: 0 });
+  });
+
+  it("prepares a retry: the failed turn's message and error go, the rest stays", () => {
+    const failed = plannerReducer(start, { type: "turn_failed", error: "generic" });
+    const prepared = plannerReducer(failed, { type: "retry_prepared" });
+    expect(prepared.messages).toEqual([]);
+    expect(prepared).toMatchObject({ status: "idle", error: null, packing: null });
   });
 });

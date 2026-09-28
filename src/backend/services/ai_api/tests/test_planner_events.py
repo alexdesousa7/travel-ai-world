@@ -209,6 +209,8 @@ def test_planner_turn_accepts_a_selection_without_a_message():
             },
             "exclude_card_ids": [],
             "trip_id": None,
+            "session_id": None,
+            "language": "en",
         }
     )
 
@@ -228,6 +230,8 @@ def test_planner_turn_rejects_an_unknown_action():
                 "itinerary": None,
                 "exclude_card_ids": [],
                 "trip_id": None,
+                "session_id": None,
+                "language": "en",
             }
         )
 
@@ -252,6 +256,13 @@ def test_openapi_document_carries_the_stream_models():
         "itinerary_patch",
         "error",
         "done",
+        "progress",
+    }
+    assert set(schemas["ProgressEvent"]["required"]) == {
+        "type",
+        "step",
+        "detail",
+        "sources",
     }
     assert schemas["ItineraryOp"]["discriminator"]["propertyName"] == "op"
     # Every wire field is required, so the generated TypeScript has no `?`.

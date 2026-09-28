@@ -1,17 +1,26 @@
-# AWS (Lambda + API Gateway + Cognito + RDS, behind CloudFront)
+# AWS (Lambda + API Gateway + Cognito + DynamoDB, behind CloudFront)
 
 Read [`infra/README.md`](../README.md) first: images, secrets and state are the same for both
 clouds. This folder is the **v3 shape** of [ADR 0009](../../docs/architecture/adr/0009-lambda-cognito-budget.md)
 (drawn in [`docs/architecture/aws-architecture.drawio.svg`](../../docs/architecture/aws-architecture.drawio.svg)):
 the same two container images run as **Lambda functions** behind an **API Gateway REST API**, the
 browser signs in through a **Cognito user pool**, and **CloudFront** is the single public origin
-for the static frontend (S3) and the API (`/api/*`). No load balancer, no NAT, no VPC endpoints,
-no Secrets Manager: about 4 €/month with the RDS free tier, ~19 € without.
+for the static frontend (S3) and the API (`/api/*`). `core_api` keeps its data in the DynamoDB
+table `${name_prefix}-core` ([ADR 0023](../../docs/architecture/adr/0023-dynamodb-data-store.md));
+`ai_api` writes the trace of every turn to `${name_prefix}-interactions`
+(ADR 0024, TRA-226).
+No VPC, no load balancer, no NAT, no Secrets Manager: both functions run outside any VPC and
+reach AWS services over their public endpoints with IAM. The bill is about 5 €/month.
+
+CloudFront also has a **WAF web ACL** with the AWS managed rule groups
+`AmazonIpReputationList`, `CommonRuleSet` and `KnownBadInputsRuleSet`. It was created from the
+CloudFront console and is **not managed by Terraform**: a `terraform apply` neither creates nor
+removes it.
 
 | Function | Image | Where | Receives |
 |---|---|---|---|
-| `core-api` | `core-api` | private subnets, security group to RDS only | `DB_*`, `AUTH_MODE=cognito` + `COGNITO_*`, `BACKEND_CORS_ORIGINS` |
-| `ai-api` | `ai-api` | outside the VPC (Bedrock, NVIDIA, `core_api` through CloudFront) | `LLM_PROVIDER` (`bedrock` by default) + `BEDROCK_*`, `NVIDIA_*` (fallback), `AUTH_MODE=cognito` + `COGNITO_*`, `CORE_API_URL=https://<domain>`, `RETRIEVAL_ENABLED` + `VECTOR_*` + `EMBEDDINGS_*` |
+| `core-api` | `core-api` | outside the VPC (DynamoDB through IAM, HTTPS) | `CORE_TABLE`, `AUTH_MODE=cognito` + `COGNITO_*`, `BACKEND_CORS_ORIGINS` |
+| `ai-api` | `ai-api` | outside the VPC (Bedrock, NVIDIA, `core_api` through CloudFront) | `LLM_PROVIDER` (`bedrock` by default) + `BEDROCK_*`, `NVIDIA_*` (fallback), `AUTH_MODE=cognito` + `COGNITO_*`, `CORE_API_URL=https://<domain>`, `RETRIEVAL_ENABLED` + `VECTOR_*` + `EMBEDDINGS_*`, `INTERACTIONS_TABLE` |
 
 Request path: `https://<domain>/api/v1/...` → CloudFront (`/api/*`, no cache, `Authorization`
 forwarded) → API Gateway (Cognito authorizer, then `/api/v1/ai/{proxy+}` streamed to `ai-api`,
@@ -22,11 +31,11 @@ a Cognito ID token, health endpoints included.
 
 | File | Resources |
 |---|---|
-| `network.tf`, `security.tf` | VPC with two private subnets (no IGW), DB subnet group, security groups `core-api` → `rds:5432` |
-| `rds.tf` | RDS PostgreSQL 16 `db.t4g.micro`, private, encrypted, deletion protection |
+| `dynamodb.tf` | The `core_api` table `${name_prefix}-core` (on-demand, `PK`/`SK` + `GSI1` (accounts) + `GSI2` (every trip, summary projection), point-in-time recovery, deletion protection), and `core-api`'s item-level permissions on it ([ADR 0023](../../docs/architecture/adr/0023-dynamodb-data-store.md)); see [History](#history-rds--dynamodb-2026-09-22) |
+| `traces.tf` | `ai_api`'s interaction log `${name_prefix}-interactions` (on-demand, `PK`/`SK` + `GSI1` by subject + sparse `GSI2` by planner session, TTL on `expires_at`: traces expire after `INTERACTION_TTL_DAYS`, 90 by default; no point-in-time recovery, no deletion protection) and the `ai-api` role's `PutItem`, `BatchWriteItem`, `Query`, `GetItem` and `DescribeTable` on it and its indexes — the reads are granted now for the admin console (TRA-221) (ADR 0024, TRA-226) |
 | `ecr.tf` | Two ECR repositories: `${name_prefix}-core-api`, `${name_prefix}-ai-api` |
-| `cognito.tf` | User pool, Google identity provider, public app client (code + PKCE), `admin` group, hosted-UI domain, the JWKS as output and environment |
-| `lambda.tf` | Two container-image functions with their roles (VPC access for `core-api`; for `ai-api`, Bedrock invoke on the EU inference profiles of the chat and title models, see [Chat model](#chat-model-bedrock)) and log groups; permissions for the gateway |
+| `cognito.tf` | User pool, Google identity provider, public app client (code + PKCE), `admin` group and its members (`admin_usernames`), hosted-UI domain, the JWKS as output and environment |
+| `lambda.tf` | Two container-image functions with their roles (basic execution for both; for `ai-api`, Bedrock invoke on the EU inference profiles of the chat and title models, see [Chat model](#chat-model-bedrock)) and log groups; permissions for the gateway |
 | `vectors.tf` | S3 Vectors bucket and the `city-kb` index (1024 dimensions, cosine), plus the read-only `s3vectors` and Titan embeddings permissions of the `ai-api` role, see [Vector store](#vector-store-s3-vectors) |
 | `apigateway.tf` | REST API (regional), Cognito authorizer, the two proxy resources, deployment and `prod` stage |
 | `frontend.tf` | Private S3 bucket (OAC), CloudFront with the S3 default behaviour, the `/api/*` behaviour to the gateway and a directory-index function, S3's 403 for a missing page served as the export's `404.html` with status 404, Route 53 aliases; the public hosted zone and the ACM certificate (us-east-1, apex + wildcard, DNS-validated), both `prevent_destroy` (ADR 0010) |
@@ -102,16 +111,14 @@ terraform validate
    `provenance: false` are OCI indexes, and their `linux/amd64` child digest
    (`crane digest --platform linux/amd64 <ref>`) is the one to pin.
 
-2. Everything else, then the schema:
+2. Everything else:
 
    ```bash
    terraform plan && terraform apply
-   aws lambda invoke --function-name "$(terraform output -raw core_api_function_name)" \
-     --cli-binary-format raw-in-base64-out --payload '{"command": "migrate"}' /dev/stdout
    ```
 
-   Check the RDS free tier (account creation date) before this apply: `db.t4g.micro` is the
-   swing item of the budget.
+   There is no schema step: the DynamoDB table is created by Terraform and `core_api` has no
+   migrations (ADR 0023).
 
 3. [Sign-in (Cognito)](#sign-in-cognito): register the pool's domain on the Google OAuth client.
 
@@ -122,7 +129,7 @@ terraform validate
 
 Later backend deploys: the "Deploy backend" workflow with `cloud=aws`. It assumes the bootstrap's
 role through OIDC, initialises the same S3 backend, pins the functions to the new image digests,
-applies, and invokes `migrate`. It needs the secrets `AWS_REGION`, `AWS_ROLE_TO_ASSUME`, the
+and applies; there is no migrate step. It needs the secrets `AWS_REGION`, `AWS_ROLE_TO_ASSUME`, the
 variables `AWS_TF_STATE_BUCKET`, `FRONTEND_DOMAIN` and the `TF_VAR_*` listed in the workflow header.
 
 ## Sign-in (Cognito)
@@ -145,14 +152,50 @@ first `terraform apply`:
 3. **Backend**: both functions receive `AUTH_MODE=cognito`, `COGNITO_ISSUER`,
    `COGNITO_CLIENT_ID` and `COGNITO_JWKS` from the same outputs; run them locally with
    `terraform output -raw cognito_jwks` in `.env` to test against the real pool.
-4. **Administrators**: add the user to the `admin` group in the pool (console or
-   `aws cognito-idp admin-add-user-to-group`); the role travels in the ID token as `cognito:groups`.
+4. **Administrators**: `admin_usernames` in `admins.auto.tfvars` (committed; below); the role
+   travels in the ID token as `cognito:groups`.
 
 The managed-login host is `auth.<domain>` by default (`cognito_subdomain`, covered by the wildcard
 certificate); set it to `""` to fall back to the pool's own host
 (`<name_prefix>-<account id>.auth.<region>.amazoncognito.com`).
 Key rotation: the pool's signing keys are stable, but if `cognito_jwks` ever changes, a
 `terraform apply` refreshes the functions' environment.
+
+## Making someone an administrator
+
+The administrators are a reviewed list in Terraform (ADR 0024): `terraform apply` puts each
+username of `admin_usernames` in the pool's `admin` group (`aws_cognito_user_in_group.admin`), the
+ID token carries the group, and `core_api` mirrors it as `role=admin`. No service reads a list.
+
+1. The person signs in once with Google, so the pool has their user.
+2. `just aws-login`, then `just cognito-username <email>` prints the username (`Google_<sub>`,
+   capital G as Cognito prints it).
+3. Add it to `admin_usernames` in `admins.auto.tfvars` and open the PR: the file is committed
+   because the CI deploy applies from a clean checkout, where `terraform.tfvars` (ignored, it
+   holds secrets) does not exist — a list kept there would be emptied by the first deploy.
+4. `terraform apply` (it only adds or removes the group memberships), or let the next
+   `Deploy backend` run with `apply=true` do it.
+5. The person signs out and in again: the ID token they hold was issued before the change.
+
+**Trips saved before the admin index (TRA-227).** GSI2 is sparse: only trips written by the
+TRA-227 code carry `GSI2PK`/`GSI2SK`, so older trips are missing from `/admin/trips` until they are
+backfilled. Once, right after the apply that created GSI2 and the backend deploy that writes it,
+from a laptop with the SSO session and no `DYNAMODB_ENDPOINT_URL`:
+
+```bash
+just aws-login
+export CORE_TABLE=$(terraform output -raw core_table_name) AWS_REGION=eu-west-1
+just backfill-trip-index --dry-run                      # how many trips lack the keys
+just backfill-trip-index                                # scanned=<n> updated=<n> skipped=<n>
+```
+
+It is idempotent (a second run reports `scanned=0`) and needs `dynamodb:Scan` and
+`dynamodb:UpdateItem` on the table, which the SSO permission set (`AdministratorAccess`) has
+([core_api README](../../src/backend/services/core_api/README.md#ops-commands)).
+
+Removing a name from the list and applying takes the group away; the role follows at the next
+sign-in. A user added to the group by hand in the console is not in the list and Terraform leaves
+them alone, so do not: the list is the source of truth.
 
 ## Chat model (Bedrock)
 
@@ -221,3 +264,33 @@ curl -H "Authorization: Bearer $TOKEN" "$(terraform output -raw api_gateway_invo
   `/404.html`, 404) is missing, or `404.html` is not at the root of the bucket.
 - An API call answers 404 with HTML → the API returned 403 (someone else's resource, an
   authorizer deny); the distribution-wide error response maps it. API 404s stay JSON.
+
+## History: RDS → DynamoDB (2026-09-22)
+
+[ADR 0023](../../docs/architecture/adr/0023-dynamodb-data-store.md) moved `core_api` from RDS
+PostgreSQL to DynamoDB on 2026-09-22 (TRA-217, TRA-218): the table was applied first, the
+DynamoDB image deployed, and the one-off `copy-from-postgres` command copied every user, trip,
+thread and message. TRA-219 then removed RDS, the VPC and the copy command. No snapshot of the
+old database is kept: every row lives in DynamoDB, which has point-in-time recovery.
+
+## Retiring RDS (TRA-219, done 2026-09-23)
+
+RDS, the VPC, its subnets, security groups and the DynamoDB gateway endpoint were destroyed on
+2026-09-23; none of them is in the Terraform code any more. Kept here because a single apply
+could not do it, which is worth knowing the next time a Lambda leaves a VPC.
+
+1. **Deletion protection off** (`aws rds modify-db-instance --db-instance-identifier
+   travel-ai-postgres --no-deletion-protection --apply-immediately`): Terraform cannot destroy
+   the instance while it is on.
+2. **The plain apply fails with `Error: Cycle`** between `aws_lambda_function.core_api` (update:
+   drop `vpc_config`) and the destroys of its security group, the subnets and the VPC. So the
+   apply ran in two steps, locally, with both images pinned to the digests already in ECR
+   (`-var core_api_image=... -var ai_api_image=...`; a stale `terraform.tfvars` would deploy an
+   image that no longer exists):
+   - `terraform apply -target=aws_lambda_function.core_api`: 1 added
+     (`AWSLambdaBasicExecutionRole`), 1 changed (new image, no `DB_*` variables, no VPC);
+     `core-api` answered `/api/v1/health/db` from outside the VPC before going on.
+   - `terraform apply`: 10 destroyed, `ai-api` moved to the same commit's image. RDS took 7 min;
+     the ENIs did not hold the security groups or the subnets back.
+3. **Final snapshot deleted** (`aws rds delete-db-snapshot --db-snapshot-identifier
+   travel-ai-final`); the automated snapshots went with the instance.

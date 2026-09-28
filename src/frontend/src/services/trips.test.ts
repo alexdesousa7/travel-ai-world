@@ -22,10 +22,11 @@ import {
 /** The smallest valid backend answer: every optional field absent. */
 const minimal: TripResponse = {
   id: "t1",
-  user_id: 7,
+  user_id: "0b6f7c1e-5d3a-4c8e-9f21-7a4b2c9d1e60",
   phase: "upcoming",
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-02T00:00:00Z",
+  planner_session_id: null,
   title: "Bare trip",
   city_slug: "budapest",
   city: "Budapest",
@@ -129,7 +130,19 @@ describe("toTripSummary", () => {
       endDate: "2026-10-25",
       phase: "upcoming",
       imageUrl: HOTELS.rum.image_url,
+      days: budapest.itinerary_days.length,
+      stops: budapest.itinerary_days.reduce(
+        (total, day) => total + day.activities.length + day.meals.length,
+        0
+      ),
     });
+  });
+
+  it("counts the days and every activity and meal in them", () => {
+    const summary = toTripSummary(budapest);
+    expect(summary.days).toBeGreaterThan(0);
+    expect(summary.stops).toBeGreaterThanOrEqual(summary.days);
+    expect(toTripSummary({ ...budapest, itinerary_days: [] })).toMatchObject({ days: 0, stops: 0 });
   });
 });
 
@@ -168,6 +181,8 @@ describe("listTrips", () => {
         endDate: "",
         phase: "upcoming",
         imageUrl: "",
+        days: 0,
+        stops: 0,
       },
     ]);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -467,6 +482,36 @@ describe("saveDraftAsTrip", () => {
     // day is written, and core_api sees one write at a time.
     expect(concurrent).toBe(1);
     expect(trip.id).toBe("t1");
+  });
+
+  it("never stores the placeholder photo, which the WAF blocks as markup (TRA-225)", async () => {
+    const placeholder = "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3C/svg%3E";
+    const drawn = applyItineraryOps(EMPTY_ITINERARY, [
+      {
+        op: "put_activity",
+        slot: { day: 1, part: "evening" },
+        card: { ...RESTAURANTS.menza, image_url: placeholder, image_credit: "Illustrative photo" },
+      },
+      { op: "put_activity", slot: { day: 1, part: "morning" }, card: ACTIVITIES.greatMarket },
+    ]);
+
+    await saveDraftAsTrip(drawn, BRIEF_COMPLETE, BUDAPEST, { title: "t" });
+
+    const posted = JSON.stringify(bodies);
+    expect(posted).not.toContain("data:image");
+    const meal = bodies[calls.indexOf("POST /trips/t1/itinerary-days/day1/meals/")] as {
+      card: { image_url: string | null; image_credit: string | null };
+    };
+    expect(meal.card.image_url).toBeNull();
+    expect(meal.card.image_credit).toBeNull();
+    const activity = bodies[calls.indexOf("POST /trips/t1/itinerary-days/day1/activities/")] as {
+      card: { image_url: string | null };
+    };
+    expect(activity.card.image_url).toBe(ACTIVITIES.greatMarket.image_url);
+    // The cover is the first real photo, never the placeholder.
+    expect((bodies[0] as { image_url: string | null }).image_url).toBe(
+      ACTIVITIES.greatMarket.image_url ?? null
+    );
   });
 
   it("writes the city from the planner's own city, and the brief onto the trip", async () => {

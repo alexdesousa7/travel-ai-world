@@ -23,6 +23,22 @@ export interface Translations {
     selectLanguage: string;
     userMenu: string;
     menu: string;
+    /** The way into the admin console, shown to administrators only. */
+    admin: string;
+    /** The phone menu's way to the planner, empty (TRA-236). */
+    planTrip: string;
+    /** The phone menu's heading over the language choice. */
+    language: string;
+    /** The phone menu's card: Kiri with a sticker per trip. */
+    suitcase: string;
+    /** "{trips} trips, {stickers} stickers" */
+    suitcaseCount: string;
+    /** The same with one trip and one sticker. */
+    suitcaseCountOne: string;
+    /** The phone menu's account row. */
+    account: string;
+    /** The header's language button: "Language: {language}" */
+    languageCurrent: string;
   };
   common: {
     loading: string;
@@ -43,6 +59,17 @@ export interface Translations {
     send: string;
     /** The same button while the planner opens. */
     sending: string;
+    /** Under the field, the cities there are: "For now: {cities}" (TRA-236). */
+    cities: string;
+    /** The cities while the list is unknown (signed out, no backend). */
+    citiesFallback: string;
+    /** What Kiri says while she waits, listens, notes and sets off. */
+    kiri: {
+      ready: string;
+      listening: string;
+      noting: string;
+      off: string;
+    };
   };
   /** The composer shared by the planner page (`PromptComposer`). */
   planner: {
@@ -59,13 +86,79 @@ export interface Translations {
   dashboard: {
     /** The page's `h1`, which also names the field under it. */
     headline: string;
+    /** Kiri's card over the trips (TRA-237): "Your suitcase carries {count} stickers" */
+    suitcase: string;
+    suitcaseOne: string;
   };
 
   /** The planner page (`/plan/`): chat + option cards + live itinerary (TRA-144). */
   plan: {
     title: string;
     subtitle: string;
-    tabs: { chat: string; trip: string; map: string };
+    tabs: { chat: string; trip: string };
+    /** The phone's day sheet over the map (TRA-238): its handle's two names. */
+    sheet: { expand: string; collapse: string };
+    /** "Share" copies the trip's link; the button says so for a moment. */
+    share: string;
+    shareCopied: string;
+    /** Kiri's answer, told as packing a suitcase (TRA-239). */
+    packing: {
+      /** Kiri's name tag over her answers. */
+      kiri: string;
+      steps: { open: string; list: string; wardrobe: string; fold: string; weigh: string; zip: string };
+      /** One line under the step on its way, what it is doing. */
+      details: { open: string; list: string; wardrobe: string; fold: string; weigh: string; zip: string };
+      /** How long the turn has been on its way, for screen readers: "{seconds} seconds" */
+      elapsed: string;
+      /** The turn that packed the whole trip: "Suitcase closed". */
+      closed: string;
+      /** Any other turn: what it did went into the suitcase, still open. */
+      added: string;
+      /** "in {seconds} s" */
+      closedIn: string;
+      withWarning: string;
+      howIPacked: string;
+      boarding: {
+        title: string;
+        dates: string;
+        travellers: string;
+        days: string;
+        stops: string;
+        /** "Gate: day 1" */
+        gate: string;
+      };
+      tag: {
+        title: string;
+        heading: string;
+        missing: string;
+        missingOne: string;
+        toDecide: string;
+        budget: string;
+      };
+      lost: { title: string; safe: string; retry: string };
+      /** The open suitcase while the turn packs (TRA-242). */
+      suitcase: {
+        label: string;
+        list: string;
+        wardrobe: string;
+        options: string;
+        /** "Day {day}" */
+        day: string;
+        weight: string;
+        unweighed: string;
+        withinLimits: string;
+        overweight: string;
+        showSteps: string;
+        hideSteps: string;
+      };
+      /** The stickers a warning puts on a day. */
+      stickers: {
+        overloaded_day: string;
+        too_far: string;
+        closed: string;
+        unverified_price: string;
+      };
+    };
     composerPlaceholder: string;
     /** "Chosen: {titles}" chip in the transcript. */
     chosen: string;
@@ -89,7 +182,10 @@ export interface Translations {
       increase: string;
       decrease: string;
       budget: string;
+      /** Asked of a party of two or more ("Qué os apetece"). */
       interests: string;
+      /** Asked of someone travelling alone ("Qué te apetece"). */
+      interestsSolo: string;
       interestOptions: { id: string; label: string }[];
       /** The message sent with the answers, e.g. "Dates: {from} to {to}". */
       summary: {
@@ -175,6 +271,8 @@ export interface Translations {
       save: string;
       /** Why the button is disabled: a demo session saves nothing. */
       saveHint: string;
+      /** A trip that starts today or earlier cannot be saved (TRA-244). */
+      savePastDates: string;
       /** While the trip is being written. */
       saving: string;
       saved: string;
@@ -184,6 +282,10 @@ export interface Translations {
       saveError: string;
       saveRetry: string;
       reset: string;
+      /** Beside a saved trip: "New trip" leaves it and opens an empty planner. */
+      newTripHint: string;
+      /** "Start over" clears the conversation but stays on the same trip. */
+      resetHint: string;
       /** "Route {from} → {to}" */
       route: string;
       searchFlights: string;
@@ -207,6 +309,8 @@ export interface Translations {
       stay: string;
       stayOne: string;
       stayNoNights: string;
+      /** The stay as one row over the day (TRA-244): "Sleeping in {place}" */
+      sleepingIn: string;
       change: string;
       remove: string;
       /** "Day {day}" */
@@ -214,6 +318,8 @@ export interface Translations {
       showDay: string;
       hideDay: string;
       emptySlot: string;
+      /** An empty part of the day, in the timeline: its way to find something (TRA-244). */
+      addStop: string;
       priceNote: string;
       weatherSource: string;
       warnings: Record<WarnCode, string>;
@@ -249,6 +355,10 @@ export interface Translations {
     map: {
       /** Accessible name of the map region: "Map of day {day}" */
       region: string;
+      /** The same on the whole-trip overview, which maps no day (TRA-238). */
+      regionTrip: string;
+      /** A dashed mark for an option Kiri proposes: "Option: {title}" */
+      option: string;
       /** While the client-only map chunk loads. */
       loading: string;
       /** No card of the selected day carries coordinates yet. */
@@ -287,7 +397,10 @@ export interface Translations {
     trips: {
       /** The heading over the list, and the header's way back to it. */
       title: string;
-      /** Starts a new trip from the home. */
+      /**
+       * Starts a new trip: from the home, and in the planner beside a saved
+       * trip or one that is not there (TRA-223).
+       */
       newTrip: string;
       /** The heading over each group of the list, keyed by phase. */
       groups: Record<TripPhase, string>;
@@ -308,6 +421,11 @@ export interface Translations {
         /** Renaming is only offered on a trip that can still be changed. */
         rename: string;
         delete: string;
+        /** "{count} days" / "1 day" and "{count} stops" / "1 stop" (TRA-237). */
+        days: string;
+        daysOne: string;
+        stops: string;
+        stopsOne: string;
       };
       rename: {
         title: string;
@@ -356,6 +474,8 @@ export interface Translations {
   footer: {
     /** "© {year} Kyrian World" — the year is interpolated at render time. */
     copyright: string;
+    /** Where the guides and the maps come from. */
+    sources: string;
   };
   auth: {
     login: string;
@@ -371,6 +491,374 @@ export interface Translations {
     callbackError: string;
     backHome: string;
   };
+  /** The admin console (`/admin/`, TRA-222): only administrators ever see it. */
+  admin: {
+    nav: {
+      /** The console's own navigation (sidebar and tab strip). */
+      label: string;
+      overview: string;
+      turns: string;
+      trips: string;
+      users: string;
+    };
+    /** Any `/admin/` URL opened by an account that is not an administrator. */
+    gate: {
+      title: string;
+      description: string;
+      back: string;
+    };
+    common: {
+      loading: string;
+      error: string;
+      forbidden: string;
+      retry: string;
+      loadMore: string;
+      loadingMore: string;
+      empty: string;
+      /** A value the backend does not have (no price, no city). */
+      none: string;
+      copied: string;
+      yes: string;
+      no: string;
+    };
+    overview: {
+      title: string;
+      /** The range picker's label. */
+      range: string;
+      last7: string;
+      last30: string;
+      rangeSpan: string;
+      kpis: {
+        label: string;
+        turns: string;
+        turnsHint: string;
+        errorRate: string;
+        errorRateHint: string;
+        p95: string;
+        p95Hint: string;
+        outputTokens: string;
+        outputTokensHint: string;
+        cost: string;
+        costHint: string;
+        noHit: string;
+        noHitHint: string;
+        usedRetrieved: string;
+        usedRetrievedHint: string;
+      };
+      chart: {
+        title: string;
+        /** The SVG's accessible name. */
+        label: string;
+        tokensTitle: string;
+        ok: string;
+        errors: string;
+        cancelled: string;
+        tokens: string;
+        p95: string;
+        day: string;
+        empty: string;
+        legend: string;
+      };
+      tables: {
+        byModel: string;
+        byCity: string;
+        byKind: string;
+        topUsed: string;
+        neverUsed: string;
+        model: string;
+        turns: string;
+        tokensIn: string;
+        tokensOut: string;
+        cost: string;
+        city: string;
+        errors: string;
+        kind: string;
+        docId: string;
+        title: string;
+        count: string;
+        retrieved: string;
+      };
+    };
+    turns: {
+      title: string;
+      filters: string;
+      day: string;
+      kind: string;
+      status: string;
+      user: string;
+      city: string;
+      cityPlaceholder: string;
+      all: string;
+      anyone: string;
+      kinds: { planner: string; chat: string; card: string };
+      statuses: { ok: string; error: string; cancelled: string };
+      columns: {
+        time: string;
+        user: string;
+        city: string;
+        action: string;
+        llmCalls: string;
+        searches: string;
+        tokens: string;
+        latency: string;
+        status: string;
+        preview: string;
+      };
+      /** `{used}` of `{retrieved}` documents were used. */
+      searchesHint: string;
+      caption: string;
+      empty: string;
+    };
+    users: {
+      title: string;
+      caption: string;
+      columns: {
+        name: string;
+        email: string;
+        role: string;
+        subject: string;
+        active: string;
+        turns: string;
+      };
+      roles: { user: string; admin: string };
+      viewTurns: string;
+      /** The copy button's accessible name. */
+      copySubject: string;
+      empty: string;
+    };
+    trips: {
+      title: string;
+      caption: string;
+      columns: {
+        owner: string;
+        title: string;
+        city: string;
+        dates: string;
+        phase: string;
+        created: string;
+      };
+      empty: string;
+    };
+    /** One saved trip, read only (`/admin/trip/?user=&id=`, TRA-229). */
+    trip: {
+      title: string;
+      back: string;
+      notFound: string;
+      /** Says the page changes nothing. */
+      readOnly: string;
+      details: string;
+      owner: string;
+      city: string;
+      dates: string;
+      phase: string;
+      created: string;
+      updated: string;
+      tripId: string;
+      sessionId: string;
+      /** The copy buttons' accessible names. */
+      copyTripId: string;
+      copySessionId: string;
+      itinerary: string;
+      /** Over the selected day's cards; `{day}` is its number. */
+      dayHeading: string;
+      closeDay: string;
+      noDays: string;
+      turnsTitle: string;
+      /** `{count}` turns. */
+      turnsCount: string;
+      turnsCountOne: string;
+      turnsCaption: string;
+      /** The trip was saved before TRA-220 recorded sessions. */
+      noSession: string;
+      noTurns: string;
+      /** Shown when the session has more than the page reads; `{count}` is the cap. */
+      truncated: string;
+    };
+    turn: {
+      title: string;
+      back: string;
+      notFound: string;
+      summary: string;
+      id: string;
+      ts: string;
+      kind: string;
+      status: string;
+      city: string;
+      model: string;
+      tokens: string;
+      latency: string;
+      cost: string;
+      context: string;
+      spans: string;
+      timeline: string;
+      export: string;
+      /** The inspector (TRA-228): the left column, what the traveller saw. */
+      traveller: {
+        title: string;
+        hint: string;
+        /** "Chosen: {group}" — a `select` action. */
+        chosen: string;
+        /** "Removed {card}" — a `remove` action. */
+        removed: string;
+        itinerary: string;
+        stay: string;
+        route: string;
+        /** "{origin} to {destination}" */
+        routeValue: string;
+        weather: string;
+        /** "Day {day}" */
+        day: string;
+        places: string;
+        /** "Options: {group}" */
+        options: string;
+        /** "{count} cards" and its singular. */
+        cards: string;
+        cardOne: string;
+        warnings: string;
+        noAnswer: string;
+      };
+      /** The numbered marks: "Go to {section}". */
+      marks: {
+        goTo: string;
+        events: string;
+        model: string;
+        trace: string;
+        kb: string;
+      };
+      /** The right column's heading, "What is not seen". */
+      inspector: {
+        title: string;
+        /** "Turn {n} of {total}" */
+        position: string;
+        previous: string;
+        next: string;
+      };
+      chips: {
+        label: string;
+        action: string;
+        model: string;
+        llmCalls: string;
+        validated: string;
+        /** "{count} repairs" and its singular. */
+        repairs: string;
+        repairOne: string;
+        searches: string;
+        /** "+{count} by id" */
+        byId: string;
+        tokens: string;
+        duration: string;
+        /** "first event at {ms}" */
+        firstEvent: string;
+      };
+      /** The five phases, named after packing a suitcase (ADR 0024). */
+      phases: { open: string; wardrobe: string; fold: string; weigh: string; zip: string };
+      trace: {
+        title: string;
+        /** "0 to {total}" */
+        range: string;
+        legend: string;
+        kinds: { llm: string; retriever: string; tool: string; chain: string };
+        warning: string;
+        error: string;
+        goToKb: string;
+        message: string;
+        empty: string;
+      };
+      brief: {
+        title: string;
+        complete: string;
+        /** "{count} missing" */
+        missing: string;
+        empty: string;
+      };
+      calls: {
+        title: string;
+        tabs: string;
+        /** "day {day}" after the schema's name. */
+        day: string;
+        /** "{model}, {input} in, {output} out" */
+        caption: string;
+        /** ", first chunk at {ttfc}" appended to the caption. */
+        ttfc: string;
+        validated: string;
+        /** "{count} repairs" and its singular. */
+        repairs: string;
+        repairOne: string;
+        /** "{count} ids dropped" and its singular. */
+        dropped: string;
+        droppedOne: string;
+        /** "{count} prices stripped" and its singular. */
+        prices: string;
+        priceOne: string;
+        noOutput: string;
+        empty: string;
+      };
+      events: {
+        title: string;
+        /** "{count} events" and its singular. */
+        count: string;
+        countOne: string;
+        caption: string;
+        time: string;
+        type: string;
+        summary: string;
+        /** "{count} deltas" and its singular. */
+        deltas: string;
+        deltaOne: string;
+        warning: string;
+        end: string;
+      };
+      kb: {
+        title: string;
+        filters: string;
+        embeddings: string;
+        /** "ladder step {step}" */
+        ladder: string;
+        purposes: {
+          neighbourhoods: string;
+          /** "candidates for day {day}, {part}" */
+          candidatesDay: string;
+          candidates: string;
+          hotels: string;
+          named: string;
+          chat: string;
+          climate: string;
+          fetch: string;
+          photos: string;
+        };
+        /** The results table's accessible name: "Results of search {seq}". */
+        caption: string;
+        columns: {
+          used: string;
+          document: string;
+          id: string;
+          category: string;
+          district: string;
+          distance: string;
+        };
+        usedYes: string;
+        usedNo: string;
+        /** "Cosine distance: lower is closer. {used} of {k} used." */
+        footnote: string;
+        noResults: string;
+        /** Pill on a search that found nothing (the payload's `no_hit`). */
+        noHit: string;
+        empty: string;
+      };
+      /** The phone's bottom sheet. */
+      sheet: {
+        expand: string;
+        collapse: string;
+        tabs: string;
+        tab: { trace: string; kb: string; model: string; events: string };
+        stats: { model: string; duration: string; calls: string; searches: string };
+        /** "{count} to the model" */
+        callsValue: string;
+        /** "{count} searches" */
+        searchesValue: string;
+      };
+    };
+  };
   notFound: {
     title: string;
     description: string;
@@ -381,5 +869,11 @@ export interface Translations {
     toggle: string;
     light: string;
     dark: string;
+    /** The menu's heading over the three choices (TRA-236). */
+    label: string;
+    /** The three choices, short. */
+    darkShort: string;
+    lightShort: string;
+    system: string;
   };
 }

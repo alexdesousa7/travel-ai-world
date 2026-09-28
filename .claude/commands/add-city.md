@@ -139,7 +139,12 @@ Steps:
 Known pitfalls (from Budapest and Bologna):
 
 - **Overpass** answers 429 or a timeout in a 200 body when busy: the client waits 5 s between
-  queries and backs off; a cold build is slow by design. Never parallelise the requests.
+  queries, backs off and reads for up to 250 s; a cold build is slow by design. Never parallelise
+  the requests. A build that gives up keeps what it fetched in `.cache/`: run it again.
+- **Small memorials** (Stolpersteine, plaques) have a name and a website in OSM; `sources/osm.py`
+  skips them (Berlin had 6,504). A `see` count far above Budapest's means another such tag: fix
+  the rule there, for every city.
+- **Windows**: prefix the commands with `PYTHONUTF8=1`, or printing `→` fails on cp1252.
 - **Wikidata** folds its query service's lag into `maxlag` and it can sit at minutes for hours;
   read-only requests are re-sent without the parameter. If the discover run stalls, that is why.
 - **Wikipedia broad categories** hold embassies, ministries and companies next to the sights:

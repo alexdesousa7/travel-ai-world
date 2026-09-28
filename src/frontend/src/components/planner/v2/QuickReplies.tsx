@@ -6,6 +6,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { interpolate } from "@/i18n";
 import type { BriefField, PriceTier, TripBrief } from "@/types/planner";
 import { cn } from "@/utils/cn";
+import { tomorrowIso } from "@/utils/tripDates";
 
 export interface QuickRepliesProps {
   brief: TripBrief;
@@ -236,6 +237,8 @@ export function QuickReplies({
                 id={`${ids}-from`}
                 type="date"
                 value={startDate}
+                // A trip starts tomorrow at the earliest (TRA-244).
+                min={tomorrowIso()}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={disabled}
                 className={fieldClass}
@@ -249,7 +252,7 @@ export function QuickReplies({
                 id={`${ids}-to`}
                 type="date"
                 value={endDate}
-                min={startDate || undefined}
+                min={startDate || tomorrowIso()}
                 onChange={(e) => setEndDate(e.target.value)}
                 disabled={disabled}
                 className={fieldClass}
@@ -269,7 +272,8 @@ export function QuickReplies({
 
       {shows("interests") && (
         <div className="flex flex-col gap-2">
-          <span className={labelClass}>{q.interests}</span>
+          {/* "os" for a party, "te" for one traveller: the count on screen, or the brief's. */}
+          <span className={labelClass}>{adults + children > 1 ? q.interests : q.interestsSolo}</span>
           <div className="flex flex-wrap gap-2">
             {q.interestOptions.map((option) => {
               const checked = interests.includes(option.id);
@@ -282,7 +286,7 @@ export function QuickReplies({
                   disabled={disabled}
                   onClick={() => toggleInterest(option.id)}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
+                    "rounded-full border px-3 py-1.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
                     checked
                       ? "border-accent bg-accent/15 text-text-primary"
                       : "border-border-soft text-text-secondary hover:border-accent/40 hover:text-text-primary"
@@ -312,7 +316,7 @@ export function QuickReplies({
                   disabled={disabled}
                   onClick={() => setBudget(tier)}
                   className={cn(
-                    "flex-1 rounded-lg border px-3 py-2 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
+                    "flex-1 rounded-lg border px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
                     checked
                       ? "border-accent bg-accent/15 text-text-primary"
                       : "border-border-soft text-text-secondary hover:border-accent/40 hover:text-text-primary"
@@ -330,7 +334,7 @@ export function QuickReplies({
         type="button"
         onClick={confirm}
         disabled={disabled || !ready}
-        className="self-end rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-40"
+        className="self-end rounded-lg bg-action px-4 py-2 text-sm font-medium text-on-action transition hover:bg-action-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {q.confirm}
       </button>

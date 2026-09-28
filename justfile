@@ -36,7 +36,8 @@ setup:
 
 # ── Run ──────────────────────────────────────────────────────────────────────
 
-# core_api with hot reload on :8000
+# core_api with hot reload on :8000. Needs DynamoDB: `just dynamodb-local` in another terminal
+# (the devcontainer and Compose bring their own); the table is created at start.
 dev-core:
     cd {{core}} && uv run uvicorn core_api.main:app --reload --host 0.0.0.0 --port 8000
 
@@ -47,6 +48,10 @@ dev-ai:
 # Next.js dev server on :3000
 dev-frontend:
     cd {{frontend}} && npm run dev
+
+# In-memory DynamoDB on :8002 for `just dev-core`/`dev-ai` without Docker (moto); Compose uses amazon/dynamodb-local
+dynamodb-local:
+    cd {{backend}} && uv run moto_server -H 0.0.0.0 -p 8002
 
 # Run the city scraper (needs GOOGLE_API_KEY in {{scraper}}/.env); output in {{scraper}}/data/
 scrape:
@@ -114,14 +119,14 @@ format:
 # All tests: backend packages + frontend unit tests
 test: test-backend test-frontend
 
-# Every backend package (needs PostgreSQL for core_api)
+# Every backend package
 test-backend: test-common test-core test-ai test-corpus
 
 # travel_common unit tests
 test-common:
     cd {{common}} && uv run pytest -q
 
-# core_api tests (PostgreSQL required; creates <DB_NAME>_test)
+# core_api tests (DynamoDB on moto, in process; no database server needed)
 test-core:
     cd {{core}} && uv run pytest -q
 
@@ -187,20 +192,24 @@ aws-login:
     aws sso login
     aws sts get-caller-identity
 
-# ── Database ─────────────────────────────────────────────────────────────────
+# The Cognito username of an account (`Google_<sub>` for Google), after its first sign-in:
+# what goes into `admin_usernames` in infra/aws/admins.auto.tfvars (ADR 0024). Needs just aws-login.
+cognito-username email:
+    aws cognito-idp list-users --user-pool-id "$(cd infra/aws && terraform output -raw cognito_user_pool_id)" --filter "email = \"{{email}}\"" --query 'Users[].Username' --output text
 
-# Apply core_api migrations
-migrate:
-    cd {{core}} && uv run alembic upgrade head
-
-# Autogenerate a migration after changing core_api models: just migration "add x"
-migration message:
-    cd {{core}} && uv run alembic revision --autogenerate -m "{{message}}"
+# ── Accounts ─────────────────────────────────────────────────────────────────
 
 # Print a local-mode JWT for an account (created when it is new), to sign in without Google:
-# E2E_TOKEN=$(just dev-token you@example.com). Dev-only: not an `ops` command, never on /events.
-dev-token email:
-    @cd {{core}} && uv run --quiet python -m core_api.devtools token {{email}}
+# E2E_TOKEN=$(just dev-token you@example.com). `just dev-token you@example.com --admin` makes the
+# account an administrator first. Dev-only: the deployed service never imports it.
+dev-token email *flags="":
+    @cd {{core}} && uv run --quiet python -m core_api.devtools token {{email}} {{flags}}
+
+# One-off, after the TRA-227 apply: write the admin index keys (GSI2) on trips saved before it, so
+# /admin/trips lists them. Idempotent; `just backfill-trip-index --dry-run` only counts. For the real
+# table: `just aws-login`, then CORE_TABLE / AWS_REGION in the environment and no DYNAMODB_ENDPOINT_URL.
+backfill-trip-index *flags="":
+    @cd {{core}} && uv run --quiet python -m core_api.ops backfill-trip-index {{flags}}
 
 # ── Build & Docker ───────────────────────────────────────────────────────────
 
@@ -213,12 +222,12 @@ docker-build:
     cd {{backend}} && docker build --build-arg SERVICE=core_api -t travel-ai-world/core-api:local .
     cd {{backend}} && docker build --build-arg SERVICE=ai_api -t travel-ai-world/ai-api:local .
 
-# Backend-only stack: proxy :8080 + core_api + ai_api + PostgreSQL (no Node needed).
+# Backend-only stack: proxy :8080 + core_api + ai_api + DynamoDB Local (no Node needed).
 # The proxy serves whatever is in {{frontend}}/out; without a build "/" answers 404
 # and /api/* still works. mkdir keeps the bind-mount source owned by you, not root.
 docker-up:
     mkdir -p {{frontend}}/out
-    cd {{backend}} && docker compose --env-file services/core_api/.env up --build -d
+    cd {{backend}} && docker compose up --build -d
 
 # Stop the Compose stack
 docker-down:
@@ -230,11 +239,11 @@ docker-down:
 build-stack:
     cd {{frontend}} && NEXT_PUBLIC_API_URL=http://localhost:8080 NEXT_PUBLIC_AI_API_URL= npm run build
 
-# Full stack as deployed on http://localhost:8080: export + proxy + core_api + ai_api + PostgreSQL.
+# Full stack as deployed on http://localhost:8080: export + proxy + core_api + ai_api + DynamoDB Local.
 # `next build` deletes and recreates out/, so a proxy that was already running would keep the
 # old, unlinked directory (404 on every page): recreate it so the bind mount is the new one.
 stack-up: build-stack docker-up
-    cd {{backend}} && docker compose --env-file services/core_api/.env up -d --force-recreate --no-deps proxy
+    cd {{backend}} && docker compose up -d --force-recreate --no-deps proxy
 
 # Stop the full stack (same as docker-down)
 stack-down: docker-down

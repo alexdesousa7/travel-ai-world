@@ -9,8 +9,8 @@
  * still be changed.
  *
  * Every DTO comes from core_api, fetched in the browser with the session
- * token: the planner lists the signed-in user's trips (`listTrips`,
- * `GET /api/v1/trips/`) and opens one (`getTrip`, `GET /api/v1/trips/{id}`).
+ * token: the trips home lists the signed-in user's trips (`listTrips`,
+ * `GET /api/v1/trips/`) and the planner opens one (`getTrip`, `GET /api/v1/trips/{id}`).
  * The pages are static shells; nothing about a trip is known at build time
  * (ADR 0011).
  *
@@ -97,9 +97,10 @@ export interface GetTripOptions {
 
 /**
  * One trip as the planner reopens it, or `null` when there is nothing to
- * show: a 404 (no such trip) and a 403 (someone else's trip) both resolve to
- * `null`, so the UI shows the same "not here" pane and leaks nothing about
- * other users' ids. Any other failure rethrows (`UnauthorizedError` on 401,
+ * show: a 404 (no such trip, or someone else's: core_api answers 404 for both
+ * since ADR 0023) and a 403 (what it answered before) both resolve to `null`,
+ * so the UI shows the same "not here" pane and leaks nothing about other
+ * users' ids. Any other failure rethrows (`UnauthorizedError` on 401,
  * or when there is no session, before any network call).
  */
 export async function getTrip(id: string, { signal }: GetTripOptions = {}): Promise<Trip | null> {
@@ -261,6 +262,12 @@ export function toTripSummary(dto: TripResponse): TripSummary {
     endDate: text(dto.end_date),
     phase: dto.phase,
     imageUrl: text(dto.image_url),
+    // A list answer that leaves the children out reads as nothing planned yet.
+    days: (dto.itinerary_days ?? []).length,
+    stops: (dto.itinerary_days ?? []).reduce(
+      (total, day) => total + day.activities.length + day.meals.length,
+      0
+    ),
   };
 }
 
@@ -378,9 +385,19 @@ function cardsOf(itinerary: ItineraryDraft): OptionCard[] {
   return cards;
 }
 
-/** The trip's cover: the stay's photo, or the first one the draft has. */
+/** The trip's cover: the stay's photo, or the first real one the draft has. */
 function coverOf(itinerary: ItineraryDraft): string | null {
-  return cardsOf(itinerary).find((card) => !!card.image_url)?.image_url ?? null;
+  return cardsOf(itinerary).find((card) => isPhotoUrl(card.image_url))?.image_url ?? null;
+}
+
+/**
+ * A photo worth keeping: anything but the illustrative placeholder ai_api
+ * draws for a venue with no picture (a `data:image/svg+xml` URL). It is
+ * decoration, and CloudFront's WAF reads its URL-encoded `<svg>` as
+ * cross-site scripting and blocks the whole write (TRA-225).
+ */
+function isPhotoUrl(url: string | null | undefined): url is string {
+  return !!url && !url.startsWith("data:");
 }
 
 /** How many days the trip lasts: its dates, or the days the draft has. */
@@ -390,10 +407,13 @@ function durationOf(itinerary: ItineraryDraft, brief: TripBrief): number | null 
 
 /**
  * The card as core_api stores it: a JSON object it never looks inside. The
- * spread is what gives the typed card an index signature; nothing is dropped.
+ * spread is what gives the typed card an index signature. Only the
+ * placeholder photo is dropped (see `isPhotoUrl`): a reopened trip shows the
+ * card's own no-photo fallback instead.
  */
 function cardJson(card: OptionCard): SavedCard {
-  return { ...card };
+  if (isPhotoUrl(card.image_url) || !card.image_url) return { ...card };
+  return { ...card, image_url: null, image_credit: null };
 }
 
 /**
@@ -521,6 +541,13 @@ export interface SaveDraftAsTripOptions extends WriteOptions {
   title: string;
   /** Rewrite this trip instead of creating one: the second "Save trip". */
   tripId?: string | null;
+  /**
+   * The new trip's id, the moment core_api has stored it (TRA-244). The rest
+   * of the snapshot is several writes more, and any of them can fail: the
+   * caller keeps the id so that trying again rewrites this trip instead of
+   * leaving it half-written and creating another one.
+   */
+  onCreated?: (id: string) => void;
 }
 
 /** Drops everything hanging off a trip, so the snapshot can be written again. */
@@ -560,7 +587,7 @@ export async function saveDraftAsTrip(
   itinerary: ItineraryDraft,
   brief: TripBrief,
   city: PlannerCity,
-  { title, tripId = null, signal }: SaveDraftAsTripOptions
+  { title, tripId = null, signal, onCreated }: SaveDraftAsTripOptions
 ): Promise<Trip> {
   const body = tripBodyOf(itinerary, brief, city, title);
 
@@ -571,6 +598,7 @@ export async function saveDraftAsTrip(
     await clearChildren(existing, signal);
   } else {
     id = (await createTrip(body, { signal })).id;
+    onCreated?.(id);
   }
 
   for (const day of itinerary.days) {

@@ -2,7 +2,8 @@
 
 A reproducible VS Code environment for the monorepo: Node 24, Python 3.12 (via `uv`), `just`,
 `gh`, ripgrep/fd/jq, AWS CLI v2 + Terraform + `crane` + Session Manager plugin, Claude Code
-(plus optional agent CLIs), Playwright's Chromium, and a PostgreSQL 16 container. **It does not run the application**: you start the services yourself
+(plus optional agent CLIs), Playwright's Chromium and DynamoDB Local; there is no SQL database.
+**It does not run the application**: you start the services yourself
 with the same `just` recipes everyone uses.
 
 ## What starts
@@ -10,20 +11,20 @@ with the same `just` recipes everyone uses.
 | Service | Notes |
 |---|---|
 | `devcontainer` | your terminal; the repo is mounted at `/workspace` |
-| `db` | PostgreSQL 16, `postgres`/`postgres`, database `travel_ai_world`, forwarded to `localhost:5432` |
+| `dynamodb` | DynamoDB Local, in memory, reached as `dynamodb:8000` (`DYNAMODB_ENDPOINT_URL`; no host port): `core_api`'s table |
 
 `src/backend/.venv`, `src/frontend/node_modules` and `src/frontend/.next` are named Docker volumes, so the
 host's copies (with their platform-specific binaries) are never touched.
 
 On first creation `post-create.sh` runs `just setup` (creates the four `.env` files, including the
-scraper's, `uv sync`, `npm install`), `just migrate` and installs Chromium for `just test-e2e`.
+scraper's, `uv sync`, `npm install`) and installs Chromium for `just test-e2e`. There are no
+migrations: `core_api` creates its DynamoDB table in DynamoDB Local when it starts (ADR 0023).
 
 ## Database wiring
 
-The `devcontainer` service exports `DB_SERVER=db`, `DB_USER`, `DB_PASSWORD` and `DB_NAME`
-as environment variables, which take precedence over `src/backend/services/core_api/.env`.
-`just dev-core`, `just migrate` and `just test-core` therefore hit the `db` container with no
-edits to the `.env`. The remaining keys (`SECRET_KEY`, `GOOGLE_*`, `NVIDIA_API_KEY`) still have
+The `devcontainer` service exports `DYNAMODB_ENDPOINT_URL=http://dynamodb:8000`, which takes
+precedence over the services' `.env` files, so `just dev-core` and `just dev-ai` reach DynamoDB
+Local with no edits. The remaining keys (`SECRET_KEY`, `GOOGLE_*`, `NVIDIA_API_KEY`) still have
 to be filled in the `.env` files, as in the [local-dev runbook](../docs/runbooks/local-dev.md).
 
 ## Use
@@ -43,15 +44,10 @@ Playwright MCP entry in `.mcp.json` therefore launch Chromium with `WAYLAND_DISP
 (TRA-180). If you start Chromium by hand, do the same: `env -u WAYLAND_DISPLAY npx playwright …`.
 
 Closing the VS Code window stops the compose stack (`shutdownAction: stopCompose`); the
-PostgreSQL data and the dependency volumes persist between sessions. To wipe them:
-`docker compose -f .devcontainer/docker-compose.yml down -v` on the host.
-
-If `postCreate` fails at `just migrate` with `password authentication failed for user
-"postgres"`, the `postgres_data` volume was initialised by an older compose file with other
-credentials (`POSTGRES_*` only apply on first init). Wipe the volumes as above and rebuild, or,
-inside the container, create the missing role with the old credentials
-(`psql -h db -U <old-user> -c "CREATE ROLE postgres LOGIN SUPERUSER PASSWORD 'postgres'"`) and
-re-run `bash .devcontainer/post-create.sh`.
+dependency volumes persist between sessions, and DynamoDB Local starts empty each time. To wipe
+the volumes: `docker compose -f .devcontainer/docker-compose.yml down -v` on the host. A
+`postgres_data` volume left by an older compose file is no longer used; the same command
+removes it.
 
 ## AWS
 
@@ -60,10 +56,10 @@ else (no Docker daemon, no SAM/CDK):
 
 | Tool | Why | Pinned in |
 |---|---|---|
-| `aws` (CLI v2) | `sts`, `ecr`, `ecs`, `logs`, SSO login | latest at build |
+| `aws` (CLI v2) | `sts`, `ecr`, `lambda`, `logs`, `cognito-idp`, `s3vectors`, SSO login | latest at build |
 | `terraform` | `infra/aws/` (`just infra-fmt`, `just infra-validate aws`, plan/apply) | `TERRAFORM_VERSION` build arg |
 | `crane` | copy the GHCR images into ECR without a Docker daemon | `CRANE_VERSION` build arg |
-| `session-manager-plugin` | `aws ecs execute-command` into a running Fargate task | latest at build |
+| `session-manager-plugin` | unused since the move to Lambda (ADR 0009); a candidate for removal | latest at build |
 
 **Authentication is IAM Identity Center (SSO), never access keys.** The compose file sets
 `AWS_PROFILE=travel-ai-world`; `post-create.sh` seeds `~/.aws/config` from

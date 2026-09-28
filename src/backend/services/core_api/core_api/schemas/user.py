@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, EmailStr
 from travel_common.principal import Role
 
@@ -8,7 +10,7 @@ class UserBase(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """All fields are optional — supports partial PUT/PATCH updates."""
+    """All fields are optional: a partial update (PATCH)."""
 
     email: EmailStr | None = None
     is_active: bool | None = None
@@ -21,11 +23,14 @@ class UserRoleUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: UUID
     role: Role
     name: str | None = None
     picture: str | None = None
     auth_provider: str = "google"
+    # The token `sub` the account signs in with; the AI traces name users by
+    # it (ADR 0024). Null until the account's next request.
+    subject: str | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,7 +47,7 @@ class GoogleAuthRequest(BaseModel):
 class AuthUser(BaseModel):
     """The profile the frontend keeps next to the access token."""
 
-    id: int
+    id: UUID
     email: str
     name: str | None = None
     picture: str | None = None

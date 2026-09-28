@@ -97,7 +97,7 @@ function day(index: number, title: string, children: (ActivityDto | MealDto)[]):
 /** Three days in Budapest, upcoming, with every card the session picked. */
 const BUDAPEST = {
   id: TRIP_ID,
-  user_id: 1,
+  user_id: "0b6f7c1e-5d3a-4c8e-9f21-7a4b2c9d1e60",
   title: "3 days in Budapest",
   description: null,
   phase: "upcoming",
@@ -121,6 +121,7 @@ const BUDAPEST = {
   image_url: HOTELS.rum.image_url,
   created_at: "2026-09-01T10:00:00Z",
   updated_at: "2026-09-01T10:00:00Z",
+  planner_session_id: null,
   itinerary_days: [
     day(0, "Arrival: Belváros and the Danube", [
       activity(0, "morning", ACTIVITIES.greatMarket),

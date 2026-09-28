@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { Button } from "@/components/ui/Button";
 import { useAutoResizeTextarea } from "@/hooks/useAutoResizeTextarea";
@@ -37,6 +37,17 @@ export interface AskComposerProps {
   autoFocus?: boolean;
   /** Rendered above the field, inside the block that fades on its way out. */
   children?: ReactNode;
+  /** A quiet line beside the button, under a hairline: the cities there are. */
+  hint?: ReactNode;
+  /** The field took or lost the focus (Kiri looks up, TRA-236). */
+  onFocusChange?: (focused: boolean) => void;
+  /** What is typed, as it is typed (Kiri notes it down). */
+  onAskChange?: (ask: string) => void;
+  /**
+   * `full` is the landing's field — room to write, the action below it;
+   * `compact` the home's one line with a round send button inside (TRA-237).
+   */
+  variant?: "full" | "compact";
   className?: string;
 }
 
@@ -64,6 +75,10 @@ export function AskComposer({
   label,
   autoFocus = false,
   children,
+  hint,
+  onFocusChange,
+  onAskChange,
+  variant = "full",
   className,
 }: AskComposerProps) {
   const { t } = useLanguage();
@@ -110,11 +125,14 @@ export function AskComposer({
     submit();
   };
 
+  const compact = variant === "compact";
+  const sendLabel = leaving ? t.landing.sending : t.landing.send;
+
   return (
     <div
       data-leaving={leaving}
       className={cn(
-        "mx-auto w-full max-w-[38rem] animate-fade-up transition-opacity duration-300",
+        "mx-auto w-full max-w-[45rem] animate-fade-up transition-opacity duration-300",
         leaving && "opacity-0",
         className
       )}
@@ -125,14 +143,26 @@ export function AskComposer({
         {/* The conic ring, turning while the field has the focus. */}
         <span
           aria-hidden="true"
-          className="conic-ring pointer-events-none absolute -inset-px rounded-[27px] opacity-0 transition-opacity duration-300 group-focus-within:animate-ring-spin group-focus-within:opacity-100"
+          className="conic-ring pointer-events-none absolute -inset-px rounded-[20px] opacity-0 transition-opacity duration-300 group-focus-within:animate-ring-spin group-focus-within:opacity-100"
         />
 
-        <div className="relative rounded-[26px] border border-glass-border bg-glass-bg p-2 shadow-field-glow backdrop-blur-xl transition-colors group-focus-within:border-transparent">
+        <div
+          className={cn(
+            "relative flex rounded-[19px] border border-glass-border bg-glass-bg shadow-field-glow backdrop-blur-xl transition-colors group-focus-within:border-transparent",
+            compact
+              ? "items-end gap-2 py-1.5 pr-1.5 pl-4 sm:pl-5"
+              : "flex-col gap-3 px-4 pt-4 pb-3.5 sm:px-5 sm:pt-5"
+          )}
+        >
           <textarea
             ref={fieldRef}
             value={ask}
-            onChange={(event) => setAsk(event.target.value)}
+            onChange={(event) => {
+              setAsk(event.target.value);
+              onAskChange?.(event.target.value);
+            }}
+            onFocus={() => onFocusChange?.(true)}
+            onBlur={() => onFocusChange?.(false)}
             onInput={resize}
             onKeyDown={onKeyDown}
             rows={1}
@@ -141,21 +171,55 @@ export function AskComposer({
             aria-labelledby={labelledBy}
             aria-label={labelledBy ? undefined : label}
             placeholder={placeholder}
-            className="block min-h-[4.25rem] w-full resize-none bg-transparent px-4 pt-3 text-[17px] leading-relaxed text-text-primary placeholder:text-text-secondary focus:outline-none"
+            className={cn(
+              "block w-full resize-none bg-transparent leading-normal text-text-primary placeholder:text-text-muted focus:outline-none",
+              compact
+                ? // One line: a long example ends in an ellipsis instead of wrapping under the fold.
+                  "min-h-11 py-2.5 text-[17px] placeholder-shown:overflow-hidden placeholder:overflow-hidden placeholder:text-ellipsis placeholder:whitespace-nowrap"
+                : "min-h-[3.75rem] text-[17px] sm:text-lg"
+            )}
             style={{ maxHeight: `${TEXTAREA_MAX_PX}px` }}
           />
-          <div className="flex justify-end px-2 pb-1">
+          {compact ? (
             <Button
               type="submit"
               size="sm"
               disabled={!canSubmit}
               aria-busy={leaving}
-              className="gap-2 rounded-full px-5 py-2.5 text-sm shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={sendLabel}
+              title={sendLabel}
+              className="h-11 w-11 shrink-0 rounded-xl p-0 shadow-none disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {leaving && <Loader2 size={15} className="animate-spin" aria-hidden="true" />}
-              {leaving ? t.landing.sending : t.landing.send}
+              {leaving ? (
+                <Loader2 size={17} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Send size={17} aria-hidden="true" />
+              )}
             </Button>
-          </div>
+          ) : (
+            <div
+              className={cn(
+                "flex items-center gap-4",
+                hint ? "justify-between border-t border-glass-border pt-3" : "justify-end"
+              )}
+            >
+              {hint && <p className="min-w-0 text-sm text-text-muted">{hint}</p>}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!canSubmit}
+                aria-busy={leaving}
+                className="h-[42px] shrink-0 gap-2 rounded-xl px-[18px] py-0 text-[15px] font-semibold shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendLabel}
+                {leaving ? (
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send size={16} aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </form>
     </div>

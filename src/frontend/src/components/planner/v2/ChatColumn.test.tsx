@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, renderWithProviders, screen } from "@/test/render";
+import { act, fireEvent, renderWithProviders, screen } from "@/test/render";
 import en from "@/i18n/en";
 import { interpolate } from "@/i18n";
 import {
@@ -9,7 +9,9 @@ import {
   type PlannerMessage,
   type PlannerState,
 } from "@/hooks/plannerReducer";
-import { GROUP_IDS, NEIGHBOURHOODS } from "@/data/planner-demo/session";
+import { FIRST_ITINERARY_OPS, GROUP_IDS, NEIGHBOURHOODS } from "@/data/planner-demo/session";
+import { EMPTY_BRIEF } from "@/types/planner";
+import { applyItineraryOps, EMPTY_ITINERARY } from "@/hooks/plannerReducer";
 import { ChatColumn } from "./ChatColumn";
 
 const p = en.plan;
@@ -130,5 +132,204 @@ describe("ChatColumn", () => {
     renderColumn({ messages: [], groups: {} });
 
     expect(screen.getByText(p.subtitle)).toBeInTheDocument();
+  });
+});
+
+describe("ChatColumn — while the URL's trip is not in the planner (TRA-223)", () => {
+  it("shows no transcript and takes no turn", () => {
+    const { onSend } = renderColumn({}, null, { holding: true });
+
+    expect(screen.queryByText("5 days in Budapest")).toBeNull();
+    expect(screen.queryByText("Good plan!")).toBeNull();
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "3 days in Bologna" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("shows the transcript again once the trip is there", () => {
+    renderColumn({}, null, { holding: false });
+
+    expect(screen.getByText("5 days in Budapest")).toBeInTheDocument();
+  });
+});
+
+describe("ChatColumn — Kiri's answer (TRA-239)", () => {
+  it("packs the suitcase under the message that started the turn, while it streams", () => {
+    renderColumn({
+      status: "streaming",
+      packing: { step: "wardrobe", folded: false, warned: false, failed: false, detail: null, sources: [], live: false, daysBefore: 0 },
+      messages: [
+        { id: "m1", kind: "text", role: "user", content: "5 days in Budapest" },
+        { id: "m2", kind: "text", role: "assistant", content: "" },
+      ],
+    });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(p.packing.steps.wardrobe);
+    expect(status).toHaveTextContent(p.packing.details.wardrobe);
+  });
+
+  it("keeps the suitcase for the end: a compact status while the turn streams (TRA-244)", () => {
+    renderColumn({
+      status: "streaming",
+      packing: {
+        step: "fold",
+        folded: true,
+        warned: false,
+        failed: false,
+        detail: "Sharing the stops out over 3 days, close to each other.",
+        sources: ["Wikivoyage"],
+        live: true,
+        daysBefore: 0,
+      },
+      brief: { ...EMPTY_BRIEF, destination: "Budapest", adults: 2 },
+      itinerary: applyItineraryOps(EMPTY_ITINERARY, FIRST_ITINERARY_OPS),
+      messages: [
+        { id: "m1", kind: "text", role: "user", content: "3 days in Budapest" },
+        { id: "m2", kind: "text", role: "assistant", content: "" },
+      ],
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("over 3 days");
+    expect(document.querySelector("[data-suitcase]")).toBeNull();
+  });
+
+  it("plays the whole suitcase once the trip is packed, then turns it into the boarding pass", () => {
+    vi.useFakeTimers();
+    try {
+      const itinerary = applyItineraryOps(EMPTY_ITINERARY, FIRST_ITINERARY_OPS);
+      renderColumn({
+        status: "idle",
+        packing: {
+          step: "zip",
+          folded: true,
+          warned: true,
+          failed: false,
+          detail: null,
+          sources: ["Wikivoyage", "Open-Meteo"],
+          live: true,
+          daysBefore: 0,
+        },
+        brief: { ...EMPTY_BRIEF, destination: "Budapest", origin: "Madrid", adults: 2 },
+        itinerary,
+        missing: [],
+      });
+      // From the first render: the suitcase, not a flash of the pass.
+      expect(document.querySelector('[data-packing="replay"]')).not.toBeNull();
+      expect(screen.queryByRole("region", { name: p.packing.boarding.title })).toBeNull();
+
+      act(() => vi.advanceTimersByTime(2500));
+      const suitcase = document.querySelector("[data-suitcase]");
+      // Open while it is being packed; it will shut towards the viewer (TRA-250).
+      expect(suitcase?.querySelector<HTMLElement>(".suitcase-lid")?.style.transform).toBe("rotateX(0deg)");
+      expect(suitcase).toHaveTextContent(p.packing.suitcase.list);
+      expect(suitcase).toHaveTextContent("Open-Meteo");
+      expect(suitcase).toHaveTextContent(itinerary.days[0]?.slots.morning[0]?.title ?? "");
+
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(screen.getByRole("region", { name: p.packing.boarding.title })).toHaveTextContent(
+        "Budapest"
+      );
+      expect(screen.getByText(p.packing.closed)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: p.packing.howIPacked }));
+      const steps = Array.from(document.querySelectorAll("li[data-step]"));
+      expect(steps.map((item) => item.getAttribute("data-step"))).toEqual([
+        "open",
+        "list",
+        "wardrobe",
+        "fold",
+        "weigh",
+        "zip",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ends a turn that only changed the trip as added to the suitcase, not closed (TRA-250)", () => {
+    renderColumn({
+      status: "idle",
+      packing: {
+        step: "zip",
+        folded: true,
+        warned: false,
+        failed: false,
+        detail: null,
+        sources: [],
+        live: true,
+        daysBefore: 3,
+      },
+      itinerary: applyItineraryOps(EMPTY_ITINERARY, FIRST_ITINERARY_OPS),
+      missing: [],
+    });
+    expect(screen.getByText(p.packing.added)).toBeInTheDocument();
+    expect(screen.queryByText(p.packing.closed)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-suitcase]")).toBeNull();
+  });
+
+  it("writes what is missing on a luggage tag over the quick replies", () => {
+    renderColumn({
+      brief: { ...EMPTY_BRIEF, destination: "Bologna", adults: 2 },
+      missing: ["dates", "origin"],
+    });
+    const tag = screen.getByRole("region", { name: p.packing.tag.title });
+    expect(tag).toHaveTextContent("Bologna");
+    expect(tag.querySelector('[data-field="dates"]')).toHaveTextContent(p.packing.tag.toDecide);
+    expect(tag.querySelector('[data-field="travellers"]')).not.toHaveTextContent(p.packing.tag.toDecide);
+  });
+
+  it("shows no tag while most of the brief is still to come, only the question (TRA-251)", () => {
+    renderColumn({
+      status: "idle",
+      brief: { ...EMPTY_BRIEF },
+      missing: ["destination", "origin", "dates", "travellers", "interests"],
+      packing: { step: "zip", folded: false, warned: false, failed: false, detail: null, sources: [], live: true, daysBefore: 0 },
+      messages: [
+        { id: "m1", kind: "text", role: "user", content: "Hola" },
+        { id: "m2", kind: "text", role: "assistant", content: "¿A cuál es el destino que te gustaría explorar?" },
+      ],
+    });
+    expect(screen.queryByRole("region", { name: p.packing.tag.title })).toBeNull();
+    // Nothing was packed either: no suitcase, closed or added.
+    expect(document.querySelector("[data-packing]")).toBeNull();
+    expect(screen.queryByText(p.packing.added)).not.toBeInTheDocument();
+    // The quick replies still ask.
+    expect(screen.getByRole("button", { name: p.quickReplies.confirm })).toBeInTheDocument();
+  });
+
+  it("asks with the tag even when the destination is outside the corpus (TRA-243)", () => {
+    renderColumn({
+      status: "idle",
+      brief: { ...EMPTY_BRIEF },
+      missing: ["destination", "dates"],
+      packing: { step: "zip", folded: false, warned: false, failed: false, detail: null, sources: [], live: true, daysBefore: 0 },
+      messages: [
+        { id: "m1", kind: "text", role: "user", content: "Four days in Lisbon" },
+        { id: "m2", kind: "text", role: "assistant", content: "For now I can plan Budapest." },
+      ],
+    });
+    const tag = screen.getByRole("region", { name: p.packing.tag.title });
+    expect(tag).toHaveTextContent(p.packing.tag.toDecide);
+    // Nothing was packed: the suitcase does not close, Kiri just asks.
+    expect(screen.queryByText(p.packing.closed)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-packing]")).toBeNull();
+    expect(screen.getByText(p.packing.kiri)).toBeInTheDocument();
+  });
+
+  it("reports a failed turn as lost luggage, and retries it", () => {
+    const onRetry = vi.fn();
+    renderColumn({ status: "error", error: "generic" }, p.errors.generic, { onRetry });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(p.packing.lost.title);
+    expect(alert).toHaveTextContent(p.packing.lost.safe);
+    fireEvent.click(screen.getByRole("button", { name: p.packing.lost.retry }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no retry when the session is what failed", () => {
+    renderColumn({ status: "error", error: "unauthorized" }, p.errors.unauthorized, {
+      onRetry: vi.fn(),
+    });
+    expect(screen.queryByRole("button", { name: p.packing.lost.retry })).not.toBeInTheDocument();
   });
 });

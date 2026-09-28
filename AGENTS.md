@@ -15,11 +15,12 @@ AI-powered travel planner. Static Next.js frontend + two FastAPI services:
 | Path | Role | Talks to |
 |---|---|---|
 | `src/frontend/` | Next.js 16 static export (S3 + CloudFront on AWS) | `core_api`, `ai_api` |
-| `src/backend/services/core_api/` | Google auth, users, trips CRUD, chat conversations | PostgreSQL |
-| `src/backend/services/ai_api/` | LLM chat streaming (NVIDIA), future RAG | `core_api` (with the caller's token) |
+| `src/backend/services/core_api/` | Google auth, users, trips CRUD, chat conversations | DynamoDB (one table, ADR 0023) |
+| `src/backend/services/ai_api/` | Trip planner (typed SSE, ADR 0015/0025), card details, chat, admin reads over the turn traces; Bedrock deployed, NVIDIA locally; RAG over S3 Vectors (ADR 0014) | `core_api` (with the caller's token), Bedrock, S3 Vectors, its own trace table (ADR 0024), Open-Meteo, Wikimedia Commons |
 | `src/backend/libs/travel_common/` | Shared kernel: Principal, settings, errors, JWT, app factory | — |
-| `src/backend/tools/scraper/` | City data ingestion scripts (JSON output) | Google Places, Wikipedia |
+| `src/backend/tools/scraper/` | Legacy Madrid ingestion scripts (JSON output); nothing reads its output | Google Places, Wikipedia |
 | `src/backend/tools/city_corpus/` | RAG corpus builder: licence-clean city documents as JSONL (committed) | Wikivoyage, Wikipedia, OpenStreetMap, Wikidata, Open-Meteo |
+| `src/backend/tools/vector_store_bench/` | TRA-151 spike (Qdrant vs S3 Vectors); frozen, never deployed | — |
 | `infra/{gcp,aws}/` | Two-service deployment, one cloud per folder; **AWS is the deployed one** | — |
 | `docs/` | Architecture, ADRs, runbooks, OpenAPI documents, design file | — |
 
@@ -33,16 +34,16 @@ Diagram and request flows: [docs/architecture/overview.md](docs/architecture/ove
 ```bash
 just                # list recipes
 just setup          # .env files + uv sync + npm install
-just dev-core       # core_api  :8000 (hot reload)
+just dev-core       # core_api  :8000 (hot reload; needs `just dynamodb-local` outside the devcontainer)
 just dev-ai         # ai_api    :8001 (hot reload)
 just dev-frontend   # Next.js   :3000
-just lint           # ruff + pyright (backend, scripts) + eslint
+just dynamodb-local # in-memory DynamoDB :8002 (moto) for dev-core/dev-ai without Docker
+just lint           # ruff (backend, scripts) + pyright (backend) + eslint
 just test           # every backend package + frontend unit tests
 just test-core / test-ai / test-common / test-corpus / test-frontend / test-e2e
 just contracts      # export OpenAPI docs + regenerate frontend types (run after changing any schema/route)
 just docs-check     # documentation hygiene
-just migrate / just migration "message"
-just docker-up      # backend only: proxy :8080 + core_api + ai_api + PostgreSQL (no Node)
+just docker-up      # backend only: proxy :8080 + core_api + ai_api + DynamoDB Local (no Node)
 just stack-up       # the stack as deployed: frontend export + the above on one origin :8080
 just build-stack    # only the export for :8080 (what stack-up runs before docker-up)
 just scrape         # run the city scraper (needs GOOGLE_API_KEY in its .env)
@@ -52,13 +53,14 @@ just aws-login      # AWS via IAM Identity Center (devcontainer); never access k
 ```
 
 Windows: `winget install Casey.Just` and run the recipes from Git Bash or WSL (they are POSIX shell).
-`just test-core` needs PostgreSQL and a non-empty `SECRET_KEY` (see `src/backend/services/core_api/.env.example`).
+`just test-core` needs a non-empty `SECRET_KEY` (see `src/backend/services/core_api/.env.example`) and no
+database: DynamoDB is moto in process.
 
 ## Non-negotiable rules
 
 1. **Run the checks before you finish**: `just lint`, the tests of every package you touched, and
    `just contracts` whenever a Pydantic schema or route changed (CI rejects drift).
-2. **Keep the service boundary**: `ai_api` never imports `core_api` or SQLAlchemy; `core_api` never
+2. **Keep the service boundary**: `ai_api` never imports `core_api`; `core_api` never
    imports `ai_api`. They talk over HTTP. Shared code goes to `travel_common` only if both need it.
 3. **Errors are domain errors**: raise `travel_common.exceptions.*` from services; never
    `HTTPException`; endpoints contain no `if not x: raise 404`.
@@ -76,7 +78,8 @@ Windows: `winget install Casey.Just` and run the recipes from Git Bash or WSL (t
 
 - Python 3.12, `uv` workspace at `src/backend/` (one lockfile), ruff (line length 88; rules E4/E7/E9/F +
   I, UP, B, SIM, N, RUF, ASYNC, S — see `src/backend/pyproject.toml`) and pyright (standard mode) over
-  `libs/`, `services/` and `tools/city_corpus`. The scraper keeps the E/F-only policy.
+  `libs/`, `services/`, `tools/city_corpus` and `tools/vector_store_bench` (`[tool.pyright]`). The
+  scraper keeps the E/F-only policy.
 - TypeScript strict, Tailwind v4 (CSS custom properties, no `tailwind.config.js`), Vitest, Playwright.
 - Commits: conventional prefixes (`feat`, `fix`, `refactor`, `build`, `ci`, `docs`, `infra`, `test`, `chore`).
 - Branches: `<type>/TRA-<n>-<short-title>` (e.g. `feat/TRA-123-trip-list`): the same prefixes as

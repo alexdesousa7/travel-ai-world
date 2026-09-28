@@ -1,10 +1,12 @@
 """Trips are private: listing, reading and mutating stop at the owner boundary."""
 
-from core_api.models.user import User
+import uuid
+
+from core_api.domain.models import User
 from httpx import AsyncClient
 from travel_common.principal import Role
 
-from tests.conftest import headers_for, trip_body
+from tests.conftest import day_offset, headers_for, trip_body
 
 TRIPS_URL = "/api/v1/trips/"
 MISSING = "00000000-0000-0000-0000-000000000000"
@@ -17,7 +19,7 @@ async def test_create_and_list_only_own_trips(
         TRIPS_URL, json=trip_body(title="Lisboa"), headers=headers_for(alice)
     )
     assert created.status_code == 201
-    assert created.json()["user_id"] == alice.id
+    assert created.json()["user_id"] == str(alice.id)
 
     alice_trips = await client.get(TRIPS_URL, headers=headers_for(alice))
     bob_trips = await client.get(TRIPS_URL, headers=headers_for(bob))
@@ -38,7 +40,7 @@ async def test_list_is_paginated(client: AsyncClient, alice: User):
     assert too_big.status_code == 422
 
 
-async def test_other_users_trip_is_forbidden(
+async def test_other_users_trip_is_not_found(
     client: AsyncClient, alice: User, bob: User
 ):
     created = await client.post(
@@ -48,8 +50,9 @@ async def test_other_users_trip_is_forbidden(
 
     response = await client.get(f"{TRIPS_URL}{trip_id}", headers=headers_for(bob))
 
-    assert response.status_code == 403
-    assert response.json()["detail"]["error_code"] == "FORBIDDEN"
+    # The trip is keyed by its owner (ADR 0023): for anyone else it is not there.
+    assert response.status_code == 404
+    assert response.json()["detail"]["error_code"] == "NOT_FOUND"
 
 
 async def test_missing_trip_is_not_found(client: AsyncClient, alice: User):
@@ -109,8 +112,58 @@ async def test_a_trip_without_a_city_is_rejected(client: AsyncClient, alice: Use
 
 
 async def test_unknown_user_in_valid_token_is_unauthorized(client: AsyncClient):
-    ghost = User(id=999_999, email="ghost@example.com", role=Role.USER)
+    ghost = User(id=uuid.uuid4(), email="ghost@example.com", role=Role.USER)
 
     response = await client.get(TRIPS_URL, headers=headers_for(ghost))
 
     assert response.status_code == 401
+
+
+SESSION = "5b0c3f0e-8c6a-4d59-9a7e-2f4f1d7e9b10"
+
+
+async def test_a_trip_remembers_its_planner_session(client: AsyncClient, alice: User):
+    """ADR 0024: the trip links back to the planner turns that made it."""
+    headers = headers_for(alice)
+    plain = await client.post(TRIPS_URL, json=trip_body(), headers=headers)
+    assert plain.json()["planner_session_id"] is None, "always present"
+
+    created = await client.post(
+        TRIPS_URL, json=trip_body(planner_session_id=SESSION.upper()), headers=headers
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["planner_session_id"] == SESSION
+
+    other = "0f0e0d0c-0b0a-4908-8706-050403020100"
+    patched = await client.patch(
+        f"{TRIPS_URL}{created.json()['id']}",
+        json={"planner_session_id": other},
+        headers=headers,
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["planner_session_id"] == other
+
+    bad = await client.post(
+        TRIPS_URL, json=trip_body(planner_session_id="nope"), headers=headers
+    )
+    assert bad.status_code == 422
+
+
+async def test_a_locked_trip_keeps_its_planner_session(
+    client: AsyncClient, alice: User
+):
+    headers = headers_for(alice)
+    created = await client.post(
+        TRIPS_URL,
+        json=trip_body(start_date=day_offset(-40), end_date=day_offset(-38)),
+        headers=headers,
+    )
+
+    patched = await client.patch(
+        f"{TRIPS_URL}{created.json()['id']}",
+        json={"planner_session_id": SESSION},
+        headers=headers,
+    )
+
+    assert patched.status_code == 409
+    assert patched.json()["detail"]["error_code"] == "TRIP_LOCKED"

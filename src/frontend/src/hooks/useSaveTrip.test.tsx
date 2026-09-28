@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -70,15 +70,23 @@ const auth = (isAuthenticated: boolean) =>
     login: vi.fn(),
     loginWithRedirect: vi.fn(),
     completeLogin: vi.fn(),
+    isAdmin: false,
     logout: vi.fn(),
   });
 
 describe("useSaveTrip", () => {
   beforeEach(() => {
+    // The recorded brief starts on 2026-10-23, and a trip that has started
+    // cannot be saved: pin "today" before it so these tests do not expire.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-01T12:00:00Z") });
     vi.clearAllMocks();
     vi.mocked(readSavedTripId).mockReturnValue(null);
     apiAvailable = true;
     auth(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("writes the draft with the trip's title in the reader's language", async () => {
@@ -129,6 +137,32 @@ describe("useSaveTrip", () => {
 
     act(() => result.current.save());
     await waitFor(() => expect(result.current.status).toBe("saved"));
+  });
+
+  it("keeps the trip it created even when a later write fails, so a retry updates it (TRA-244)", async () => {
+    saveDraftAsTripMock.mockImplementationOnce(async (_itinerary, _brief, _city, options) => {
+      options.onCreated?.("t-half");
+      throw new Error("a day was refused");
+    });
+    saveDraftAsTripMock.mockResolvedValueOnce(makeTrip({ id: "t-half" }));
+
+    const { result } = renderHook(() => useSaveTrip(planned(), options()), { wrapper });
+
+    act(() => result.current.save());
+    await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.tripId).toBe("t-half");
+    expect(writeSavedTripId).toHaveBeenCalledWith("t-half");
+
+    act(() => result.current.save());
+    await waitFor(() => expect(result.current.status).toBe("saved"));
+    expect(saveDraftAsTripMock.mock.calls[1]?.[3]).toMatchObject({ tripId: "t-half" });
+  });
+
+  it("refuses to save a trip whose dates have passed, and says why", () => {
+    const past = planned({ brief: { ...planned().brief, start_date: "2020-01-01", end_date: "2020-01-03" } });
+    const { result } = renderHook(() => useSaveTrip(past, options()), { wrapper });
+    expect(result.current.canSave).toBe(false);
+    expect(result.current.blocked).toBe("past-dates");
   });
 
   it("clears the session on a rejected token and says nothing else", async () => {

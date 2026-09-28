@@ -50,6 +50,22 @@ function signIn(page: Page, token: string) {
   );
 }
 
+/**
+ * The recording plans 2026-10-23 to 2026-10-25. Once a trip has started,
+ * core_api locks it and the page refuses to save it (ADR 0019, TRA-244), so
+ * the mock moves the recording a month ahead of each run and the form is
+ * filled with the same days: the suite never expires.
+ */
+const RECORDED_DATES = { start: "2026-10-23", end: "2026-10-25" } as const;
+const DAY_MS = 86_400_000;
+const isoDay = (offset: number): string =>
+  new Date(Date.now() + offset * DAY_MS).toISOString().slice(0, 10);
+const TRIP_DATES = { start: isoDay(30), end: isoDay(32) } as const;
+const ahead = (body: string): string =>
+  body
+    .replaceAll(RECORDED_DATES.start, TRIP_DATES.start)
+    .replaceAll(RECORDED_DATES.end, TRIP_DATES.end);
+
 /** Answers `/api/v1/ai/planner` from the recorded session, like ai_api would. */
 async function mockPlanner(page: Page) {
   await page.route("**/api/v1/ai/planner", async (route) => {
@@ -57,7 +73,7 @@ async function mockPlanner(page: Page) {
     await route.fulfill({
       status: 200,
       headers: { "content-type": "text/event-stream" },
-      body: toSseBody(TURNS[turnFor(turn)]),
+      body: ahead(toSseBody(TURNS[turnFor(turn)])),
     });
   });
 }
@@ -101,8 +117,8 @@ const card = (page: Page, title: string) => page.getByRole("article", { name: ti
 async function buildItinerary(page: Page) {
   await send(page, USER_MESSAGES.opening);
   const refine = page.getByRole("region", { name: "Let's refine a bit:" });
-  await refine.getByLabel("From", { exact: true }).fill("2026-10-23");
-  await refine.getByLabel("To", { exact: true }).fill("2026-10-25");
+  await refine.getByLabel("From", { exact: true }).fill(TRIP_DATES.start);
+  await refine.getByLabel("To", { exact: true }).fill(TRIP_DATES.end);
   await refine.getByRole("button", { name: "Confirm" }).click();
   await card(page, "Belváros").getByRole("button", { name: "Choose" }).click();
   await card(page, "Hotel Rum Budapest").getByRole("button", { name: "Choose" }).click();
@@ -131,8 +147,8 @@ test.describe("Planner page — /plan/", () => {
 
     // 2. Quick reply for the dates: the brief is complete, the neighbourhoods arrive.
     const refine = page.getByRole("region", { name: "Let's refine a bit:" });
-    await refine.getByLabel("From", { exact: true }).fill("2026-10-23");
-    await refine.getByLabel("To", { exact: true }).fill("2026-10-25");
+    await refine.getByLabel("From", { exact: true }).fill(TRIP_DATES.start);
+    await refine.getByLabel("To", { exact: true }).fill(TRIP_DATES.end);
     await refine.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByText("5 of 5 details ready")).toBeVisible();
     const neighbourhoods = page.getByRole("region", {
@@ -154,8 +170,8 @@ test.describe("Planner page — /plan/", () => {
     const flights = page.getByRole("link", { name: "Search flights" }).first();
     await expect(flights).toHaveAttribute("href", /google\.com\/travel\/flights/);
     await expect(flights).toHaveAttribute("rel", /noopener/);
-    // A finished itinerary opens on the trip overview (TRA-177): the whole
-    // trip across both right columns, so there is no day map yet.
+    // A finished itinerary opens on the trip overview (TRA-177): no day is
+    // mapped yet — the map behind the trip shows the city alone (TRA-238).
     const days = page.getByRole("tablist", { name: "Days" });
     await expect(days.getByRole("tab", { name: /\bDay 3\b/ })).toBeVisible();
     const dayList = page.getByRole("list", { name: "Days of the trip" });
@@ -262,8 +278,8 @@ test.describe("Planner page — /plan/", () => {
     await expect(page.getByRole("button", { name: "Change: Rudas Baths" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Change: Gellért Baths" })).toHaveCount(0);
 
-    // 7. Three columns on a laptop, tabs on a phone; the page itself never
-    //    scrolls sideways at any of the three widths.
+    // 7. The chat beside the map on a laptop, two tabs on a phone; the page
+    //    itself never scrolls sideways at any of the three widths.
     const overflow = () =>
       page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -279,11 +295,11 @@ test.describe("Planner page — /plan/", () => {
     const paneTabs = page.getByRole("tablist", { name: "Plan a trip" });
     await paneTabs.getByRole("tab", { name: "Trip" }).click();
     await expect(days.getByRole("tab", { name: /\bDay 2\b/ })).toBeVisible();
-    // A day is open, so the phone has its Map tab…
-    await expect(paneTabs.getByRole("tab", { name: "Map" })).toBeVisible();
-    // …and the overview, which spans both right columns, does not.
+    // The map is behind the trip, in the same tab: there is no third one (TRA-238).
+    await expect(page.getByRole("region", { name: "Map of day 2" })).toBeVisible();
+    await expect(paneTabs.getByRole("tab")).toHaveCount(2);
     await days.getByRole("tab", { name: "Whole trip" }).click();
-    await expect(paneTabs.getByRole("tab", { name: "Map" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Map of the trip" })).toBeVisible();
     expect(await overflow()).toBeLessThanOrEqual(1);
   });
 
@@ -307,9 +323,8 @@ test.describe("Planner page — /plan/", () => {
     await expect(placeholder).toBeVisible();
     await expect(composer(page)).toBeHidden();
 
-    // No itinerary, so no day and no map: the Map tab arrives with the first
-    // day the traveller opens from the overview (TRA-177).
-    await expect(tabs.getByRole("tab", { name: "Map" })).toHaveCount(0);
+    // Two tabs, whatever the trip holds: the map lives behind the trip (TRA-238).
+    await expect(tabs.getByRole("tab")).toHaveCount(2);
   });
 
   test("without the planner route, the recorded session answers with a demo banner", async ({
@@ -331,8 +346,8 @@ test.describe("Planner page — /plan/", () => {
     await expect(page.getByText("Which dates suit you best?")).toBeVisible({ timeout: 15_000 });
 
     const refine = page.getByRole("region", { name: "Let's refine a bit:" });
-    await refine.getByLabel("From", { exact: true }).fill("2026-10-23");
-    await refine.getByLabel("To", { exact: true }).fill("2026-10-25");
+    await refine.getByLabel("From", { exact: true }).fill(TRIP_DATES.start);
+    await refine.getByLabel("To", { exact: true }).fill(TRIP_DATES.end);
     await refine.getByRole("button", { name: "Confirm" }).click();
     await card(page, "Belváros").getByRole("button", { name: "Choose" }).click({ timeout: 15_000 });
     await card(page, "Hotel Rum Budapest").getByRole("button", { name: "Choose" }).click({ timeout: 15_000 });

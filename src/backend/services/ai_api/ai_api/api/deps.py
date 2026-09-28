@@ -14,18 +14,23 @@ from travel_common.security import principal_from_token
 from ai_api.application.card_detail import CardDetailLookup
 from ai_api.application.plan_trip import PlanTrip
 from ai_api.application.record_conversation import RecordConversation
+from ai_api.application.record_trace import RecordTrace
 from ai_api.application.stream_chat import StreamChat
+from ai_api.application.tracing import TurnTracer
 from ai_api.config import AISettings, get_settings
-from ai_api.domain.models import City
+from ai_api.domain.models import City, GenerationParams
 from ai_api.domain.ports import (
     ConversationGateway,
     LLMProvider,
     PhotoFinder,
     Retriever,
-    TripGateway,
+    SitePreviewFinder,
+    TraceLog,
     WeatherForecast,
 )
+from ai_api.domain.tracing import Kind
 from ai_api.infrastructure.core_api_client import CoreApiClient
+from ai_api.infrastructure.dynamo_traces import NullTraceLog
 from ai_api.infrastructure.providers import ChatProvider, planner_cities
 from ai_api.prompts import CHAT_SYSTEM_PROMPT
 
@@ -76,6 +81,12 @@ def get_photos(request: Request) -> PhotoFinder | None:
     return getattr(request.app.state, "photos", None)
 
 
+def get_previews(request: Request) -> SitePreviewFinder | None:
+    """The venue's-own-site lookup built in `lifespan`, or None when
+    SITE_PREVIEWS_ENABLED is off (ADR 0021)."""
+    return getattr(request.app.state, "previews", None)
+
+
 def get_cities(
     request: Request, settings: AISettings = Depends(get_settings)
 ) -> tuple[City, ...]:
@@ -92,6 +103,7 @@ def get_plan_trip(
     retriever: Retriever | None = Depends(get_retriever),
     weather: WeatherForecast | None = Depends(get_weather),
     photos: PhotoFinder | None = Depends(get_photos),
+    previews: SitePreviewFinder | None = Depends(get_previews),
     cities: tuple[City, ...] = Depends(get_cities),
     settings: AISettings = Depends(get_settings),
 ) -> PlanTrip:
@@ -103,6 +115,7 @@ def get_plan_trip(
         retriever,
         weather=weather,
         photos=photos,
+        previews=previews,
         cities=cities,
         max_days=settings.PLANNER_MAX_DAYS,
         candidates=settings.PLANNER_CANDIDATES,
@@ -112,20 +125,18 @@ def get_plan_trip(
 def get_card_detail(
     retriever: Retriever | None = Depends(get_retriever),
     photos: PhotoFinder | None = Depends(get_photos),
+    previews: SitePreviewFinder | None = Depends(get_previews),
     cities: tuple[City, ...] = Depends(get_cities),
 ) -> CardDetailLookup:
     """A card is a corpus document: without a store there is nothing to open.
 
-    Pictured like the planner's cards (same `PhotoFinder`), so the panel of a
-    restaurant the corpus has no photo of is not blank.
+    Pictured like the planner's cards (same `PhotoFinder`, same site
+    previews), so the panel of a restaurant the corpus has no photo of is
+    not blank.
     """
     if retriever is None:
         raise ProviderUnavailable("Card details need retrieval (RETRIEVAL_ENABLED)")
-    return CardDetailLookup(retriever, photos=photos, cities=cities)
-
-
-def get_trip_gateway(settings: AISettings = Depends(get_settings)) -> TripGateway:
-    return CoreApiClient(settings.CORE_API_URL, settings.API_V1_STR)
+    return CardDetailLookup(retriever, photos=photos, previews=previews, cities=cities)
 
 
 def get_conversation_gateway(
@@ -141,3 +152,33 @@ def get_record_conversation(
     conversations: ConversationGateway | None = Depends(get_conversation_gateway),
 ) -> RecordConversation | None:
     return RecordConversation(conversations) if conversations is not None else None
+
+
+def get_trace_log(request: Request) -> TraceLog:
+    """The trace log built in `lifespan` (ADR 0024); nothing without one."""
+    log: TraceLog | None = getattr(request.app.state, "trace_log", None)
+    return log if log is not None else NullTraceLog()
+
+
+def get_record_trace(log: TraceLog = Depends(get_trace_log)) -> RecordTrace:
+    return RecordTrace(log)
+
+
+def new_tracer(
+    kind: Kind, request: Request, principal: Principal, settings: AISettings
+) -> TurnTracer:
+    """The trace of this request: who asked (the subject, never the email),
+    on which route, with the sampling and the embeddings model in force."""
+    tracer = TurnTracer(
+        kind,
+        route=request.url.path,
+        subject=principal.subject,
+        payload_bytes=settings.TRACE_PAYLOAD_BYTES,
+    )
+    tracer.embedding_model = settings.EMBEDDINGS_MODEL
+    tracer.params = GenerationParams(
+        max_tokens=settings.CHAT_MAX_TOKENS,
+        temperature=settings.CHAT_TEMPERATURE,
+        top_p=settings.CHAT_TOP_P,
+    )
+    return tracer

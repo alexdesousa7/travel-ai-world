@@ -1,5 +1,6 @@
 """Prompts. Kept out of code paths so they can be tuned in isolation."""
 
+import hashlib
 from collections.abc import Iterable, Sequence
 
 from ai_api.domain.models import City, Document
@@ -19,6 +20,12 @@ RAG_CONTEXT_PROMPT = (
     "{context}"
 )
 """Second system turn carrying retrieved passages; `{context}` is filled in."""
+
+
+def prompt_version(template: str) -> str:
+    """Which wording of a prompt a model call used: the first 12 hex of the
+    SHA-256 of its template (ADR 0024), so a trace tells two tunings apart."""
+    return hashlib.sha256(template.encode()).hexdigest()[:12]
 
 
 def format_context(documents: Iterable[Document]) -> str:
@@ -146,13 +153,17 @@ INTENT_PROMPT = (
     "activities, baths and tours; restaurant for eating or drinking; `day` and "
     "`part` when they name them; `query` is a short search text in English "
     "describing what to find). `change_stay` when they want another hotel "
-    "(`cheaper` when they want to spend less). `chat` for everything else: a "
+    "(`cheaper` when they want to spend less; `area` when they want to stay in "
+    "another neighbourhood or go back to choosing one). `chat` for everything "
+    "else: a "
     "question about a place or the city (is it old? how do I get there? is it "
     "worth it?), an opinion, thanks, small talk. Examples: 'restaurantes "
     "húngaros cerca del día 2' → find_options, restaurant, day 2, query "
     "'Hungarian restaurant'; 'is there something to do at Margaret Island?' → "
     "find_options, experience, no day, query 'Margaret Island'; 'something "
-    "cheaper' → change_stay, cheaper; '¿Es antiguo el baño Rudas?' → chat; "
+    "cheaper' → change_stay, cheaper; 'prefiero otro barrio' → change_stay, "
+    "area; 'go back to the neighbourhoods' → change_stay, area; '¿Es antiguo "
+    "el baño Rudas?' → chat; "
     "'what's the weather like in October?' → chat."
 )
 
@@ -195,6 +206,18 @@ PLANNER_TEXTS: dict[str, dict[str, str]] = {
         "warn_overloaded_day": "Day {day} has {count} activities for a {pace} pace",
         "warn_closed": "{title} looks closed on {weekday}",
         "warn_unverified_price": "Prices are not verified; check the venue.",
+        # Packing the suitcase (TRA-242): one line per step, as it starts.
+        "progress_open": "Reading what you asked.",
+        "progress_open_city": "Reading what you asked: {city}.",
+        "progress_list": "Noting the destination, the dates, who travels and what you're after.",
+        "progress_wardrobe": "Looking through the guides.",
+        "progress_wardrobe_city": "Looking through the guides for {city}.",
+        "progress_fold": "Choosing what fits and putting it in order.",
+        "progress_fold_days": "Sharing the stops out over {days} days, close to each other.",
+        "progress_fold_day": "Fitting the stops into the day, close to each other.",
+        "progress_weigh": "Checking distances, opening hours and prices.",
+        "progress_zip": "Everything fits. Zipping it up.",
+        "progress_zip_missing": "Something is missing before I can close it: I'll ask.",
     },
     "es": {
         "not_covered": (
@@ -226,6 +249,17 @@ PLANNER_TEXTS: dict[str, dict[str, str]] = {
         "warn_overloaded_day": "El día {day} tiene {count} actividades para un ritmo {pace}",
         "warn_closed": "{title} parece cerrado el {weekday}",
         "warn_unverified_price": "Los precios no están verificados; consulta el local.",
+        "progress_open": "Leo lo que pides.",
+        "progress_open_city": "Leo lo que pides: {city}.",
+        "progress_list": "Apunto el destino, las fechas, quién viaja y lo que buscas.",
+        "progress_wardrobe": "Busco en las guías.",
+        "progress_wardrobe_city": "Saco lo que hay de {city} en las guías.",
+        "progress_fold": "Elijo lo que encaja y lo ordeno.",
+        "progress_fold_days": "Reparto las paradas en {days} días, cerca unas de otras.",
+        "progress_fold_day": "Encajo las paradas en el día, cerca unas de otras.",
+        "progress_weigh": "Reviso distancias, horarios y precios.",
+        "progress_zip": "Todo cabe. Cierro la maleta.",
+        "progress_zip_missing": "Me falta algo antes de cerrarla: te pregunto.",
     },
 }
 

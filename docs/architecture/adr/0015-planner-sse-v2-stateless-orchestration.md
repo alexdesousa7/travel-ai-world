@@ -1,6 +1,6 @@
 # 0015 — The planner streams typed events (SSE v2) from a stateless orchestrator in `ai_api`
 
-**Status:** Accepted
+**Status:** Accepted (amended by [0025](0025-planner-progress-event.md))
 **Date:** 2026-09-18
 
 ## Context
@@ -65,3 +65,13 @@ climate normals otherwise.
   which the turn spends like the ones in the itinerary. Statelessness is why it exists: the server
   cannot remember what it showed a minute ago, so the page tells it. The guidance for a "Change"
   needed no new field either: it travels inside the page's own ask message, after a colon.
+- 2026-09-27 (TRA-246): `PlannerTurn` gained `language` — the page's language. Guessing it from
+  the text alone flipped on ties and on a bare city name (a Spanish "voy a Bolonia" read as
+  English), so the page's language is now the answer unless the traveller's last few messages
+  clearly read as the other one. The page keeps the traveller's choice in `localStorage`.
+- 2026-09-27 (TRA-247): going back to the stay. The page treats an `options` event for an `nb` or
+  `hotels:` group that already has a pick as a new question: the group starts over at the foot of
+  the transcript instead of merging into the locked carousel. A slot's group still merges, as
+  "More options" pages do. Before a stay, the district the hotels were for is read back from the
+  sentence that introduced them in the transcript. The server still keeps no state. The intent
+  gained `area` (another neighbourhood), which offers `nb` again.

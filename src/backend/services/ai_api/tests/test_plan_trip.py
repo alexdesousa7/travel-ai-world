@@ -6,14 +6,16 @@ a script, so each test pins one turn of the state machine: what was
 retrieved, what the model was shown, and which events came out.
 """
 
+import asyncio
 import json
 import re
 from collections.abc import AsyncIterator, Sequence
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 from ai_api.application.plan_trip import (
+    GENERATE_WORDS,
     PlanTrip,
     _alternatives_slot,
     city_key,
@@ -26,6 +28,7 @@ from ai_api.schemas.planner_events import (
     ItineraryPatchEvent,
     OptionsEvent,
     PlannerEvent,
+    ProgressEvent,
     TextEvent,
     TripBrief,
 )
@@ -34,16 +37,20 @@ from ai_api.testing import (
     FakePhotoFinder,
     FakeProvider,
     FakeRetriever,
+    FakeSitePreviews,
     city_for,
     documents_from_corpus,
 )
 
 BOLOGNA = city_for("bologna", "bolonia", name="Bologna")
 SIGHTS = ("see", "do", "tour", "history")
+SLEEP = ("sleep",)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "budapest_sample.jsonl"
 CORPUS = documents_from_corpus(FIXTURE)
 BY_ID = {d.id: d for d in CORPUS}
+CORPUS_PROSE = [d for d in CORPUS if d.metadata.get("category") != "sleep"]
+"""The sample without its hotels: the corpus a stay search finds nothing in."""
 
 BELVAROS = "wv:en:Budapest/Belváros#section:intro:c1"
 ASTORIA = "wv:en:Budapest/Belváros#sleep:danubius-hotel-astoria"
@@ -115,6 +122,7 @@ def turn(
     days: list[dict[str, list[str]]] | None = None,
     history: Sequence[tuple[str, str]] = (),
     exclude: Sequence[str] = (),
+    language: str = "en",
 ) -> PlannerTurn:
     itinerary = None
     if stay is not None or days is not None:
@@ -143,6 +151,8 @@ def turn(
             "itinerary": itinerary,
             "exclude_card_ids": list(exclude),
             "trip_id": None,
+            "session_id": None,
+            "language": language,
         }
     )
 
@@ -166,6 +176,7 @@ def planner(
     documents: Sequence[Document] = CORPUS,
     weather: FakeWeather | None = None,
     photos: FakePhotoFinder | None = None,
+    previews: FakeSitePreviews | None = None,
     cities: Sequence[City] = (BUDAPEST,),
 ) -> tuple[PlanTrip, FakeProvider, FakeRetriever]:
     provider = FakeProvider(deltas=deltas, replies=replies)
@@ -175,6 +186,7 @@ def planner(
         retriever,
         weather=weather,
         photos=photos,
+        previews=previews,
         cities=cities,
         max_days=7,
         candidates=8,
@@ -303,6 +315,17 @@ async def test_the_not_covered_text_names_every_covered_city_in_the_users_langua
     assert "Budapest y Bologna" in joined_text(events)
 
 
+async def test_a_bare_city_on_a_spanish_page_is_answered_in_spanish():
+    """ "París" alone reads as neither language: the page's decides (TRA-246)."""
+    use_case, _, _ = planner(
+        [json.dumps({"destination": "París"})], cities=(BUDAPEST, BOLOGNA)
+    )
+
+    events = await run(use_case(turn("París", language="es")))
+
+    assert "Budapest y Bologna" in joined_text(events)
+
+
 async def test_an_alias_lands_on_the_citys_corpus():
     """A Spanish speaker writes "Bolonia": the search filters by `bologna`."""
     documents = [
@@ -381,6 +404,52 @@ async def test_selecting_a_neighbourhood_lists_hotels_there_within_budget():
     # Two hotels at ≤ €€ in the sample: the tier was relaxed to reach three.
     assert retriever.searches[1][2] is not None
     assert retriever.searches[1][2].price_tier_max is None
+
+
+async def test_an_unpictured_stay_is_never_offered():
+    """A hotel card with no photo is the worst card the planner shows, so the
+    corpus resolves one for every stay it keeps (TRA-208). A document that
+    still has none is stale: it is never offered, even alone."""
+    blind = Document(
+        id="osm:way/404",
+        content="Hotel Sin Foto - hotel in Belvaros, Budapest.",
+        metadata={
+            "city": "budapest",
+            "category": "sleep",
+            "district": "Belv\u00e1ros",
+            "kind": "listing",
+            "lang": "en",
+            "source": "openstreetmap",
+            "lat": 47.4979,
+            "lon": 19.0402,
+            "doc_id": "osm:way/404",
+            "name": "Hotel Sin Foto",
+            "extra": '{"address":"R\u00e9giposta utca 1."}',
+        },
+    )
+    use_case, _, retriever = planner(
+        [picks("osm:way/404")], documents=[*CORPUS_PROSE, blind]
+    )
+
+    events = await run(
+        use_case(
+            turn(
+                action={
+                    "type": "select",
+                    "group_id": "nb",
+                    "card_ids": [BELVAROS],
+                    "slot": None,
+                },
+                brief=brief(),
+            )
+        )
+    )
+
+    assert not only(events, OptionsEvent)
+    assert "no places to stay" in joined_text(events)
+    # It was searched for and then dropped, not filtered out of the query.
+    stay_searches = [f for _, _, f in retriever.searches if f and f.categories == SLEEP]
+    assert stay_searches
 
 
 async def test_a_stale_group_id_is_answered_with_fresh_advice_not_an_error():
@@ -596,6 +665,39 @@ async def test_generate_in_the_message_chooses_the_stay_itself():
     assert stay.card.category == "sleep" and stay.card.district == "Belváros"
     assert ops_of(events, "put_activity")
     assert not only(events, OptionsEvent)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Just generate the trip",
+        "Generate the trip",  # the page's button (en.ts)
+        "Genera el viaje",  # the page's button (es.ts)
+        "¿Puedes generar el viaje?",
+        "Choose for me",
+        "You decide",
+        "Elige tú el hotel",
+        "Sorpréndeme",
+    ],
+)
+def test_asking_for_the_whole_trip_is_read_as_generate(message: str):
+    assert GENERATE_WORDS.search(message)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Is Erzsebetvaros generally quiet at night?",
+        "In general, which one is best?",
+        "I cannot decide, which is quieter?",
+        "No me decido, ¿cuál eliges tú?",
+        "Decidedly not the loud one",
+    ],
+)
+def test_a_question_is_not_a_request_to_draft_the_whole_trip(message: str):
+    """A word that merely starts like one of the phrases drafted the whole trip
+    (about ten model calls) instead of answering."""
+    assert not GENERATE_WORDS.search(message)
 
 
 async def test_changing_the_hotel_after_the_draft_keeps_the_days():
@@ -1333,7 +1435,8 @@ async def test_an_ask_naming_no_place_is_answered_by_the_model_alone():
 
 async def test_a_question_after_the_neighbourhoods_were_offered_is_answered_not_repeated():
     use_case, provider, _ = planner(
-        [json.dumps({})], deltas=("Belváros ", "is quieter.")
+        [json.dumps({}), json.dumps({"intent": "chat"})],
+        deltas=("Belváros ", "is quieter."),
     )
 
     events = await run(
@@ -1354,8 +1457,91 @@ async def test_a_question_after_the_neighbourhoods_were_offered_is_answered_not_
 
     assert not only(events, OptionsEvent) and not only(events, BriefEvent)
     assert joined_text(events) == "Belváros is quieter."
-    # One extraction (unchanged brief), then the streamed answer: no ranking call.
-    assert len(provider.completions) == 1 and len(provider.calls) == 1
+    # The extraction (unchanged brief) and the intent, then the streamed
+    # answer: no ranking call.
+    assert len(provider.completions) == 2 and len(provider.calls) == 1
+
+
+NEIGHBOURHOODS_OFFERED = (
+    "assistant",
+    "These neighbourhoods fit your trip. Where would you like to stay?",
+)
+
+
+async def test_another_neighbourhood_before_the_stay_offers_them_again():
+    """A step back from the hotels to the neighbourhoods (TRA-247)."""
+    use_case, _, _ = planner(
+        [
+            json.dumps({}),
+            json.dumps({"intent": "change_stay", "area": True}),
+            picks(BELVAROS),
+        ]
+    )
+
+    events = await run(
+        use_case(
+            turn(
+                "prefiero otro barrio",
+                brief=brief(),
+                history=[
+                    NEIGHBOURHOODS_OFFERED,
+                    ("assistant", "These places to stay are in or near Belváros:"),
+                ],
+            )
+        )
+    )
+
+    [group] = only(events, OptionsEvent)
+    assert group.group_id == "nb" and group.kind == "neighbourhood"
+
+
+async def test_cheaper_hotels_before_the_stay_stay_in_the_chosen_neighbourhood():
+    use_case, _, retriever = planner(
+        [
+            json.dumps({}),
+            json.dumps({"intent": "change_stay", "cheaper": True}),
+            picks(),
+        ]
+    )
+
+    events = await run(
+        use_case(
+            turn(
+                "algo más barato",
+                brief=brief(budget_tier=2),
+                history=[
+                    NEIGHBOURHOODS_OFFERED,
+                    ("assistant", "Estos alojamientos están en Belváros o muy cerca:"),
+                ],
+            )
+        )
+    )
+
+    [group] = only(events, OptionsEvent)
+    assert group.kind == "hotel"
+    first = retriever.searches[0][2]
+    assert first is not None and first.districts == ("Belváros",)
+    assert first.price_tier_max == 1
+
+
+async def test_another_neighbourhood_after_the_draft_offers_them_again():
+    use_case, _, _ = planner(
+        [json.dumps({"intent": "change_stay", "area": True}), picks(BELVAROS)]
+    )
+
+    events = await run(
+        use_case(
+            turn(
+                "I'd rather stay in another neighbourhood",
+                brief=brief(),
+                stay=ASTORIA,
+                days=[{"morning": [PARLIAMENT]}],
+            )
+        )
+    )
+
+    [group] = only(events, OptionsEvent)
+    assert group.group_id == "nb" and group.kind == "neighbourhood"
 
 
 async def test_a_change_of_brief_after_the_offer_ranks_neighbourhoods_again():
@@ -1433,7 +1619,10 @@ async def test_spanish_warnings_and_day_titles():
     assert weather.summary.startswith("Un octubre típico")
 
 
-# ─── Photos on every card (TRA-161) ──────────────────────────────────────────
+# ─── Photos on every card (TRA-161, TRA-206) ─────────────────────────────────
+
+ANNA_CAFE_SITE = "http://annacafe.hu/en/"
+"""What the corpus document carries as the venue's own URL (`deep_link`)."""
 
 
 async def test_every_activity_and_the_stay_carry_a_photo():
@@ -1448,6 +1637,7 @@ async def test_every_activity_and_the_stay_carry_a_photo():
     use_case, _, _ = planner(
         [skeleton(1), day_picks(evening=[{"id": ANNA_CAFE, "why": "Close."}])],
         photos=finder,
+        previews=FakeSitePreviews({}),
     )
 
     events = await run(
@@ -1480,14 +1670,22 @@ async def test_every_activity_and_the_stay_carry_a_photo():
     assert "Anna Cafe" in looked_up and "Parliament" not in looked_up
     # Every lookup names the city the trip is in.
     assert set(finder.cities) == {"Budapest"}
-    # Nothing found and no corpus image of the hotel: a pictured hotel of the
-    # same city stands in, credited as that hotel's photo — never the placeholder.
-    assert stay.card.image_url.startswith("https://")
-    assert not stay.card.image_credit.startswith("Illustrative")
+    # The hotel's photo was resolved at build time from its own site, and the
+    # corpus carries the credit line with it (TRA-208): nothing is looked up.
+    assert stay.card.image_url == "https://danubiushotels.com/img/astoria-facade.jpg"
+    assert stay.card.image_credit == "danubiushotels.com"
+    assert "Danubius Hotel Astoria" not in looked_up
 
 
-async def test_a_card_with_no_photo_anywhere_takes_a_pictured_place_of_its_category():
-    use_case, _, retriever = planner([picks(ANNA_CAFE)], photos=FakePhotoFinder())
+async def test_a_venue_is_pictured_by_its_own_site_when_commons_has_nothing():
+    """`metadata.url` is the venue's own site: its link preview is the card's
+    photo, credited with the bare domain."""
+    previews = FakeSitePreviews(
+        {ANNA_CAFE_SITE: Photo("https://annacafe.hu/sala.jpg", "annacafe.hu")}
+    )
+    use_case, _, _ = planner(
+        [picks(ANNA_CAFE)], photos=FakePhotoFinder(), previews=previews
+    )
 
     events = await run(
         use_case(
@@ -1502,30 +1700,16 @@ async def test_a_card_with_no_photo_anywhere_takes_a_pictured_place_of_its_categ
 
     [group] = only(events, OptionsEvent)
     card = next(c for c in group.cards if c.id == ANNA_CAFE)
-    # The fixture pictures no restaurant: a restaurant was looked for first,
-    # then a pictured sight of the city stands in, credited as that sight's.
-    assert card.image_url and card.image_url.startswith("https://")
-    assert card.image_credit and not card.image_credit.startswith("Illustrative")
-    fallback = [
-        f.categories
-        for _, _, f in retriever.searches
-        if f is not None and f.categories in (("eat",), SIGHTS)
-    ]
-    assert fallback[-2:] == [("eat",), SIGHTS]
-    assert all(f.city == "budapest" for _, _, f in retriever.searches if f is not None)
+    assert card.image_url == "https://annacafe.hu/sala.jpg"
+    assert card.image_credit == "annacafe.hu"
+    assert ANNA_CAFE_SITE in previews.lookups
 
 
-async def test_the_placeholder_only_when_the_corpus_pictures_nothing():
-    unpictured = [
-        Document(
-            id=d.id,
-            content=d.content,
-            metadata={k: v for k, v in d.metadata.items() if k != "extra"},
-        )
-        for d in CORPUS
-    ]
-    use_case, _, _ = planner(
-        [picks(ANNA_CAFE)], documents=unpictured, photos=FakePhotoFinder()
+async def test_a_venue_nothing_pictures_takes_the_placeholder_not_another_venue():
+    """No card ever shows the photo of a different place (TRA-206)."""
+    previews = FakeSitePreviews()  # the restaurant's site publishes no preview
+    use_case, _, retriever = planner(
+        [picks(ANNA_CAFE)], photos=FakePhotoFinder(), previews=previews
     )
 
     events = await run(
@@ -1540,10 +1724,14 @@ async def test_the_placeholder_only_when_the_corpus_pictures_nothing():
     )
 
     [group] = only(events, OptionsEvent)
-    assert all(c.image_url for c in group.cards)
     card = next(c for c in group.cards if c.id == ANNA_CAFE)
     assert card.image_url and card.image_url.startswith("data:image/svg+xml")
     assert card.image_credit and card.image_credit.startswith("Illustrative photo")
+    assert ANNA_CAFE_SITE in previews.lookups
+    # The corpus is never searched for a sight to borrow a photo from.
+    assert not [
+        f for _, _, f in retriever.searches if f is not None and f.categories == SIGHTS
+    ]
 
 
 async def test_pictured_places_are_offered_first():
@@ -1591,3 +1779,168 @@ async def test_neighbourhoods_are_pictured_by_their_page_or_a_sight_of_theirs():
     assert budavar.image_credit and not budavar.image_credit.startswith("Illustrative")
     assert all(c.image_url for c in group.cards)
     assert page in finder.page_lookups
+
+
+# ─── Packing the suitcase: progress (TRA-242) ────────────────────────────────
+
+
+def _progress(events: Sequence[PlannerEvent]) -> list[ProgressEvent]:
+    return only(events, ProgressEvent)
+
+
+async def test_a_draft_packs_the_suitcase_step_by_step_and_never_goes_back():
+    forecast = FakeWeather(
+        [DayWeather(date(2026, 10, 20), "Sunny", 18.0, 9.0, "Open-Meteo")]
+    )
+    use_case, _, _ = planner(
+        [
+            skeleton(5),
+            day_picks(morning=[{"id": PARLIAMENT, "why": "Start with the landmark."}]),
+        ],
+        weather=forecast,
+    )
+
+    events = await run(
+        use_case(
+            turn(
+                action={
+                    "type": "select",
+                    "group_id": "hotels:Belváros",
+                    "card_ids": [ASTORIA],
+                    "slot": None,
+                },
+                brief=brief(),
+            )
+        )
+    )
+
+    progress = _progress(events)
+    steps = list(dict.fromkeys(e.step for e in progress))
+    assert steps == ["open", "wardrobe", "fold", "weigh", "zip"]
+    # The page is told first, before anything else is on the stream.
+    assert events[0] == progress[0]
+    # One fold for the whole draft, however many days, and it says how many.
+    folds = [e for e in progress if e.step == "fold"]
+    assert "5 days" in folds[0].detail
+    # The weigh is told once the last day is being weighed, after every pick.
+    position = {id(e): i for i, e in enumerate(events)}
+    first_weigh = next(position[id(e)] for e in progress if e.step == "weigh")
+    picks_at = [
+        i
+        for i, e in enumerate(events)
+        if isinstance(e, ItineraryPatchEvent)
+        and any(op.op == "set_day_title" for op in e.ops)
+    ]
+    assert first_weigh > max(picks_at)
+    # What the suitcase drew on grows as the cards and the forecast arrive.
+    assert "Open-Meteo" in progress[-1].sources
+    assert any(s.startswith("Wiki") for s in progress[-1].sources)
+
+
+async def test_progress_speaks_the_travellers_language():
+    use_case, _, _ = planner([json.dumps({"destination": "Budapest"})])
+
+    events = await run(use_case(turn("Quiero ir a Budapest cuatro días en octubre")))
+
+    progress = _progress(events)
+    assert progress[0].detail == "Leo lo que pides."
+    listed = next(e for e in progress if e.step == "list")
+    assert listed.detail.startswith("Apunto el destino")
+    # `list` goes out just before the brief it announces.
+    assert events[events.index(listed) + 1].type == "brief"
+
+
+async def test_progress_reaches_the_page_while_the_model_is_still_thinking():
+    use_case, provider, _ = planner()
+    release = asyncio.Event()
+    asked = asyncio.Event()
+    replies = [json.dumps({"destination": "Budapest", "origin": "Madrid"})]
+
+    async def slow_complete(*_args: object, **_kwargs: object) -> str:
+        asked.set()
+        await release.wait()
+        return replies.pop(0)
+
+    provider.complete = slow_complete  # type: ignore[method-assign]
+    stream = use_case(turn("Budapest from Madrid"))
+
+    first = await stream.__anext__()
+    assert isinstance(first, ProgressEvent) and first.step == "open"
+    await asyncio.wait_for(asked.wait(), timeout=1)
+    # The model has not answered; the stream already said where it is.
+    release.set()
+    rest = [event async for event in stream]
+    assert any(isinstance(e, ProgressEvent) and e.step == "list" for e in rest)
+
+
+async def test_closing_the_stream_early_stops_the_turn():
+    use_case, provider, _ = planner()
+    release = asyncio.Event()
+
+    async def never(*_args: object, **_kwargs: object) -> str:
+        await release.wait()
+        return "{}"
+
+    provider.complete = never  # type: ignore[method-assign]
+    stream = use_case(turn("Budapest"))
+    await stream.__anext__()
+    await stream.aclose()  # must not hang on the blocked model call
+
+
+async def test_a_city_outside_the_corpus_is_listed_first_and_then_explained():
+    """TRA-243: the page packs in the same order whatever the city."""
+    use_case, _, _ = planner([json.dumps({"destination": "Lisboa"})])
+
+    events = await run(use_case(turn("Quiero ir a Lisboa cuatro días")))
+
+    kinds = [e.type for e in events]
+    brief_at = kinds.index("brief")
+    assert kinds[brief_at - 1] == "progress"  # the list, just before
+    assert "Lisboa" in events[brief_at + 1].delta  # type: ignore[union-attr]
+    zip_ = next(e for e in _progress(events) if e.step == "zip")
+    assert zip_.detail == "Me falta algo antes de cerrarla: te pregunto."
+
+
+async def test_a_complete_brief_zips_with_everything_in():
+    use_case, _, _ = planner()
+    events = await run(use_case(turn("Change nothing", brief=brief())))
+    zips = [e for e in _progress(events) if e.step == "zip"]
+    assert all(
+        e.detail != "Something is missing before I can close it: I'll ask."
+        for e in zips
+    )
+
+
+async def test_dates_already_past_move_to_next_year():
+    """TRA-244: a trip that starts today or earlier could never be saved."""
+    past = TODAY.replace(day=1) if TODAY.day > 1 else TODAY
+    use_case, _, _ = planner(
+        [
+            json.dumps(
+                {
+                    "destination": "Budapest",
+                    "start_date": past.isoformat(),
+                    "end_date": (past + timedelta(days=2)).isoformat(),
+                }
+            )
+        ]
+    )
+
+    events = await run(use_case(turn("Budapest, first days of this month")))
+
+    [event] = only(events, BriefEvent)
+    assert event.brief.start_date == past.replace(year=past.year + 1)
+    assert event.brief.end_date == (past + timedelta(days=2)).replace(
+        year=past.year + 1
+    )
+    assert event.brief.nights == 2
+
+
+async def test_dates_ahead_are_kept():
+    ahead = TODAY + timedelta(days=30)
+    use_case, _, _ = planner(
+        [json.dumps({"destination": "Budapest", "start_date": ahead.isoformat()})]
+    )
+    events = await run(use_case(turn("Budapest next month")))
+    [event] = only(events, BriefEvent)
+    assert event.brief.start_date == ahead

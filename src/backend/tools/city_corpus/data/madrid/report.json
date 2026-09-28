@@ -1,0 +1,719 @@
+{
+  "city": "madrid",
+  "built_at": "2026-09-22T16:58:22Z",
+  "documents": 5574,
+  "listings": 4764,
+  "prose": 810,
+  "sources": [
+    "curated",
+    "open-meteo",
+    "openstreetmap",
+    "wikipedia",
+    "wikivoyage"
+  ],
+  "categories": [
+    "climate",
+    "do",
+    "drink",
+    "eat",
+    "history",
+    "neighbourhood",
+    "practical",
+    "see",
+    "sleep",
+    "tour",
+    "transport"
+  ],
+  "by_category_source": {
+    "climate": {
+      "open-meteo": 12,
+      "wikivoyage": 2
+    },
+    "do": {
+      "openstreetmap": 76,
+      "wikivoyage": 99
+    },
+    "drink": {
+      "openstreetmap": 395,
+      "wikivoyage": 44
+    },
+    "eat": {
+      "openstreetmap": 3462,
+      "wikivoyage": 82
+    },
+    "history": {
+      "wikipedia": 485,
+      "wikivoyage": 16
+    },
+    "neighbourhood": {
+      "wikivoyage": 13
+    },
+    "practical": {
+      "wikivoyage": 34
+    },
+    "see": {
+      "openstreetmap": 252,
+      "wikipedia": 194,
+      "wikivoyage": 99
+    },
+    "sleep": {
+      "openstreetmap": 250,
+      "wikivoyage": 22
+    },
+    "tour": {
+      "curated": 3,
+      "wikivoyage": 2
+    },
+    "transport": {
+      "wikivoyage": 32
+    }
+  },
+  "named_by_category": {
+    "climate": 12,
+    "do": 164,
+    "drink": 433,
+    "eat": 3530,
+    "history": 485,
+    "practical": 14,
+    "see": 542,
+    "sleep": 267,
+    "tour": 5,
+    "transport": 3
+  },
+  "located_by_category": {
+    "do": 151,
+    "drink": 430,
+    "eat": 3529,
+    "history": 451,
+    "practical": 12,
+    "see": 535,
+    "sleep": 267,
+    "tour": 5,
+    "transport": 3
+  },
+  "pictured_by_category": {
+    "do": 85,
+    "drink": 16,
+    "eat": 21,
+    "history": 446,
+    "see": 444,
+    "sleep": 267,
+    "transport": 3
+  },
+  "districts": [
+    "Arganzuela",
+    "Centro",
+    "Chamberí-Castellana",
+    "La Latina-Austrias",
+    "Malasaña-Chueca",
+    "Moncloa",
+    "Northern Suburbs",
+    "Retiro-Paseo del Arte",
+    "Salamanca",
+    "Sol-Letras-Lavapiés",
+    "Southern Suburbs"
+  ],
+  "places_by_district": {
+    "Arganzuela": 389,
+    "Centro": 1778,
+    "Chamberí-Castellana": 770,
+    "La Latina-Austrias": 151,
+    "Malasaña-Chueca": 32,
+    "Moncloa": 327,
+    "Northern Suburbs": 404,
+    "Retiro-Paseo del Arte": 319,
+    "Salamanca": 479,
+    "Sol-Letras-Lavapiés": 50,
+    "Southern Suburbs": 78
+  },
+  "small_districts": [],
+  "described_districts": [
+    "Arganzuela",
+    "Centro",
+    "Chamberí-Castellana",
+    "La Latina-Austrias",
+    "Malasaña-Chueca",
+    "Moncloa",
+    "Northern Suburbs",
+    "Retiro-Paseo del Arte",
+    "Salamanca",
+    "Sol-Letras-Lavapiés",
+    "Southern Suburbs"
+  ],
+  "price_tiers": {
+    "eat": {
+      "1": 31,
+      "2": 22,
+      "3": 11,
+      "untiered": 3480
+    },
+    "sleep": {
+      "1": 14,
+      "2": 24,
+      "3": 62,
+      "untiered": 172
+    }
+  },
+  "climate_months": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12"
+  ],
+  "climate_missing": [],
+  "curated_tours": 3,
+  "reclassified_tours": 2,
+  "tours_by_type": {
+    "bike": 1,
+    "food": 1,
+    "other": 1,
+    "walking": 2
+  },
+  "tour_names": [
+    "Free Walking Tour Madrid - Old Town",
+    "Secret Food Tours: Madrid",
+    "Tour Barrio de las Letras - Paseo del Prado",
+    "Tours Culturales al Prado",
+    "Trixi bike tours"
+  ],
+  "smoke": {
+    "see": {
+      "museum": [
+        {
+          "name": "Luis Vallejo Bonsai Museum",
+          "district": "Chamberí-Castellana",
+          "score": 12.3
+        },
+        {
+          "name": "House-Museum of Lope de Vega",
+          "district": "Centro",
+          "score": 12.2
+        },
+        {
+          "name": "Museo Nacional Centro de Arte Reina Sofía",
+          "district": "Centro",
+          "score": 12.2
+        }
+      ],
+      "cathedral": [
+        {
+          "name": "Cathedral of St Andrew and St Demetrius",
+          "district": "Chamberí-Castellana",
+          "score": 12.2
+        },
+        {
+          "name": "Anglican Cathedral of the Redeemer",
+          "district": "Centro",
+          "score": 11.79
+        },
+        {
+          "name": "Catedral de la Almudena",
+          "district": "La Latina-Austrias",
+          "score": 11.79
+        }
+      ],
+      "viewpoint": [
+        {
+          "name": "Cerro de Garabitas",
+          "district": "Moncloa",
+          "score": 10.69
+        },
+        {
+          "name": "Zona Spotters",
+          "district": null,
+          "score": 10.69
+        }
+      ]
+    },
+    "do": {
+      "market": [
+        {
+          "name": "Mercado de San Miguel",
+          "district": "La Latina-Austrias",
+          "score": 11.39
+        },
+        {
+          "name": "Cuesta de Moyano",
+          "district": "Retiro-Paseo del Arte",
+          "score": 10.69
+        },
+        {
+          "name": "El Rastro",
+          "district": "La Latina-Austrias",
+          "score": 10.69
+        }
+      ]
+    },
+    "eat": {
+      "traditional restaurant": [
+        {
+          "name": "Trikki Nueva Orleans Traditional Cuisine",
+          "district": "Chamberí-Castellana",
+          "score": 22.3
+        },
+        {
+          "name": "Casa Lobo",
+          "district": "Centro",
+          "score": 22.08
+        },
+        {
+          "name": "La Bola Taberna",
+          "district": "La Latina-Austrias",
+          "score": 21.39
+        }
+      ],
+      "street food": [
+        {
+          "name": "EME Street Food",
+          "district": "Chamberí-Castellana",
+          "score": 23.22
+        },
+        {
+          "name": "Mandrake Greek Street Food",
+          "district": "Centro",
+          "score": 23.22
+        },
+        {
+          "name": "Pattaya Thai Street Food",
+          "district": "Chamberí-Castellana",
+          "score": 23.22
+        }
+      ]
+    },
+    "drink": {
+      "craft beer bar": [
+        {
+          "name": "Bee Beer",
+          "district": "Malasaña-Chueca",
+          "score": 33.18
+        },
+        {
+          "name": "Beerhouse Craftbeer Bar",
+          "district": "Chamberí-Castellana",
+          "score": 33.18
+        },
+        {
+          "name": "LobByto Cocktail Bar",
+          "district": "Centro",
+          "score": 12.2
+        }
+      ],
+      "cocktail bar": [
+        {
+          "name": "LobByto Cocktail Bar",
+          "district": "Centro",
+          "score": 24.14
+        },
+        {
+          "name": "Tagora Cocktail Bar",
+          "district": "Moncloa",
+          "score": 23.22
+        },
+        {
+          "name": "Museo Chicote",
+          "district": "Sol-Letras-Lavapiés",
+          "score": 21.39
+        }
+      ]
+    },
+    "sleep": {
+      "boutique hotel": [
+        {
+          "name": "Leonardo Boutique Hotel Madrid",
+          "district": "Chamberí-Castellana",
+          "score": 23.4
+        },
+        {
+          "name": "Hostal Roisa Boutique",
+          "district": "Northern Suburbs",
+          "score": 22.3
+        },
+        {
+          "name": "ITC Alcalá Norte by Soho Boutique",
+          "district": "Northern Suburbs",
+          "score": 22.3
+        }
+      ],
+      "hostel": [
+        {
+          "name": "Art Seven Hostel Capsules",
+          "district": "Centro",
+          "score": 11.79
+        },
+        {
+          "name": "Bastardo Hostel",
+          "district": "Centro",
+          "score": 11.79
+        },
+        {
+          "name": "Ok Hostel Madrid",
+          "district": "Centro",
+          "score": 11.79
+        }
+      ]
+    },
+    "tour": {
+      "free walking tour": [
+        {
+          "name": "Free Walking Tour Madrid - Old Town",
+          "district": "Centro",
+          "score": 35.53
+        },
+        {
+          "name": "Tour Barrio de las Letras - Paseo del Prado",
+          "district": "Centro",
+          "score": 33.18
+        },
+        {
+          "name": "Secret Food Tours: Madrid",
+          "district": "Centro",
+          "score": 21.39
+        }
+      ]
+    }
+  },
+  "hotel_photos": {
+    "curated": 4,
+    "site": 122,
+    "facebook": 7,
+    "commons": 11,
+    "wikidata": 9,
+    "page": 80,
+    "dropped": 260,
+    "shared": 16,
+    "dropped_examples": [
+      "4C Bravo Murillo",
+      "AC Hotel Aitana",
+      "AC Hotel Coslada Aeropuerto",
+      "AC Hotel by Marriott Atocha",
+      "AC Los Vascos",
+      "AYZ Javier Cabrini",
+      "Abalú",
+      "Abalú Suites",
+      "Abami II",
+      "Abba Madrid Hotel"
+    ],
+    "notable_without_photo": [
+      {
+        "name": "AC Hotel Aitana",
+        "reason": "403"
+      },
+      {
+        "name": "AC Hotel Coslada Aeropuerto",
+        "reason": "403"
+      },
+      {
+        "name": "AC Hotel by Marriott Atocha",
+        "reason": "403"
+      },
+      {
+        "name": "Aparthotel NH La Florida",
+        "reason": "dead"
+      },
+      {
+        "name": "Atocha Hotel Madrid, Tapestry Collection by Hilton",
+        "reason": "403"
+      },
+      {
+        "name": "B&B HOTEL Madrid Vallecas Ensanche",
+        "reason": "403"
+      },
+      {
+        "name": "B&B Hotel Madrid Airport T1 T2 T3",
+        "reason": "403"
+      },
+      {
+        "name": "B&B Hotel Madrid Carabanchel",
+        "reason": "dead"
+      },
+      {
+        "name": "B&B Hotel Madrid Vallecas La Gavia",
+        "reason": "403"
+      },
+      {
+        "name": "Barceló Emperatriz",
+        "reason": "403"
+      },
+      {
+        "name": "Barceló Imagine",
+        "reason": "no url"
+      },
+      {
+        "name": "Best Western Los Condes",
+        "reason": "403"
+      },
+      {
+        "name": "Catalonia Plaza España",
+        "reason": "dead"
+      },
+      {
+        "name": "Catalonia Plaza Mayor",
+        "reason": "dead"
+      },
+      {
+        "name": "Catalonia Puerta del Sol",
+        "reason": "dead"
+      },
+      {
+        "name": "Crowne Plaza Madrid - Centre Retiro",
+        "reason": "no url"
+      },
+      {
+        "name": "Crowne Plaza Madrid Airport",
+        "reason": "dead"
+      },
+      {
+        "name": "DoubleTree by Hilton Madrid - Prado",
+        "reason": "403"
+      },
+      {
+        "name": "H10 Puerta de Alcalá",
+        "reason": "no url"
+      },
+      {
+        "name": "H10 Tribeca",
+        "reason": "no url"
+      },
+      {
+        "name": "Hilton Madrid Airport",
+        "reason": "403"
+      },
+      {
+        "name": "Hotel Catalonia Goya",
+        "reason": "no url"
+      },
+      {
+        "name": "Hotel Catalonia Gran Vía",
+        "reason": "dead"
+      },
+      {
+        "name": "Hotel Catalonia Las Cortes",
+        "reason": "no picture"
+      },
+      {
+        "name": "Hotel Indigo Madrid - Princesa, an IHG Hotel",
+        "reason": "dead"
+      },
+      {
+        "name": "Hotel Meliá Serrano",
+        "reason": "no url"
+      },
+      {
+        "name": "Hotel NH Collection Madrid Suecia",
+        "reason": "403"
+      },
+      {
+        "name": "Ibis Budget Madrid Vallecas",
+        "reason": "dead"
+      },
+      {
+        "name": "Madrid Marriott Auditorium Hotel & Conference Center",
+        "reason": "403"
+      },
+      {
+        "name": "Madrid Marriott Hotel Princesa Plaza",
+        "reason": "403"
+      },
+      {
+        "name": "NH Atocha",
+        "reason": "403"
+      },
+      {
+        "name": "NH Barajas Airport",
+        "reason": "403"
+      },
+      {
+        "name": "NH Collection Abascal",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Collection Madrid Colón",
+        "reason": "403"
+      },
+      {
+        "name": "NH Eurobuilding",
+        "reason": "403"
+      },
+      {
+        "name": "NH La Habana",
+        "reason": "403"
+      },
+      {
+        "name": "NH Lagasca",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Las Tablas",
+        "reason": "403"
+      },
+      {
+        "name": "NH Madrid Chamberí",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Madrid Ventas",
+        "reason": "403"
+      },
+      {
+        "name": "NH Madrid Zurbano",
+        "reason": "403"
+      },
+      {
+        "name": "NH Palacio de Tepa",
+        "reason": "403"
+      },
+      {
+        "name": "NH Príncipe de Vergara",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Ribera del Manzanares",
+        "reason": "403"
+      },
+      {
+        "name": "Novotel Madrid Center",
+        "reason": "no url"
+      },
+      {
+        "name": "Petit Palace Los Austrias",
+        "reason": "no picture"
+      },
+      {
+        "name": "Petit Palace San Bernardo",
+        "reason": "dead"
+      },
+      {
+        "name": "Radisson Blu Hotel, Madrid Prado",
+        "reason": "no url"
+      },
+      {
+        "name": "Radisson RED",
+        "reason": "no url"
+      },
+      {
+        "name": "Room Mate Alba",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Room Mate Alicia Hotel",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Room Mate Mario Hotel",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Room Mate Oscar Hotel",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Spark by Hilton Madrid Alcalá",
+        "reason": "403"
+      },
+      {
+        "name": "Wipton By Petit Palace",
+        "reason": "no picture"
+      },
+      {
+        "name": "ibis Madrid Calle Alcalá",
+        "reason": "no picture"
+      },
+      {
+        "name": "ibis budget Madrid Calle Alcalá",
+        "reason": "no picture"
+      }
+    ]
+  },
+  "readiness": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "Located see + history + do places",
+        "threshold": "≥ 150",
+        "measured": "1137",
+        "passed": true
+      },
+      {
+        "name": "Located eat places",
+        "threshold": "≥ 100",
+        "measured": "3529",
+        "passed": true
+      },
+      {
+        "name": "Sleep documents",
+        "threshold": "≥ 20",
+        "measured": "272",
+        "passed": true
+      },
+      {
+        "name": "Located sleep places",
+        "threshold": "≥ 10",
+        "measured": "267",
+        "passed": true
+      },
+      {
+        "name": "Pictured located sleep places",
+        "threshold": "≥ 10",
+        "measured": "267",
+        "passed": true
+      },
+      {
+        "name": "Districts",
+        "threshold": "≥ 5",
+        "measured": "11",
+        "passed": true
+      },
+      {
+        "name": "Districts with a neighbourhood document",
+        "threshold": "≥ 5",
+        "measured": "11",
+        "passed": true
+      },
+      {
+        "name": "Pictured share of located see + history places",
+        "threshold": "≥ 50%",
+        "measured": "90%",
+        "passed": true
+      },
+      {
+        "name": "Climate normals",
+        "threshold": "= 12",
+        "measured": "12",
+        "passed": true
+      },
+      {
+        "name": "Curated tours",
+        "threshold": "≥ 3",
+        "measured": "3",
+        "passed": true
+      },
+      {
+        "name": "Tour documents",
+        "threshold": "≥ 3",
+        "measured": "5",
+        "passed": true
+      }
+    ],
+    "thresholds": {
+      "located_sights": 150,
+      "located_eat": 100,
+      "sleep": 20,
+      "located_sleep": 10,
+      "pictured_sleep": 10,
+      "districts": 5,
+      "described_districts": 5,
+      "pictured_sights_share": 0.5,
+      "climate_normals": 12,
+      "curated_tours": 3,
+      "tour_documents": 3
+    }
+  }
+}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChatColumn } from "@/components/planner/v2/ChatColumn";
 import { DemoBanner } from "@/components/planner/v2/DemoBanner";
-import { toMapStops } from "@/components/planner/v2/mapStops";
+import { toMapStops, toOptionMarks } from "@/components/planner/v2/mapStops";
 import { PlannerLayout } from "@/components/planner/v2/PlannerLayout";
 import { TripMap } from "@/components/planner/v2/TripMap";
 import { TripPanel } from "@/components/planner/v2/TripPanel";
@@ -15,9 +15,10 @@ import { useSaveTrip } from "@/hooks/useSaveTrip";
 import { isTripId, useTrip } from "@/hooks/useTrip";
 import { findCity, usePlannerCities } from "@/hooks/usePlannerCities";
 import { useSelectedDay } from "@/hooks/useSelectedDay";
-import { readSavedTripId } from "@/services/plannerDraft";
+import { clearPlannerDraft, readSavedTripId } from "@/services/plannerDraft";
 import { tripToDraft } from "@/services/tripDraft";
 import type { Slot } from "@/types/planner";
+import { isEditable } from "@/types/trip";
 
 /**
  * The planner page's client side (`/plan/`): layout A from the mockups. The
@@ -25,8 +26,10 @@ import type { Slot } from "@/types/planner";
  * the chat column and the trip panel to it and translates error kinds and
  * the canned messages (generate, the stay's "Change") into copy.
  *
- * `?q=<prompt>` (from the landing's `PlannerCard`) is sent as the first turn
- * once, and only when there is no conversation to resume in this tab.
+ * `?q=<prompt>` (the home's ask) is a new trip whose first turn it is
+ * (TRA-247): the tab's draft goes, saved or not, the prompt is sent once and
+ * then leaves the URL, so a reload or a back-and-forward resumes the
+ * conversation instead of asking the same thing again over it.
  *
  * `?trip=<uuid>` opens a saved trip in it (TRA-196): the trip is loaded,
  * rebuilt into a draft by `services/tripDraft.ts` and handed to
@@ -34,13 +37,34 @@ import type { Slot } from "@/types/planner";
  * to the same trip — which is also why "Save trip" puts the new id there. A
  * trip that is not upcoming is read-only: core_api refuses every write on it,
  * so the page hides the controls that would be refused (ADR 0019).
+ *
+ * `/plan/` without `?trip=` is always a new trip (TRA-223). The tab's stored
+ * draft is restored there only while it was never saved: once it has a trip
+ * id it belongs to that trip, which `?trip=` reopens, so a bare `/plan/` (the
+ * home's ask and its "New trip") starts empty instead of being sent back to
+ * it. A `?trip=` that is not found and is the tab's own saved trip (deleted
+ * elsewhere) drops the draft too, and the pane offers a new trip.
  */
 export default function PlannerClientPage() {
-  const { t } = useLanguage();
+  const { t, resolved: languageResolved } = useLanguage();
   const router = useRouter();
   const params = useSearchParams();
   const query = params.get("q");
   const tripParam = params.get("trip");
+  // A bare `/plan/` is a new trip (TRA-223), and so is a `?q=` (TRA-247). When
+  // the tab still holds the draft of a saved trip — or of any trip, when a new
+  // question arrives — the draft and its id are dropped here, once per
+  // mount and before the hooks below read them: `usePlanner` restores the
+  // draft in its reducer's initializer and `useSaveTrip` reads the id in its
+  // state's, so clearing any later would flash the old conversation and let
+  // the redirect effect further down send the page back to `?trip=`. A lazy
+  // `useState` initializer is the one place that runs first and only once. A
+  // draft that was never saved has no id and is restored on a bare `/plan/`.
+  useState(() => {
+    if (tripParam !== null) return null;
+    if (query?.trim() || readSavedTripId() !== null) clearPlannerDraft();
+    return null;
+  });
   const {
     state,
     demo,
@@ -53,6 +77,7 @@ export default function PlannerClientPage() {
     toggleShortlist,
     hydrate,
     startNew,
+    retry,
   } = usePlanner();
   // The itinerary opens on the trip overview (`null`, TRA-177) and is then
   // browsed one day at a time: the panel's strip picks the day and the map
@@ -97,7 +122,7 @@ export default function PlannerClientPage() {
 
   // Only an upcoming trip can still be planned; the other two are read.
   // core_api refuses every write on them, so the page offers none.
-  const lockedPhase = trip && trip.phase !== "upcoming" ? trip.phase : null;
+  const lockedPhase = trip && !isEditable(trip.phase) ? trip.phase : null;
 
   // "Save trip". The recorded session answers for everyone and belongs to
   // nobody, so a demo turn takes the button out of service (TRA-191).
@@ -113,12 +138,28 @@ export default function PlannerClientPage() {
     hydratedRef.current = saved;
     router.replace(`/plan/?trip=${encodeURIComponent(saved)}`);
   }, [router, save.tripId, tripParam]);
-  /** "New trip", from a trip that can no longer be planned: an empty planner. */
+  /**
+   * "New trip": an empty planner with no trip to update, and a bare `/plan/`.
+   * Offered by a trip that can no longer be planned, by the panel's header
+   * while a saved trip is open, and by a trip that is not there at all.
+   */
   const newTrip = useCallback(() => {
     hydratedRef.current = null;
     startNew();
     router.replace("/plan/");
   }, [router, startNew]);
+
+  // A `?trip=` that is not found but is the very trip this tab saved: it was
+  // deleted (or lost) elsewhere, so the draft kept for it belongs to nothing.
+  // It goes with its id, from storage and from the planner, instead of being
+  // restored beside a trip that no longer exists. Another missing id leaves
+  // the tab's own draft alone.
+  useEffect(() => {
+    if (tripStatus !== "not-found" || tripParam === null) return;
+    if (readSavedTripId() !== tripParam) return;
+    hydratedRef.current = null;
+    startNew();
+  }, [tripStatus, tripParam, startNew]);
 
   // One walk of the itinerary for both columns (TRA-147): the map draws these
   // pins and the panel numbers its cards from the very same list.
@@ -126,9 +167,15 @@ export default function PlannerClientPage() {
     () => toMapStops(state.itinerary, selectedDay),
     [state.itinerary, selectedDay],
   );
+  // What Kiri is proposing and has not been answered yet, marked on the same
+  // map as dashed rings (TRA-238), so the options can be compared by place.
+  const optionMarks = useMemo(
+    () => toOptionMarks(state.groups, state.pendingGroupIds),
+    [state.groups, state.pendingGroupIds],
+  );
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   // A pin belongs to the day it was picked on, so the next day — and the
-  // overview, which has no map at all — starts with none. Adjusted while
+  // overview, whose map shows no pins — starts with none. Adjusted while
   // rendering, as `useSelectedDay` adjusts the day: React re-runs this
   // component before touching the DOM, so neither the panel nor the map ever
   // paints a ring around a card the new day does not have.
@@ -155,10 +202,14 @@ export default function PlannerClientPage() {
   const sentQuery = useRef(false);
   const hasMessages = state.messages.length > 0;
   useEffect(() => {
-    if (sentQuery.current || !query?.trim() || hasMessages) return;
+    // The first turn goes out in the traveller's language, not the default
+    // the page renders with until it has read theirs (TRA-246).
+    if (sentQuery.current || !query?.trim() || hasMessages || !languageResolved) return;
     sentQuery.current = true;
     sendMessage(query);
-  }, [query, hasMessages, sendMessage]);
+    // Asked once: the draft now holds it, and a reload must resume that draft.
+    router.replace("/plan/");
+  }, [query, hasMessages, sendMessage, languageResolved, router]);
 
   const errorText = state.error ? t.plan.errors[state.error] : null;
 
@@ -196,6 +247,11 @@ export default function PlannerClientPage() {
           onToggleShortlist={toggleShortlist}
           lockedPhase={lockedPhase}
           onNewTrip={newTrip}
+          onRetry={retry}
+          // The panel shows the trip's notice meanwhile; the column shows no
+          // transcript until the trip is in the planner, so the draft of a
+          // deleted trip is never painted before the effect above drops it.
+          holding={openTrip !== null}
         />
       }
       panel={
@@ -214,23 +270,23 @@ export default function PlannerClientPage() {
           onToggleShortlist={toggleShortlist}
           onAskAlternatives={askAlternatives}
           onReset={startNew}
+          onNewTrip={newTrip}
           openTrip={openTrip}
           lockedPhase={lockedPhase}
           save={save}
         />
       }
-      // The overview spans this column and the trip's: there is no whole-trip
-      // map (TRA-177), so the slot is empty until a day is picked.
+      // The map is always behind the trip (TRA-238): the selected day's pins,
+      // or on the overview the city alone — `toMapStops` gives it no pins.
       map={
-        selectedDay === null ? null : (
-          <TripMap
-            stops={mapStops}
-            selectedDay={selectedDay}
-            centre={centre}
-            selectedStopId={selectedStopId}
-            onSelectStop={setSelectedStopId}
-          />
-        )
+        <TripMap
+          stops={mapStops}
+          selectedDay={selectedDay}
+          centre={centre}
+          selectedStopId={selectedStopId}
+          onSelectStop={setSelectedStopId}
+          options={optionMarks}
+        />
       }
     />
   );

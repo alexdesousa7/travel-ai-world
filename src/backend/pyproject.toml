@@ -26,6 +26,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.6",
     "httpx>=0.28.1",
+    "moto[dynamodb,server]>=5.1",
     "pyright>=1.1.411",
 ]
 
@@ -35,7 +36,6 @@ target-version = "py312"
 exclude = [
     ".git",
     "__pycache__",
-    "alembic",
     ".venv",
     # Build output of the spike's bench zip: a vendored boto3, not our code.
     "tools/vector_store_bench/bench_lambda/build",
@@ -60,9 +60,6 @@ ignore = [
 "tools/city_corpus/tests/**" = ["S101", "RUF001"]
 "tools/vector_store_bench/tests/**" = ["S101", "RUF001"]
 "tools/scraper/**" = ["I", "UP", "B", "SIM", "N", "RUF", "ASYNC", "S"]
-
-[tool.ruff.lint.pep8-naming]
-classmethod-decorators = ["sqlalchemy.orm.declared_attr"]
 
 [tool.pyright]
 include = [

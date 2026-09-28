@@ -11,28 +11,31 @@ two-step decision:
 
 1. **Choose a cloud**: read [`infra/README.md`](../../infra/README.md) (what both clouds share), then
    follow the cloud's README once for the initial `terraform apply`:
-   [AWS (Lambda + API Gateway + Cognito + RDS behind CloudFront)](../../infra/aws/README.md), the
+   [AWS (Lambda + API Gateway + Cognito + DynamoDB behind CloudFront)](../../infra/aws/README.md), the
    deployed one · [GCP (Cloud Run + Cloud SQL)](../../infra/gcp/README.md), the alternative.
    Both deploy `core_api` and `ai_api` separately with per-service configuration.
 2. **Subsequent deploys** run `.github/workflows/deploy-backend.yml` (Actions → "Deploy backend"
    → Run workflow): pick the cloud, the image tag (a commit SHA or `latest`) and whether to apply.
    It copies the GHCR images into the cloud registry and runs Terraform; on AWS it pins the
-   functions to the image digests and, after the apply, invokes `core-api` with
-   `{"command": "migrate"}`. Requires a remote Terraform state backend
+   functions to the image digests. Nothing runs after the apply: `core_api` keeps its data in
+   DynamoDB (ADR 0023), whose table is Terraform's, so there are no migrations. Requires a remote
+   Terraform state backend
    (AWS: [`infra/aws/bootstrap/`](../../infra/aws/bootstrap/README.md), applied once by hand), the
    secrets listed in the workflow header and the repository variables `AWS_TF_STATE_BUCKET` +
    `FRONTEND_DOMAIN` (AWS) or `GCP_REGION` (GCP). CI never holds cloud credentials: AWS is
    reached through OIDC with the bootstrap's role, restricted to the `aws` GitHub environment.
 
    **The `aws` environment must hold every secret the applied state was built with**:
-   `TF_VAR_db_password`, `TF_VAR_nvidia_api_key` and `TF_VAR_google_client_secret` (the values of
+   `TF_VAR_nvidia_api_key` and `TF_VAR_google_client_secret` (the values of
    the local `terraform.tfvars`). Only secrets live there: non-secret inputs such as
    `google_client_id` and `backend_cors_origins` are defaults in `infra/aws/variables.tf`. A missing
-   secret reaches Terraform as an empty string, and the plan then resets the RDS password, the
-   Lambda secrets and Cognito's Google client (TRA-133).
+   secret reaches Terraform as an empty string, and the plan then resets the Lambda secrets and
+   Cognito's Google client (TRA-133). `TF_VAR_db_password` is only for GCP's Cloud SQL; AWS has
+   had no database password since TRA-219.
    Whenever one of these values changes (a rotation), update the secret **and** the local
    tfvars together. Before any `apply=true`, run with `apply=false` and require the plan to show
-   only the two Lambda `image_uri` changes.
+   only the two Lambda `image_uri` changes, plus the Terraform changes merged since the last
+   apply.
 
 Frontend variables per shape:
 
@@ -53,8 +56,7 @@ Nothing reaches AWS from a merge alone except the frontend. After `main` changes
    (Actions → "Backend images") before promoting; `latest` moves with every run.
 2. **Promote**: Actions → "Deploy backend" → Run workflow with `cloud=aws`, `image_tag=<that
    SHA, or latest>`, `apply=true` (`apply=false` first if the Terraform plan is in doubt). It
-   pins both functions to the image digests, applies, waits for `core-api` to be updated and
-   invokes `{"command": "migrate"}`; the run fails if the answer is not `status: ok`.
+   pins both functions to the image digests and applies.
 3. **Confirm** the running image, from `infra/aws/` initialised against the state backend
    ([AWS README](../../infra/aws/README.md)) after `just aws-login`:
 
@@ -68,24 +70,16 @@ Nothing reaches AWS from a merge alone except the frontend. After `main` changes
    (Actions → "Deploy frontend" → Run workflow to redo it by hand). A backend deploy that does
    not change the contract needs no frontend deploy, and the reverse.
 
-## What the TRA-196 migration does to production data
+## Data store history
 
-The deploy's `migrate` step applies revision `9d3400b9db7a`
-([ADR 0019](../architecture/adr/0019-trips-live-in-the-planner.md)), which **deletes rows**:
-
-- the four demo trips, by title — the seed that wrote them is gone, and so is the `seed`
-  command (`migrate` is now the only thing `POST /events` accepts);
-- every trip that does not have exactly one destination, because a trip is one city now and
-  there is no city to give those.
-
-What is left keeps its city, moved from its single destination onto the trip itself. It runs
-once, inside the ordinary `migrate` invocation of the deploy; there is nothing to run by hand
-and nothing to undo (the downgrade restores the structure, not the rows). Take the RDS snapshot
-before the deploy if the account holds anything worth keeping.
-
-Afterwards, sign in with the Google account and open `/plan/`: it lists the account's trips
-(happening now, coming up, past) and opens one at `/plan/?trip=<uuid>`. There is no demo data to
-load any more — a new account starts empty, which is what the planner is for.
+`core_api` stores everything in one DynamoDB table (`travel-ai-core`,
+[ADR 0023](../architecture/adr/0023-dynamodb-data-store.md)). The accounts, trips and
+conversations that were on RDS moved once, on 2026-09-22, with a one-off `copy-from-postgres`
+command (TRA-218). TRA-219 then removed RDS, the VPC and that command; how the infrastructure
+was retired is in [infra/aws/README.md](../../infra/aws/README.md#retiring-rds-tra-219-done-2026-09-23).
+After the TRA-227 deploy (the admin index, GSI2), the trips saved before it are stamped once with
+`just backfill-trip-index` (TRA-230, idempotent; see the
+[AWS README](../../infra/aws/README.md#making-someone-an-administrator)).
 
 ---
 

@@ -6,7 +6,6 @@ core_api_image = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/travel-ai-core-ap
 ai_api_image   = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/travel-ai-ai-api@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 # Use real values only in a local ignored terraform.tfvars file or CI variables.
-db_password          = "replace-me"
 nvidia_api_key       = "replace-me"
 google_client_secret = "replace-me"
 # google_client_id defaults to the project's OAuth client (variables.tf); set it only
@@ -19,3 +18,7 @@ frontend_bucket_name = "www.example.com"
 
 # Optional: the Cognito managed-login host (the certificate must cover it).
 # cognito_subdomain = "auth"   # "" keeps the pool's default *.amazoncognito.com host
+
+# Administrators (ADR 0024) are NOT set here: they live in the committed
+# `admins.auto.tfvars`, which Terraform loads by itself (this file is ignored by
+# git and absent in CI, so a list here would be emptied by the CI deploy).

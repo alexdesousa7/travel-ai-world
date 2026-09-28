@@ -5,7 +5,7 @@ Adapters in `infrastructure/` implement these; tests substitute fakes.
 
 from collections.abc import AsyncIterator, Sequence
 from datetime import date
-from typing import Any, Protocol
+from typing import Protocol
 
 from ai_api.domain.models import (
     ChatTurn,
@@ -15,6 +15,13 @@ from ai_api.domain.models import (
     Photo,
     RetrievalFilters,
     Usage,
+)
+from ai_api.domain.tracing import (
+    TurnDetail,
+    TurnFilters,
+    TurnPage,
+    TurnSummary,
+    TurnTrace,
 )
 
 
@@ -111,12 +118,17 @@ class PhotoFinder(Protocol):
         ...
 
 
-class TripGateway(Protocol):
-    """The slice of core_api the AI service needs, acting as the caller."""
+class SitePreviewFinder(Protocol):
+    """The image a venue publishes on its own site, or None (ADR 0021).
 
-    async def create_trip(
-        self, bearer_token: str, trip: dict[str, Any]
-    ) -> dict[str, Any]: ...
+    Never raises for a lookup problem, like `PhotoFinder`: it is asked only
+    once Commons has answered nothing, and a miss falls back again.
+    """
+
+    async def preview(self, site_url: str) -> Photo | None:
+        """The link preview (`og:image` and its kin) of the venue's own site,
+        credited with the site's bare domain."""
+        ...
 
 
 class ConversationGateway(Protocol):
@@ -131,3 +143,41 @@ class ConversationGateway(Protocol):
     async def append_turn(
         self, bearer_token: str, thread_id: str, turn: ChatTurn
     ) -> None: ...
+
+
+class TraceLog(Protocol):
+    """Where the trace of every request goes (ADR 0024): the interactions
+    table in DynamoDB, nothing when `INTERACTIONS_TABLE` is empty, a list in
+    tests. May raise; `RecordTrace` logs the failure and the turn goes on.
+
+    The reads serve the admin API (TRA-221). A cursor is opaque: hand back
+    the `next_cursor` of the previous page; a malformed one is `BadRequest`.
+    """
+
+    async def record(self, trace: TurnTrace) -> None: ...
+
+    async def list_day(
+        self, day: date, filters: TurnFilters, cursor: str | None, limit: int
+    ) -> TurnPage:
+        """One day's turns, newest first."""
+        ...
+
+    async def list_subject(
+        self, subject: str, filters: TurnFilters, cursor: str | None, limit: int
+    ) -> TurnPage:
+        """One user's turns (GSI1), newest first."""
+        ...
+
+    async def list_session(
+        self, session_id: str, cursor: str | None, limit: int
+    ) -> TurnPage:
+        """One conversation's turns (GSI2), oldest first."""
+        ...
+
+    async def get(self, turn_id: str) -> TurnDetail | None:
+        """One turn, whole; `None` when there is no such turn."""
+        ...
+
+    def iter_range(self, start: date, end: date) -> AsyncIterator[TurnSummary]:
+        """Every summary of every day in `[start, end]`, in any order."""
+        ...

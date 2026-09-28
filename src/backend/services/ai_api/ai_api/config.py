@@ -2,11 +2,12 @@ from functools import lru_cache
 from typing import Literal
 
 from travel_common.config import CommonSettings
+from travel_common.dynamodb import DynamoSettings
 
 LLMProviderName = Literal["nvidia", "bedrock"]
 
 
-class AISettings(CommonSettings):
+class AISettings(CommonSettings, DynamoSettings):
     PROJECT_NAME: str = "Kyrian World — AI API"
 
     # Which adapter answers the chat: NVIDIA (local development, an API key)
@@ -54,9 +55,9 @@ class AISettings(CommonSettings):
 
     # Retrieval (ADR 0014). The chat grounds its answers in a corpus of city
     # documents kept in an Amazon S3 Vectors index, searched with the same
-    # credentials Bedrock uses. Off by default and off in the cloud until an
-    # index holds a corpus: with the flag down the chat answers from the
-    # model's own knowledge, exactly as it did before.
+    # credentials Bedrock uses. Off by default locally, on when deployed
+    # (Terraform `retrieval_enabled`); with the flag down the chat answers from
+    # the model's own knowledge and the planner answers 503.
     RETRIEVAL_ENABLED: bool = False
     RETRIEVAL_LIMIT: int = 6
     VECTOR_BUCKET: str = "travel-ai-vectors"
@@ -93,6 +94,23 @@ class AISettings(CommonSettings):
     PHOTOS_ENABLED: bool = True
     COMMONS_API_URL: str = "https://commons.wikimedia.org/w/api.php"
     COMMONS_TIMEOUT: float = 4.0
+    # A venue Commons does not picture is shown the image its own site
+    # publishes as its link preview (ADR 0021): fetched live, cached in
+    # memory for a day, never stored in the corpus.
+    SITE_PREVIEWS_ENABLED: bool = True
+    SITE_PREVIEW_TIMEOUT: float = 2.0
+    SITE_PREVIEW_MAX_BYTES: int = 262144
+    SITE_PREVIEW_CACHE_SECONDS: int = 86400
+
+    # The trace of every request (ADR 0024): the DynamoDB table the turns are
+    # written to (`<prefix>-interactions`, Terraform's on AWS; created on
+    # start-up against DYNAMODB_ENDPOINT_URL locally). Empty records nothing.
+    INTERACTIONS_TABLE: str = ""
+    # Days a trace is kept (the table's TTL on `expires_at`).
+    INTERACTION_TTL_DAYS: int = 90
+    # Longest text one trace field keeps (bytes, cut on a UTF-8 boundary):
+    # a model call's input and output, the answer, the history.
+    TRACE_PAYLOAD_BYTES: int = 8192
 
 
 @lru_cache

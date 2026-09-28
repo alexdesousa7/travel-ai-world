@@ -3,10 +3,20 @@ from pathlib import Path
 
 import httpx
 import pytest
-from city_corpus.build import BuildResult, CorpusValidationError, validate, write
+from city_corpus import build
+from city_corpus.build import (
+    BuildResult,
+    CorpusValidationError,
+    Stage,
+    _resolve_photos,
+    collect,
+    validate,
+    write,
+)
 from city_corpus.config.cities import BUDAPEST
-from city_corpus.http import ApiClient, CacheMiss
+from city_corpus.http import ApiClient, CacheMiss, Fetched
 from city_corpus.models import Category, CorpusDocument, Kind, Source
+from city_corpus.sources import photos
 
 TEXT = "A document text that is long enough to pass validation."
 
@@ -79,6 +89,105 @@ def test_write_is_deterministic(tmp_path: Path) -> None:
     assert manifest["revisions"] == {"wikivoyage:en:Budapest": 7}
 
 
+def test_the_photo_stage_runs_after_wikidata_and_before_climate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """It must see the Commons images Wikidata found, and the districts the
+    boundaries assigned, before it decides a hotel has no picture (TRA-208).
+
+    The enum's order is not the build's: `collect` calls the stages by hand,
+    so the run itself is what is asserted.
+    """
+    order: list[str] = []
+
+    def record(name: str, answer: object = None):
+        def run(*args: object, **kwargs: object) -> object:
+            order.append(name)
+            return answer
+
+        return run
+
+    monkeypatch.setattr(build, "_collect_osm", record("openstreetmap", "a locator"))
+    monkeypatch.setattr(build, "_enrich_wikidata", record("wikidata"))
+    monkeypatch.setattr(build, "_assign_districts", record("districts"))
+    monkeypatch.setattr(build, "_resolve_photos", record("photos"))
+    monkeypatch.setattr(
+        build.climate, "fetch", record("climate", Fetched(data={}, fetched_at="2026"))
+    )
+    monkeypatch.setattr(build.climate, "aggregate", lambda data: [])
+    monkeypatch.setattr(build.climate, "documents", lambda rows, city: [])
+
+    collect(
+        BUDAPEST,
+        ApiClient(tmp_path),
+        stages=(Stage.OPENSTREETMAP, Stage.WIKIDATA, Stage.PHOTOS, Stage.CLIMATE),
+    )
+
+    assert order == ["openstreetmap", "wikidata", "districts", "photos", "climate"]
+
+
+def test_the_photo_stage_counters_reach_the_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hotel = _doc(doc_id="osm:way/1", category=Category.SLEEP, name="Hotel Gellért")
+    blind = _doc(doc_id="osm:way/2", category=Category.SLEEP, name="Hotel Astra")
+    counters = photos.PhotoStats(site=1, dropped=1, dropped_names=["Hotel Astra"])
+    monkeypatch.setattr(
+        photos,
+        "resolve",
+        lambda client, city, documents, curated: ([hotel], counters),
+    )
+    result = BuildResult(documents=[hotel, blind])
+
+    _resolve_photos(BUDAPEST, ApiClient(tmp_path), result, tmp_path / "curated")
+    info = write(tmp_path / "out", BUDAPEST, result)
+
+    assert result.documents == [hotel]
+    assert info["enrichment"]["photos"] == {
+        "curated": 0,
+        "site": 1,
+        "facebook": 0,
+        "commons": 0,
+        "wikidata": 0,
+        "page": 0,
+        "dropped": 1,
+        "shared": 0,
+        "dropped_examples": ["Hotel Astra"],
+        "notable_without_photo": [],
+    }
+
+
+def test_a_refused_url_is_never_requested(tmp_path: Path) -> None:
+    """`hop_allowed` judges the URL it is handed, not only the redirects after
+    it: a hotel's `website` tag can name the loopback interface or a cloud
+    host's metadata service, and the first hop is a hop too (TRA-208)."""
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, text="whatever answers there")
+
+    client = ApiClient(
+        tmp_path, transport=httpx.MockTransport(handler), sleep=lambda _: None
+    )
+
+    head = client.head("https://127.0.0.1:8001/x", hop_allowed=lambda _: False)
+    page = client.get_text("http://169.254.169.254/latest/meta-data/", lambda _: False)
+
+    assert seen == []
+    assert (head.status, page.status) == (0, 0)
+    assert page.text == "" and not page.is_html
+
+
+def test_a_refused_url_is_a_cached_miss(tmp_path: Path) -> None:
+    """Cached like any other miss, so `--offline` answers it the same way."""
+    client = ApiClient(tmp_path, sleep=lambda _: None)
+    client.get_text("https://parked.example/", lambda _: False)
+
+    offline = ApiClient(tmp_path, offline=True, sleep=lambda _: None)
+    assert offline.get_text("https://parked.example/", lambda _: False).status == 0
+
+
 def test_client_caches_and_retries(tmp_path: Path) -> None:
     calls: list[httpx.Request] = []
 
@@ -105,6 +214,54 @@ def test_client_caches_and_retries(tmp_path: Path) -> None:
     assert offline.get(url, params).data == {"query": {"ok": True}}
     with pytest.raises(CacheMiss):
         offline.get(url, {"action": "query", "titles": "Pest"})
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "cirrussearch-too-busy-error",
+        "readonly",
+        "internal_api_error_DBQueryError",
+    ],
+    ids=["search-busy", "read-only", "internal"],
+)
+def test_a_search_backend_that_is_too_busy_is_asked_again(
+    tmp_path: Path, code: str
+) -> None:
+    """These codes mean "not now", not "never": Wikimedia's search sheds load under
+    pressure, the database goes read-only, the API throws. Giving up would cost the
+    photo stage a source and leave nothing in the cache, so two builds would differ
+    (TRA-211). `internal_api_error` arrives with the exception class appended."""
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if len(calls) == 1:
+            error = {"code": code, "info": "not now"}
+            return httpx.Response(200, json={"error": error})
+        return httpx.Response(200, json={"search": [{"id": "Q42"}]})
+
+    client = ApiClient(
+        tmp_path, transport=httpx.MockTransport(handler), sleep=lambda _: None
+    )
+    url = "https://www.wikidata.org/w/api.php"
+    params: dict[str, str | int] = {"action": "wbsearchentities", "search": "hilton"}
+
+    assert client.get(url, params).data == {"search": [{"id": "Q42"}]}
+    assert len(calls) == 2
+
+
+def test_an_api_error_that_is_not_the_backend_being_busy_still_raises(
+    tmp_path: Path,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"error": {"code": "badvalue"}})
+
+    client = ApiClient(
+        tmp_path, transport=httpx.MockTransport(handler), sleep=lambda _: None
+    )
+    with pytest.raises(RuntimeError, match="API error"):
+        client.get("https://www.wikidata.org/w/api.php", {"action": "wbgetentities"})
 
 
 def test_query_service_lag_does_not_hold_a_read(tmp_path: Path) -> None:

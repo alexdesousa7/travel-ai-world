@@ -58,6 +58,7 @@ function renderPanel(
     status: "idle",
     tripId: null,
     canSave: true,
+    blocked: null,
     save: onSave,
     ...save,
   };
@@ -209,7 +210,14 @@ describe("TripPanel", () => {
 
   it("renders the draft trip: heading, counters, route, stay and days", () => {
     renderPanel();
+
+    // The route leads the overview; a day starts with the day (TRA-244).
+    const flights = screen.getAllByRole("link", { name: p.searchFlights });
+    expect(flights[0]).toHaveAttribute("href", DEEP_LINK);
+    expect(flights[0]).toHaveAttribute("rel", expect.stringContaining("noopener"));
+
     openDay(1);
+    expect(screen.queryByRole("link", { name: p.searchFlights })).toBeNull();
 
     expect(
       screen.getByRole("heading", {
@@ -220,11 +228,6 @@ describe("TripPanel", () => {
     expect(screen.getByText(p.draft)).toBeInTheDocument();
     expect(openRow(HOTELS.rum.title)).toBeInTheDocument();
     expect(screen.getByText(p.priceNote)).toBeInTheDocument();
-
-    const flights = screen.getAllByRole("link", { name: p.searchFlights });
-    expect(flights[0]).toHaveAttribute("href", DEEP_LINK);
-    expect(flights[0]).toHaveAttribute("rel", expect.stringContaining("noopener"));
-
   });
 
   it("saves the draft from the header", () => {
@@ -548,6 +551,50 @@ describe("TripPanel", () => {
     expect(
       screen.getByRole("link", { name: en.plan.trips.title }).getAttribute("href")
     ).toMatch(/^\/dashboard\/?$/);
+  });
+
+  it("offers a new trip beside the way home when the trip is not there (TRA-223)", () => {
+    const onNewTrip = vi.fn();
+    renderPanel({}, {}, { openTrip: { status: "not-found" }, onNewTrip });
+
+    fireEvent.click(screen.getByRole("button", { name: en.plan.trips.newTrip }));
+
+    expect(onNewTrip).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: en.plan.trips.title })).toBeInTheDocument();
+  });
+
+  describe("New trip in the header (TRA-223)", () => {
+    const newTripButton = () => screen.queryByRole("button", { name: en.plan.trips.newTrip });
+
+    it("is there while a saved trip is open, and leaves it", () => {
+      const onNewTrip = vi.fn();
+      renderPanel({}, { tripId: "trip-1" }, { onNewTrip });
+
+      fireEvent.click(newTripButton()!);
+
+      expect(onNewTrip).toHaveBeenCalledTimes(1);
+    });
+
+    it("is not there before the draft is saved", () => {
+      renderPanel({}, { tripId: null }, { onNewTrip: vi.fn() });
+
+      expect(newTripButton()).toBeNull();
+    });
+
+    it("is not there on a locked trip, which has its own", () => {
+      renderPanel({}, { tripId: "trip-1" }, { onNewTrip: vi.fn(), lockedPhase: "past" });
+
+      expect(newTripButton()).toBeNull();
+    });
+
+    it("tells itself apart from Start over, which stays on the trip", () => {
+      renderPanel({}, { tripId: "trip-1" }, { onNewTrip: vi.fn() });
+
+      expect(newTripButton()).toHaveAccessibleDescription(en.plan.panel.newTripHint);
+      expect(screen.getByRole("button", { name: en.plan.panel.reset })).toHaveAccessibleDescription(
+        en.plan.panel.resetHint
+      );
+    });
   });
 
   it("shows the placeholder, not a trips list, before the conversation starts", () => {

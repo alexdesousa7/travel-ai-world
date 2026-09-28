@@ -17,11 +17,20 @@ Cities are TOML files under `cities/`; Budapest is the reference one (see "Add a
 | [OpenStreetMap](https://www.openstreetmap.org/) (Overpass API) | Hotels, hostels, guest houses, apartments; restaurants, cafés; bars, pubs; museums, attractions, viewpoints, historic places, galleries with a Wikidata item; named parks; thermal baths. Also the 23 district boundaries and the Wikidata tags used to link listings | ODbL 1.0 |
 | [Wikidata](https://www.wikidata.org/) + [Commons](https://commons.wikimedia.org/) | Enrichment only (no documents): image, official website, coordinates, heritage status, Spanish label. Images keep their own licence and author | CC0 (Wikidata); per file (Commons) |
 | [Open-Meteo](https://open-meteo.com/) historical API | Daily 1996–2025 weather → 12 monthly climate documents | CC BY 4.0 |
+| The hotel's own website and Facebook page | **Photos only**, and only for a `sleep` document that nothing else pictures: the link preview the site publishes (`og:image`) — tried before Commons — else the largest picture on its homepage (ADR 0022) | Not licence-clean: the URL is stored and hot-linked, credited with the bare domain (`image_credit`), never copied |
+| `curated/<city>/hotels.toml` (this repo) | **Photos only**, for a hotel no rule can picture: the URL of the picture the hotel shows of itself, read on its own page by a person (TRA-211) | Not licence-clean: hot-linked and credited like a site preview, never copied |
 | `curated/<city>/tours.toml` (this repo) | Public tours no open source lists, above all free (tip-based) walking tours: hand-maintained from each operator's own website, summaries in our own words | CC BY-SA 4.0 (our text; the operator page is `source_url`) |
 
 `Category:Baths in Budapest` (named in TRA-138) has no articles; the bath articles are in
 `Category:Thermal baths in Budapest`. Google Places content, TripAdvisor and Booking are forbidden
-sources (ToS).
+sources (ToS). Photos of restaurants and bars are not stored here either: a venue the corpus has
+no free photo of is pictured at request time by `ai_api`, from the preview the venue publishes on
+its own site, and that image is never written to the corpus (ADR 0021).
+
+Hotels are the exception: a stay is the one thing the
+planner asks the traveller to commit to, so the build resolves a picture for every `sleep`
+document and drops the ones it cannot picture (step 4 below, ADR 0022). The URL is stored, never
+the file.
 
 Categories are city-scoped on purpose: `Landmarks in Hungary` and `Castles in Hungary` would add 46
 articles, most of them outside Budapest. A category may set `require_coordinates`, which admits only
@@ -39,12 +48,48 @@ manifest reports documents per category and what each one skipped.
    same normalised name within 75 m) adds `osm_id`, `opening_hours`, `stars`, `cuisine`,
    `wheelchair` (and a missing `wikidata` or Commons file) to it. Other elements with a name and at
    least one of `wikidata`, `website`, `opening_hours`, `stars`, `cuisine` become new documents.
-   Galleries need a Wikidata id, and swimming pools need thermal tags or a bath name.
+   Galleries need a Wikidata id, and swimming pools need thermal tags or a bath name. Small
+   memorials (`memorial=stolperstein`, `stolperschwelle`, `kopfstein`, `plaque`) are never sights:
+   Berlin tags 7,362 stumbling stones, most with a website.
 3. **Wikidata + Commons**: for every document with a Wikidata id, fill `lat`/`lon` and `url` when
    missing, add `name_es`, `heritage` and `entity_id` (documents about the same entity share it).
    `image_url` is a 640 px Commons thumbnail of the first free-licensed file among the Wikidata image
    (P18), the listing's `image` and OSM's `wikimedia_commons`. Non-free files (NC, ND, fair use) are skipped.
-4. **Districts**: every document with coordinates and no district gets one from the OSM boundary it
+4. **Photos** (TRA-208, ADR 0022, TRA-211): every `sleep` document with coordinates and no
+   `image_url` gets one, from the first of six sources that answers — a **curated entry**
+   (`curated/<city>/hotels.toml`, below), the link preview of the hotel's own
+   site (`url`), the preview of its Facebook page (`facebook`, from OSM `contact:facebook`),
+   Wikimedia Commons searched by name (a search result counts only when its title carries the
+   hotel's whole name, or both of its distinctive words, or its one distinctive word beside a
+   word for a place to sleep — anything less answers with a ship, a flower or a footballer —
+   **and** Commons says the file was photographed within 500 m of the hotel, since a title names
+   a hotel but not which town's; a file that states no coordinates is refused, non-free files
+   skipped), the hotel's own **Wikidata item found by name** (`wbsearchentities` in English,
+   Spanish and the city's language, kept only when the item's P625 is within 300 m of the hotel;
+   then P18, else the first free geotagged file of its P373 Commons category, else its Wikipedia
+   article's lead picture — all licence-checked, and it also runs for a hotel that already
+   carries a `wikidata` id whose item has no free P18), and the largest picture on its homepage
+   (at least 40 KB, `logo`/`badge`/`booking`/`placeholder` names skipped). The hotel's own picture
+   of itself comes first because a photo merely taken at its coordinates is the street, not the
+   hotel; the sources that are not Commons store the bare domain in `image_credit`; a picture the
+   stage gave to two **different** hotels of the same city is a chain's and is taken from both,
+   while two documents of the *same* hotel (same `entity_id`, same folded name, or 50 m apart with
+   one name written inside the other) may share theirs; **a hotel still
+   without a photo is dropped from the corpus**. Roughly half of them are, almost all with dead websites.
+   The stage is the slow one: 20–45 minutes for a city with a cold `.cache/sites/`.
+
+   **Hotel groups** (`config/hotel_groups.py`) are the one place the stage knows a brand by name.
+   A redirect from a brand domain into a listed group is the hotel's own site (`ibis.com` →
+   `all.accor.com`), not a parked domain; a group page's preview is refused when its path is a
+   brand asset (`logo|brand|generic|default|placeholder|maldives`), and for the groups that
+   publish one global banner on every page (IHG) the preview is not read at all and the
+   largest-picture rule finds the house. `OG_SKIPPED_DOMAINS` names the groups whose preview is one picture on every page, and is
+   empty: both candidates (IHG, a&o) cost more hotels than they saved, and the file says why. It
+   is a measurement, not a guess. `CHAIN_NAMES` recognises a chain hotel by name for one
+   purpose only: the report's **Notable hotels without a photo** list, with the reason (`403`,
+   `no url`, `dead`, `no picture`, `shared picture`), which is the curator's worklist. The gate
+   says nothing about it.
+5. **Districts**: every document with coordinates and no district gets one from the OSM boundary it
    falls in. The `[district_guides]` table in `cities/budapest.toml` maps the 23 administrative
    districts (by OSM `ref`; by name for a city whose boundaries carry none) to the 20 Wikivoyage
    guides. Districts I, III and XIV are split between two guides; the nearest Wikivoyage listing
@@ -55,14 +100,14 @@ manifest reports documents per category and what each one skipped.
    English and Spanish, then the first other Wikipedia: Italian for Bologna's quartieri) becomes the
    district's `neighbourhood` prose, named after the district. Only a district that is exactly one
    boundary mapped to exactly one guide qualifies; Budapest's groupings keep their Wikivoyage pages.
-5. **Tours**: listings from any source that are things you *join* move to `category=tour` with a
+6. **Tours**: listings from any source that are things you *join* move to `category=tour` with a
    `tour_type` (`walking`, `bike`, `boat`, `bus`, `cave`, `food`, `other`). The automatic rule looks
    for a tour heading (*Tours*, *Guided tours*, *Cave tours*, *Boating*, *Cruises*, *Sightseeing*) or a
    tour-like name (tour, cruise, boat trip, sightseeing, hop-on/hop-off). `[reclassify]` in the tours
    file adds what the rule misses and excludes false positives. Rentals and scheduled public transport
    are not tours. Curated tours are then added as documents (`doc_id` `tour:<city>:<id>`). Their district
    comes from the boundaries.
-6. **Climate**: monthly highs, lows, rainfall and days with ≥ 1 mm. Open-Meteo's reanalysis
+7. **Climate**: monthly highs, lows, rainfall and days with ≥ 1 mm. Open-Meteo's reanalysis
    overestimates sunshine for Budapest (about 3,150 h a year against about 2,000 h measured), so
    sunshine is left out; rain days run about a third high, hence "about" in the text.
 
@@ -74,14 +119,16 @@ just corpus-report budapest # only the report (`--no-gate` prints without failin
 just corpus-discover "..."  # draft cities/<slug>.draft.toml for a new city
 # or, from this directory:
 uv run python -m city_corpus build budapest \
-  [--sources wikivoyage,wikipedia,openstreetmap,wikidata,climate,tours] [--offline] [-v]
+  [--sources wikivoyage,wikipedia,openstreetmap,wikidata,photos,climate,tours] [--offline] [-v]
 uv run python -m city_corpus report budapest [--no-gate] [--data-dir DIR]
 uv run python -m city_corpus discover "Bologna" [-v]
 ```
 
-Every API response is cached in `.cache/` (ignored by git). A rebuild with a warm cache makes no
+Every API response is cached in `.cache/` (ignored by git); the pages of the venues' own sites
+are cached apart, under `.cache/sites/<host>/`, misses included — a hotel whose domain is dead is
+dialled once and never again. A rebuild with a warm cache makes no
 requests and writes byte-identical files; `--offline` fails on a cache miss instead of fetching.
-Delete `.cache/` to pick up new page revisions and map data. A cold build takes 5–10 minutes: requests
+Delete `.cache/` to pick up new page revisions and map data. A cold build takes 25–55 minutes, most of it the photo stage: requests
 are serial, with a descriptive User-Agent, `maxlag` and backoff for Wikimedia, a 5-second pause
 between Overpass queries, and retries on 429/5xx. Wikidata and Commons are requested in batches of 50
 sorted ids, so a change to the set of ids re-fetches those batches.
@@ -106,7 +153,9 @@ sorted ids, so a change to the set of ids re-fetches those batches.
 
 Optional fields, written only when present. Listing extras: `alt`, `address`, `directions`, `phone`,
 `checkin`, `checkout`, `image` (Commons file name). Enrichment: `entity_id`, `name_es`, `heritage`,
-`image_license`, `image_author` (show them with the image), `osm_id`, `opening_hours` (OSM syntax),
+`image_license`, `image_author` (show them with the image), `image_credit` (the line to print
+instead when the photo is not from Commons: the bare domain it was read from), `facebook` (the
+venue's page, an OSM tag and a photo source), `osm_id`, `opening_hours` (OSM syntax),
 `stars`, `cuisine`, `wheelchair`. Tours: `tour_type` (all tour documents); `operator`, `start_times`,
 `days`, `duration_minutes`, `languages`, `price_model`, `booking_required`, `checked` (curated tours).
 In an itinerary a tour is an `Activity` with `category="tour"`, `time`, `duration_minutes`, `cost` 0
@@ -120,7 +169,10 @@ the previous chunk. Wiki markup is stripped (link labels kept; inline templates 
 `data/<city>/manifest.json`: newest fetch time, counts per source, language, kind, category and
 district, image coverage (overall and for `see`), `sleep` documents without a district (city-wide
 text only), enrichment counters (OSM elements, merges, new documents, Wikidata links, image licences,
-districts assigned), skipped listings, and the revision id of every Wikimedia page used.
+districts assigned), where each hotel's photo came from, how many hotels were dropped for
+lack of one and which chain hotels went with them (`enrichment.photos`, including
+`notable_without_photo`), skipped listings, and the revision id of every Wikimedia page
+used.
 
 The build validates before writing and fails on: duplicate or empty `doc_id`, `text` under 40
 characters, wrong `city`, unknown `category`, half coordinates or coordinates outside the bbox, or a
@@ -152,7 +204,10 @@ and a new backend image.
 and `report.json` (the same numbers for tooling): documents per category and source, listings vs
 prose, places per category (a *place* is a document with a name; *located* when it has coordinates,
 which is what becomes a planner card; *pictured* when a located place has an `image_url`), districts
-with their located places and the ones under 10, `eat` and `sleep` by price tier, the twelve monthly
+with their located places and the ones under 10, where the hotels' photos came from, which
+hotels the build dropped for having none and how many pictures it rejected as a chain's
+(**Hotels**, from the manifest — without it the section prints the total only), `eat` and `sleep`
+by price tier, the twelve monthly
 climate normals, and a few fixed smoke queries per category ("museum", "craft beer bar", "boutique
 hotel", "free walking tour", ...; the same for every city) answered by a keyword scorer with the top three names, so a reader
 sees at a glance whether the corpus answers.
@@ -165,6 +220,7 @@ The report ends with the **readiness gate**, the thresholds in `city_corpus/conf
 | Located `see` + `history` + `do` places | ≥ 150 |
 | Located `eat` places | ≥ 100 |
 | `sleep` documents / located `sleep` places | ≥ 20 / ≥ 10 |
+| Pictured located `sleep` places | ≥ 10 |
 | Districts | ≥ 5 |
 | Districts with a `neighbourhood` document | ≥ 5 |
 | Pictured share of located `see` + `history` places | ≥ 50 % |
@@ -212,6 +268,38 @@ To refresh: reopen each `url`, update what changed and set `checked` to that day
 about entries not checked for 180 days, and about `[reclassify]` ids no longer in the corpus. It fails
 on malformed entries (bad times or URLs, unknown `tour_type`, a meeting point outside the city,
 duplicate ids). Only public tours with a published schedule belong here, not private ones.
+
+## Hotel photos file
+
+`curated/<city>/hotels.toml` pictures the hotels no rule reaches — a chain whose booking platform
+answers 403 to anything but a browser, a hotel whose site publishes only its logo. Someone opens
+the hotel's page on its **own** site (never booking.com, Expedia, Tripadvisor or Google), takes
+the URL of the picture it shows of itself, checks it is that hotel, and writes it down:
+
+```toml
+# Budapest — hotels no rule can picture.
+# Left out: Hotel Nowhere (the page shows only the brand's logo).
+
+[[hotel]]
+match = "Hilton Budapest"               # the hotel's name as the corpus has it (folded), or
+                                        # "osm:node/4553094489" when the name is not unique
+image_url = "https://…/exterior.jpg"    # the picture itself; hot-linked, never copied
+credit = "hilton.com"                   # the bare domain, or a Commons credit line
+source_url = "https://…/hotels/…"       # the page it was read on
+checked = 2026-09-22                    # the day a person looked at it
+note = "…"                              # for maintainers; not published
+```
+
+`image_url` may be a Wikimedia Commons file (`Special:FilePath`, with the file's author and licence
+as the `credit`): a curator points at one on purpose, which no automatic source may, and for a chain
+whose own site answers 403 to every client it is the only licence-clean photograph of the building
+there is. `match` has to name exactly one located `sleep` document of the city, or the build stops
+and lists what it matched. The entry is applied before every other source and the image is checked with the
+same `HEAD` as a site preview (raster, ≥ 15 KB, no `logo`-ish path); an entry that no longer
+answers is a warning and the hotel falls through to the other sources. Entries not checked for 400
+days are warned about. The header comment carries the hotels that were looked at and left out, and
+why — the next curator should not open those pages again. A city can point elsewhere with
+`curated_hotels` in its `cities/<slug>.toml`.
 
 ## Add a city
 
@@ -262,7 +350,9 @@ steps here do:
    manifest (with its `ai_api` copy). Iterate on the configuration until the gate passes, then
    commit `cities/<slug>.toml`, `data/<slug>/` (documents, manifest, report), `data/cities.json` and
    `src/backend/services/ai_api/ai_api/data/cities.json`. Optional curated tours go in
-   `curated/<slug>/tours.toml` (or the path in `curated_tours`).
+   `curated/<slug>/tours.toml` (or the path in `curated_tours`), and curated hotel photos in
+   `curated/<slug>/hotels.toml` (or `curated_hotels`) — the report's "Notable hotels without a
+   photo" list says which hotels want one.
 
 Wikidata folds its query service's lag into `maxlag`; a read-only request that gets such an answer is
 re-sent without the parameter instead of waiting (the lag can sit at minutes for hours).

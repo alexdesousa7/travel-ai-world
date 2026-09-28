@@ -1,0 +1,139 @@
+# Berlin tours, maintained by hand (TRA-33). See ../../README.md, "Tours file".
+#
+# Every fact below was read on the operator's own website on the `checked` date;
+# summaries are our own words. Only public tours with a published schedule, meeting
+# point, duration and language are listed. Deliberately not here:
+#   * Free Tours Berlin (free-tours-berlin.com, Walkabout Tours UG) - tip-based, but
+#     its tour page says it is closed for 2026.
+#   * Original Berlin Walks (berlinwalks.com) - the tour pages and the FAQ publish no
+#     start times; the schedule lives only in the booking calendar.
+#   * Fat Tire Tours Berlin (fattiretours.com/berlin) - bike tours at the TV tower,
+#     but neither the tour pages nor the FAQ publish start times or days.
+#   * Berliner Unterwelten "Dark Worlds" bunker tour - the site sends dates and times
+#     to its ticket shop's calendar; no published schedule.
+#   * Alternative Berlin's paid tours (Alternative Berlin, Street Art, Real Berlin
+#     Experience, Twilight) - the overview lists no times; not checked page by page,
+#     worth a look at the next refresh.
+#   * Brewer's Berlin Tours (brewersberlintours.com) - the site did not answer
+#     (TLS error) on 2026-09-21; retry at the next refresh.
+#   * GuruWalk, Freetour.com, Civitatis, GetYourGuide, Viator, Tripadvisor listings -
+#     resellers; SANDEMANs Berlin and Walkative! - resellers of local guides.
+# Meeting point coordinates come from OpenStreetMap (Nominatim) for the landmark the
+# operator names, not from the operator.
+
+[[tour]]
+id = "original-berlin-free-walking-tour"
+name = "The Original Berlin Free Walking Tour"
+operator = "Original Berlin Tours"
+operator_url = "https://originalberlintours.com/"
+url = "https://originalberlintours.com/tours/free-original-berlin-walking-tour/"
+tour_type = "walking"
+price_model = "tip-based"
+summary = """
+Three and a half hours on foot through historic Mitte, from Alexanderplatz and the \
+Nikolai Quarter past the Lustgarten and Bebelplatz to Checkpoint Charlie, the \
+Topography of Terror, the site of Hitler's bunker, the Holocaust Memorial, the \
+Reichstag and the Brandenburg Gate. Groups of at most ten; tips at the end."""
+meeting_point = "In front of the Generator Berlin Alexanderplatz hostel"
+address = "Otto-Braun-Straße 65, 10178 Berlin"
+lat = 52.523813
+lon = 13.417890
+start_times = ["10:00", "12:00"]
+days = "daily"
+duration_minutes = 210
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = """
+Free booking on the operator's site; an optional 3 EUR contribution confirms the \
+place. Free cancellation up to 24 hours before. The route changes with \
+demonstrations and events."""
+
+[[tour]]
+id = "alternative-berlin-free-day-night"
+name = "Free Day & Night Tours"
+operator = "Alternative Berlin Tours"
+operator_url = "https://alternativeberlin.com/"
+url = "https://alternativeberlin.com/berlin-tours/free-berlin-tour/"
+tour_type = "walking"
+price_model = "tip-based"
+summary = """
+Street art and subculture walk from Görlitzer Bahnhof, two and a half hours. The \
+morning shift crosses from Kreuzberg to Friedrichshain (large murals, the RAW \
+grounds, the outside of Berghain); the evening shift stays in Kreuzberg 36 and \
+along the canal, with murals by Blu and Herakut and an old GDR watchtower."""
+meeting_point = "U Görlitzer Bahnhof, opposite Cortex Records"
+address = "Oranienstraße 3, Berlin-Kreuzberg"
+lat = 52.499746
+lon = 13.425620
+start_times = ["11:00", "17:00"]
+days = "Tuesday, Thursday, Saturday and Sunday"
+duration_minutes = 150
+languages = ["English"]
+booking_required = true
+checked = 2026-09-21
+notes = """
+The 11:00 (day) and 17:00 (night) departures follow different routes. The operator \
+says tips usually run 10-40 EUR and that bookings are essential."""
+
+[[tour]]
+id = "insider-explore-berlin"
+name = "Explore Berlin: See All The Iconic Sights & Some Hidden Gems"
+operator = "Insider Tour"
+operator_url = "https://insidertour.com/"
+url = "https://insidertour.com/tours/explore-berlin/"
+tour_type = "walking"
+price_model = "paid"
+summary = """
+A three-hour introduction to central Berlin with a licensed guide, from the Palace \
+of Tears at Friedrichstrasse along Unter den Linden (the Neue Wache, Humboldt \
+University, Museum Island, the Humboldt Forum) to the Brandenburg Gate, told \
+through the Third Reich and the Cold War. Adults 19.90 EUR, reduced 17.90 EUR."""
+meeting_point = "On the square next to the Tränenpalast (Palace of Tears), by Friedrichstraße station"
+address = "Reichstagufer 17, 10117 Berlin"
+lat = 52.520913
+lon = 13.387146
+start_times = ["10:00", "13:00"]
+days = "10:00 daily all year; 13:00 also from April to October"
+duration_minutes = 180
+languages = ["English"]
+checked = 2026-09-21
+notes = "All the operator's group tours are in English; children 6 and under go free."
+
+[[tour]]
+id = "stern-kreis-historical-city-tour-c5"
+name = "Historical City Tour from Alte Börse (C5)"
+operator = "STERN+KREIS Schiffahrt"
+operator_url = "https://www.sternundkreis.de/en/"
+url = "https://www.sternundkreis.de/en/cruises/historical-city-tour-from-alte-boerse-c5/"
+tour_type = "boat"
+price_model = "paid"
+summary = """
+One-hour round trip on the Spree from the pier by Hackescher Markt: the Humboldt \
+Forum, the Nikolai Quarter, the cathedral and Museum Island, then west to the \
+Reichstag, the Chancellery and the main station and back. Commentary in German, a \
+free audio guide in English, Spanish and ten other languages. From 22.50 EUR."""
+meeting_point = "Alte Börse / Hackescher Markt pier (reached by stairs only)"
+address = "Burgstraße 27, 10178 Berlin"
+lat = 52.521558
+lon = 13.400642
+start_times = ["10:45", "12:15", "13:45", "15:15", "16:45"]
+days = "as published per date in the operator's timetable"
+duration_minutes = 60
+languages = ["German", "English", "Spanish", "French", "Italian", "Portuguese", "Dutch", "Polish", "Russian", "Swedish", "Finnish", "Hebrew", "Chinese"]
+checked = 2026-09-21
+notes = """
+The start times are the departures the page listed for 21 September 2026; the \
+timetable is per date, so recheck them at every refresh. The same boats sell a \
+35-minute one-way trip to Kanzleramt / HKW. Food and drink on board; none may be \
+brought."""
+
+[reclassify]
+include = []
+# What the tour-like name rule took by mistake: a diner and a bar whose names say
+# "cruise", and the 100/200 buses, which are ordinary public lines.
+exclude = [
+    "osm:way/27067036",  # Cruise-In American Diner
+    "osm:node/1636136230",  # XXL Cruising-Club
+    "wv:en:Berlin#do:berlin-tour-by-public-bus-line-100-and-200",
+]

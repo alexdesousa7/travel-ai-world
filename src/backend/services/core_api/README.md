@@ -1,7 +1,8 @@
 # core_api
 
 Users, trip data (trips, itinerary days, activities, meals, accommodations, transportations)
-and chat conversations (threads and their messages) on PostgreSQL. Owns the account behind every bearer token: in local mode it also
+and chat conversations (threads and their messages), all in one DynamoDB table
+([ADR 0023](../../../../docs/architecture/adr/0023-dynamodb-data-store.md)). Owns the account behind every bearer token: in local mode it also
 signs people in with Google and issues the JWTs every service trusts; in Cognito mode
 ([ADR 0009](../../../../docs/architecture/adr/0009-lambda-cognito-budget.md)) the user pool issues
 them and this service upserts the account from the claims.
@@ -9,19 +10,48 @@ them and this service upserts the account from the claims.
 ## Run
 
 ```bash
-cp .env.example .env       # AUTH_MODE=local: SECRET_KEY, GOOGLE_*, DB_* (Cognito mode: COGNITO_*)
-uv run alembic upgrade head
+cp .env.example .env       # AUTH_MODE=local: SECRET_KEY, GOOGLE_* (Cognito mode: COGNITO_*)
+just dynamodb-local        # from the repo root, in another terminal: DynamoDB on :8002
 uv run python -m core_api.devtools token you@example.com # optional: a local JWT for that account (see below)
 uv run uvicorn core_api.main:app --reload --port 8000    # http://localhost:8000/docs
 ```
+
+With `DYNAMODB_ENDPOINT_URL` set (the `.env.example` default, the devcontainer and Compose), the
+service creates its table (`CORE_TABLE`) at start when it is missing. Without it the service talks to
+DynamoDB on AWS, where Terraform owns the table (`travel-ai-core`); the local default name matches no
+real table, so a forgotten endpoint fails instead of writing to production. There are no migrations.
 
 `devtools token` (`just dev-token you@example.com`) prints the local-mode JWT `POST /auth/google`
 would issue for that account, so a browser can be signed in without Google: the Playwright suite
 (`just test-e2e-stack`) and the Playwright MCP write it into `localStorage`
 (`docs/runbooks/local-dev.md`). It creates the account when there is none — the real Google
 sign-in adopts it later, matching on the email — refuses an inactive one, and needs
-`AUTH_MODE=local`. Creating accounts is exactly why it is deliberately not an `ops` command:
-`ops` is what `/events` exposes, and nothing in the running service imports `devtools`.
+`AUTH_MODE=local`. Creating accounts is exactly why nothing in the running service imports
+`devtools` (`tests/test_import_boundaries.py` checks it). `--admin`
+(`just dev-token you@example.com --admin`) stores `role=admin` on the account first, so the token
+opens the `/admin` routes; without it the account keeps the role it has.
+
+A table created before GSI2 existed (ADR 0024) keeps its old schema: restart DynamoDB Local (or
+delete the table) so the service creates it again with both indexes.
+
+### Ops commands
+
+One-off operations on the table, from a shell (`core_api/ops.py`; nothing in the running service
+imports it). They read the same settings as the service: with `DYNAMODB_ENDPOINT_URL` they target
+DynamoDB Local; without it, the real `CORE_TABLE` in `AWS_REGION` through the SSO session
+(`just aws-login`).
+
+```bash
+just backfill-trip-index --dry-run   # scanned=<n> would_update=<n> skipped=0, writes nothing
+just backfill-trip-index             # scanned=<n> updated=<n> skipped=<n>
+```
+
+`backfill-trip-index` (TRA-230) writes `GSI2PK`/`GSI2SK` on every trip saved before the admin
+index existed (TRA-227), exactly as `trip_item` writes them today, so `GET /api/v1/admin/trips`
+lists it. It scans for trip items without `GSI2PK` and updates each one on the condition that it
+still has none: a trip saved meanwhile stamps itself and counts as `skipped`. Running it again
+finds nothing. It exits 1 with the reason on stderr when DynamoDB refuses a call. On AWS it runs
+once, right after the TRA-227 apply ([infra/aws/README.md](../../../../infra/aws/README.md#making-someone-an-administrator)).
 
 ## Endpoints (`/api/v1`)
 
@@ -29,27 +59,39 @@ sign-in adopts it later, matching on the email — refuses an inactive one, and 
 |---|---|---|---|
 | `POST` | `/auth/google` | — | Local mode only: Google ID token → our JWT + profile (absent when `AUTH_MODE=cognito`) |
 | `GET` | `/users/me` | Bearer | Own profile |
-| `GET` | `/users/` | Admin | List users |
-| `GET` | `/users/{id}` | Admin | Profiles are not public |
-| `PATCH/DELETE` | `/users/{id}` | Bearer (owner) | Only your own account |
+| `GET` | `/users/` | Admin | List users, by email |
+| `GET` | `/users/{id}` | Admin | Profiles are not public; ids are UUIDs |
+| `PATCH/DELETE` | `/users/{id}` | Bearer (owner) | Only your own account (403 otherwise); an email already registered is 409; delete takes trips and conversations with it |
 | `PATCH` | `/users/{id}/role` | Admin | |
 | `GET/POST` | `/trips/` | Bearer | Only the caller's trips |
-| `GET/PATCH/DELETE` | `/trips/{id}` | Bearer (owner) | 403 for another user's trip; response embeds every child and its derived `phase`; `PATCH` is 409 `TRIP_LOCKED` once the trip is ongoing or past, `DELETE` never is |
+| `GET/PATCH/DELETE` | `/trips/{id}` | Bearer (owner) | 404 for another user's trip; response embeds every child and its derived `phase`; `PATCH` is 409 `TRIP_LOCKED` once the trip is ongoing or past, `DELETE` never is |
 | CRUD | `/trips/{id}/itinerary-days/`, `/trips/{id}/accommodations/`, `/trips/{id}/transportations/` | Bearer (owner) | Nested under the owner's trip; writes 409 `TRIP_LOCKED` unless the trip is `upcoming` |
 | CRUD | `/trips/{id}/itinerary-days/{day_id}/activities/`, `.../meals/` | Bearer (owner) | Nested under a day of the owner's trip; same lock |
 | `GET/POST` | `/chat-threads/` | Bearer | Only the caller's conversations, most recent activity first |
-| `GET/PATCH/DELETE` | `/chat-threads/{id}` | Bearer (owner) | 403 for another user's thread; the response has no messages; delete takes them with it |
+| `GET/PATCH/DELETE` | `/chat-threads/{id}` | Bearer (owner) | 404 for another user's thread; the response has no messages; delete takes them with it |
 | `GET/POST` | `/chat-threads/{id}/messages/` | Bearer (owner) | Append-only, in the order written; an answer may carry `sources`, `model`, tokens and `latency_ms` ([ADR 0013](../../../../docs/architecture/adr/0013-chat-conversations-in-core-api.md)) |
-| `GET` | `/health/`, `/health/db` | — | |
-| `POST` | `/events` (root, not versioned, not in the OpenAPI document) | Lambda only | `{"command": "migrate"}` from a direct Lambda invocation; unknown commands 400; 404 outside Lambda |
+| `GET` | `/admin/trips?cursor=&limit=50` | Admin | Every user's trips, newest first (GSI2 summary: owner, city, dates, `phase`, `planner_session_id`); `limit` 1..200, `next_cursor` is `null` on the last page |
+| `GET` | `/admin/trips/{user_id}/{trip_id}` | Admin | Anyone's trip, whole (`TripResponse`); 404 when there is none |
+| `GET` | `/admin/users?cursor=&limit=100` | Admin | Every account by email, with the token `subject` the AI traces name it by |
+| `GET` | `/health/`, `/health/db` | — | `/health/db` asks DynamoDB for the table; 503 when it cannot |
 
 Every trip collection offers `GET /` (paginated with `skip`/`limit`), `POST /`, `GET/PATCH/DELETE /{item_id}`.
 A child that exists under another trip answers 404, never 403, so ids leak nothing
 ([ADR 0005](../../../../docs/architecture/adr/0005-trip-aggregate-nested-resources.md)).
+Writes that lose a race (someone saved the same trip, thread or profile in between) answer 409
+`CONFLICT`: reload and retry.
 
 A trip is **one city** and its `phase` (`upcoming | ongoing | past`) is derived from its dates,
 never stored; everything inside an ongoing or past trip is read-only
 ([ADR 0019](../../../../docs/architecture/adr/0019-trips-live-in-the-planner.md)).
+
+**Admin reads** (ADR 0024) log one audit line per request
+(`admin_read subject=… route=… target=…`). Admins are the Cognito `admin` group in production
+(filled from `admin_usernames` in Terraform, `infra/aws/README.md`) and `role=admin` on the account
+locally. Every profile carries `subject` (the `sub` of its tokens: the Cognito sub, or the account
+id in local mode), written by the upsert that runs on every request only when it changes; every
+trip carries `planner_session_id`, the planner draft it was saved from (a UUID, locked with the
+rest of the trip).
 
 Full contract: [`docs/api/core-api.openapi.json`](../../../../docs/api/core-api.openapi.json).
 
@@ -59,33 +101,31 @@ Errors: `{"detail": {"message": "...", "error_code": "NOT_FOUND" | "FORBIDDEN" |
 
 ```text
 core_api/
-├── main.py            create_app(get_settings(), [build_api_router(settings)], lifespan=...) — engine on app.state
-├── config.py          CoreSettings(CommonSettings): DB_*, GOOGLE_*; get_settings() (injected)
-├── api/deps.py        get_current_user (token + DB check) → AccountPrincipal; provide() wiring;
-│                      get_owned_trip / get_owned_itinerary_day / get_owned_chat_thread; get_sign_in
-├── api/v1/endpoints/  thin controllers for auth (local mode only), users, trips, chat_threads, health
-├── api/v1/resources.py  CHILD_RESOURCES + child_router(): the nested CRUD collections
-├── auth/google.py     IdentityVerifier port + GoogleTokenInfoVerifier adapter (local mode)
-├── auth/principal.py  AccountPrincipal = Principal + users.id
-├── services/          base.py (generic; every child entity) + trip_service.py, user_service.py,
+├── main.py            create_app(...) with a lifespan that opens the table (app.state.table)
+├── config.py          CoreSettings(CommonSettings, DynamoSettings): CORE_TABLE, GOOGLE_*
+├── domain/            models.py (dataclasses + rules), ports.py (repository protocols), enums.py
+├── infrastructure/dynamo/
+│                      table.py (spec, DynamoTable, open_table), keys.py, codec.py, repositories.py,
+│                      backfill.py (the one-off GSI2 backfill behind `ops`)
+├── services/          trip_service.py, trip_children.py (every nested collection), user_service.py,
 │                      chat_thread_service.py, chat_message_service.py,
 │                      auth_service.py (Authenticate: both modes; SignIn: local issuer)
-├── repositories/      base.py (generic) + trip_repository.py, user_repository.py,
-│                      chat_thread_repository.py, chat_message_repository.py
-├── models/            SQLAlchemy 2 typed tables; mixins + check_invariants() in base.py; enums.py
+├── api/deps.py        get_table → repositories → services; get_current_user → AccountPrincipal;
+│                      get_owned_trip / get_owned_itinerary_day / get_owned_chat_thread; get_sign_in
+├── api/v1/endpoints/  thin controllers for auth (local mode only), users, trips, chat_threads, admin, health
+├── api/v1/resources.py  CHILD_RESOURCES + child_router(): the nested CRUD collections
+├── auth/google.py     IdentityVerifier port + GoogleTokenInfoVerifier adapter (local mode)
+├── auth/principal.py  AccountPrincipal = Principal + the account's UUID
 ├── schemas/           Pydantic models; XUpdate = partial(XBase) (_partial.py); formats in _types.py
-├── ops.py             commands a deployed function runs on request (`migrate` = alembic upgrade head)
-├── api/events.py      POST /events: the Lambda Web Adapter's pass-through for direct invocations
-├── pagination.py      Page(skip, limit)
-└── db/session.py      build_engine / build_session_factory + get_db (one transaction per request)
+├── devtools.py        dev-only: a local JWT for an account (never imported by the service)
+├── ops.py             one-off table operations: backfill-trip-index (never imported by the service)
+└── pagination.py      Page(skip, limit)
 ```
 
-## Tests and migrations
+## Tests
 
 ```bash
-uv run pytest                                          # creates <DB_NAME>_test, empties it per test
-uv run alembic revision --autogenerate -m "message"    # after changing models; review the file
-uv run alembic check                                   # models == migrations (CI runs it)
+uv run pytest      # DynamoDB on moto, in process: no container, no database
 ```
 
 For agents: [`AGENTS.md`](AGENTS.md).

@@ -53,6 +53,12 @@ QUERIES: tuple[Query, ...] = (
     ),
 )
 USEFUL_TAGS = ("wikidata", "website", "opening_hours", "stars", "cuisine")
+# A Facebook page is kept when an element is already a document (its `og:image` is
+# the page's profile photo, a last resort for a hotel with no other picture), but it
+# never makes a document on its own: a venue known by nothing else is not one.
+FACEBOOK_TAGS = ("contact:facebook", "facebook")
+# Gunter Demnig's stones come in three shapes (stone, threshold, head stone).
+SMALL_MEMORIALS = frozenset({"stolperstein", "stolperschwelle", "kopfstein", "plaque"})
 MATCH_DISTANCE_M = 75.0
 MIN_CONTAINED_NAME = 6
 MIN_TEXT_CHARS = 40
@@ -176,6 +182,12 @@ def _is_useful(query: Query, tags: dict[str, str]) -> bool:
     # sights; notable ones have an item (decided on TRA-139).
     if tags.get("tourism") == "gallery" and not _wikidata(tags):
         return False
+    # A stumbling stone or a wall plaque marks a person or an event, not a place to
+    # spend a morning: Berlin tags 7,362 Stolpersteine `historic=memorial`, most
+    # with a website, which would have outnumbered its sights three to one. The
+    # notable memorials come from Wikipedia's `Monuments and memorials in X`.
+    if tags.get("memorial") in SMALL_MEMORIALS:
+        return False
     if query.key == "baths" and tags.get("leisure") == "sports_centre":
         return tags.get("bath:type") == "thermal" or bool(
             _THERMAL_RE.search(tags["name"])
@@ -278,6 +290,35 @@ def _wikidata(tags: dict[str, str]) -> str | None:
     return value if _WIKIDATA_RE.match(value) else None
 
 
+def _facebook(tags: dict[str, str]) -> str | None:
+    """The element's Facebook page as an absolute URL, or None.
+
+    OSM holds it three ways: a full URL, a bare `facebook.com/...` and the page
+    name alone (`HotelGellert`). Anything with a space in it is a caption, not
+    a page.
+    """
+    for key in FACEBOOK_TAGS:
+        value = tags.get(key, "").strip()
+        if not value or any(c.isspace() for c in value):
+            continue
+        if value.startswith("https://"):
+            return value
+        if value.startswith("http://"):
+            return "https://" + value.removeprefix("http://")
+        bare = value.lstrip("/")
+        for host in (
+            "www.facebook.com/",
+            "facebook.com/",
+            "m.facebook.com/",
+            "fb.com/",
+        ):
+            if bare.lower().startswith(host):
+                return "https://www.facebook.com/" + bare[len(host) :]
+        if "/" not in bare.rstrip("/") and "." not in bare:
+            return f"https://www.facebook.com/{bare}"
+    return None
+
+
 def _commons_file(tags: dict[str, str]) -> str | None:
     value = tags.get("wikimedia_commons", "")
     return value.removeprefix("File:") if value.startswith("File:") else None
@@ -291,6 +332,7 @@ def _osm_fields(place: OsmPlace) -> dict[str, str | None]:
         "stars": tags.get("stars") or None,
         "cuisine": _clean(tags.get("cuisine")),
         "wheelchair": tags.get("wheelchair") or None,
+        "facebook": _facebook(tags),
     }
 
 
@@ -440,4 +482,5 @@ def _new_document(
         stars=fields["stars"],
         cuisine=fields["cuisine"],
         wheelchair=fields["wheelchair"],
+        facebook=fields["facebook"],
     )

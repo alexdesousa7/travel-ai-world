@@ -1,0 +1,166 @@
+# Berlin (Wikidata Q64), drafted by `python -m city_corpus discover "Berlin"` and
+# checked by hand (TRA-33). Budapest is the commented reference.
+
+slug = "berlin"
+name = "Berlin"
+aliases = ["berlin", "berlín"]
+language = "en"
+wikipedia_lang = "en"
+# OpenStreetMap relation of the city (Wikidata P402): selects the area for the boundaries and the place queries.
+osm_relation = 62422
+# Only used when `osm_relation` is unset.
+osm_area = "Berlin"
+# The country the planner names on a trip, and its ISO 3166-1 alpha-2 code.
+country = "Germany"
+country_code = "DE"
+district_admin_level = 9
+centre = [52.5167, 13.3833]
+timezone = "Europe/Berlin"
+# Wikidata districts (P150): Bezirk Mitte (Q163966), Charlottenburg-Wilmersdorf (Q158095), Friedrichshain-Kreuzberg (Q158893), Lichtenberg (Q329609), Marzahn-Hellersdorf (Q119284), Neukölln (Q4071168), Pankow (Q163012), Reinickendorf (Q158876), Spandau (Q158083), Steglitz-Zehlendorf (Q158064), Tempelhof-Schöneberg (Q158106), Treptow-Köpenick (Q158089)
+districts = [
+    "City West",
+    "East",
+    "East Central",
+    "Mitte",
+    "Reinickendorf and Spandau",
+    "Steglitz-Zehlendorf",
+    "Tempelhof and Neukölln",
+    "Treptow-Köpenick",
+]
+
+# From OSM relation 62422 (Nominatim), rounded outwards.
+[bbox]
+south = 52.33
+west = 13.08
+north = 52.68
+east = 13.77
+
+# The city's photo, shown on the trip overview: a Commons file (Wikidata P18,
+# licence checked on Commons 2026-09-21: the skyline from the Victory Column,
+# Reichstag, TV tower, cathedral and Brandenburg Gate) and the credit the page prints.
+[hero]
+file = "Cityscape Berlin.jpg"
+credit = "Thomas Wolf, www.foto-tw.de (CC BY-SA 3.0) · Wikimedia Commons"
+
+[[wikivoyage]]
+lang = "en"
+root = "Berlin"
+include_subpages = true  # 8 district pages
+
+[[wikivoyage]]
+lang = "es"
+root = "Berlín"
+include_subpages = false  # no district pages
+
+# 49 pages
+[[wikipedia.categories]]
+name = "Tourist attractions in Berlin"
+
+# 79 pages
+[[wikipedia.categories]]
+name = "Museums in Berlin"
+
+# 26 pages
+[[wikipedia.categories]]
+name = "Bridges in Berlin"
+
+# 52 pages
+[[wikipedia.categories]]
+name = "Parks in Berlin"
+
+# 5 pages
+[[wikipedia.categories]]
+name = "Churches in Berlin"
+
+# 40 pages
+[[wikipedia.categories]]
+name = "Squares in Berlin"
+
+# 39 pages
+[[wikipedia.categories]]
+name = "Monuments and memorials in Berlin"
+
+# 120 pages
+[[wikipedia.categories]]
+name = "Buildings and structures in Berlin"
+require_coordinates = true
+
+# 23 pages
+[[wikipedia.categories]]
+name = "Palaces in Berlin"
+
+# 4 pages
+[[wikipedia.categories]]
+name = "Towers in Berlin"
+
+# 8 pages
+[[wikipedia.categories]]
+name = "Synagogues in Berlin"
+
+# 32 pages
+[[wikipedia.categories]]
+name = "Theatres in Berlin"
+
+# 10 pages
+[[wikipedia.categories]]
+name = "Libraries in Berlin"
+require_coordinates = true
+
+# 22 pages
+[[wikipedia.categories]]
+name = "Cemeteries in Berlin"
+
+# 2 pages
+[[wikipedia.categories]]
+name = "Renaissance architecture in Berlin"
+require_coordinates = true
+
+# 8 pages
+[[wikipedia.categories]]
+name = "Baroque architecture in Berlin"
+require_coordinates = true
+
+# Berlin's own categories (the first three are generic and joined discover's
+# standard list). The Wall and Museum Island hold sights the broad categories
+# miss (East Side Gallery, the Pergamon); coordinates keep the Wall's history
+# articles out.
+# 54 pages
+[[wikipedia.categories]]
+name = "Art museums and galleries in Berlin"
+
+# 6 pages
+[[wikipedia.categories]]
+name = "Castles in Berlin"
+
+# 7 pages
+[[wikipedia.categories]]
+name = "Lutheran churches in Berlin"
+
+# 46 pages
+[[wikipedia.categories]]
+name = "Berlin Wall"
+require_coordinates = true
+
+# 14 pages
+[[wikipedia.categories]]
+name = "Museum Island"
+
+# OSM district name (the boundaries carry no `ref` tag) → the Wikivoyage guide(s) covering it.
+[district_guides]
+# From the Districts section of en.wikivoyage.org/wiki/Berlin: eight guides for
+# twelve Bezirke. Mitte (Mitte and Tiergarten; Moabit and the Hansaviertel are
+# in City West, Wedding in East Central), Pankow (Prenzlauer Berg is East
+# Central, Weissensee and Pankow East) and Tempelhof-Schoeneberg (Schoeneberg and
+# Friedenau are City West) are split; the nearest Wikivoyage listing decides.
+"Charlottenburg-Wilmersdorf" = ["City West"]
+"Friedrichshain-Kreuzberg" = ["East Central"]
+"Lichtenberg" = ["East"]
+"Marzahn-Hellersdorf" = ["East"]
+"Mitte" = ["Mitte", "City West", "East Central"]
+"Neukölln" = ["Tempelhof and Neukölln"]
+"Pankow" = ["East Central", "East"]
+"Reinickendorf" = ["Reinickendorf and Spandau"]
+"Spandau" = ["Reinickendorf and Spandau"]
+"Steglitz-Zehlendorf" = ["Steglitz-Zehlendorf"]
+"Tempelhof-Schöneberg" = ["City West", "Tempelhof and Neukölln"]
+"Treptow-Köpenick" = ["Treptow-Köpenick"]

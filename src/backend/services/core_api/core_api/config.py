@@ -1,32 +1,25 @@
 from functools import lru_cache
 
 from travel_common.config import CommonSettings
+from travel_common.dynamodb import DynamoSettings
 
 
-class CoreSettings(CommonSettings):
+class CoreSettings(CommonSettings, DynamoSettings):
     PROJECT_NAME: str = "Kyrian World — Core API"
 
-    # PostgreSQL (the only supported engine: migrations use Postgres types)
-    DB_SERVER: str = "127.0.0.1"
-    DB_USER: str = ""
-    DB_PASSWORD: str = ""
-    DB_NAME: str = "fastapi_db"
-    DB_PORT: int = 5432
-
-    @property
-    def database_url(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_SERVER}:{self.DB_PORT}/{self.DB_NAME}"
-        )
+    # The one DynamoDB table core_api keeps everything in (ADR 0023). Terraform
+    # sets `travel-ai-core` on AWS; the local default can never name a real
+    # table, so a laptop without DYNAMODB_ENDPOINT_URL fails with "table not
+    # found" instead of touching production.
+    CORE_TABLE: str = "travel-ai-local-core"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # Set by the Lambda runtime itself; never in a .env. Gates `POST /events`
-    # (direct-invocation commands) to the deployment that can only reach it
-    # through `aws lambda invoke`.
+    # Set by the Lambda runtime itself; never in a .env. On Lambda the empty
+    # DYNAMODB_ENDPOINT_URL is expected (the regional endpoint), so the start-up
+    # warning for a laptop without DynamoDB Local stays quiet.
     AWS_LAMBDA_FUNCTION_NAME: str = ""
 
     @property

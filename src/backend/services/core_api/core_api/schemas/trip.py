@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
-from core_api.models.trip import TripPhase, phase_of
+from core_api.domain.models import TripPhase, phase_of
 from core_api.schemas._partial import partial
 from core_api.schemas._types import (
     BudgetTier,
@@ -15,6 +15,7 @@ from core_api.schemas._types import (
     Longitude,
     Money,
     Place,
+    SessionId,
     StringList,
     Title,
 )
@@ -62,19 +63,27 @@ class TripBase(BaseModel):
     ai_local_tips: StringList | None = None
 
 
-class TripCreate(TripBase):
+class TripWrite(TripBase):
+    """What a client may send: the fields above, plus the planner draft the
+    trip is saved from (ADR 0024). Locked like every other field."""
+
+    planner_session_id: SessionId | None = None
+
+
+class TripCreate(TripWrite):
     pass
 
 
-TripUpdate = partial(TripBase, "TripUpdate")
+TripUpdate = partial(TripWrite, "TripUpdate")
 
 
 class TripResponse(TripBase):
     id: UUID
-    user_id: int
+    user_id: UUID
     created_at: datetime
     updated_at: datetime
-    # Nested relationships — names match the ORM attributes so they populate.
+    planner_session_id: str | None  # always present, null when not from the planner
+    # The aggregate — names match the entity attributes so they populate.
     itinerary_days: list[ItineraryDayResponse] = []
     accommodations: list[AccommodationResponse] = []
     transportations: list[TransportationResponse] = []

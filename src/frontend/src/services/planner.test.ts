@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TURNS, toSseBody } from "@/data/planner-demo/session";
 import type { OptionCard, PlannerEvent, PlannerTurn } from "@/types/planner";
@@ -21,6 +22,19 @@ describe("parsePlannerEvents", () => {
   it("parses a typed text event", () => {
     const { events } = parsePlannerEvents('data: {"type":"text","delta":"Hola"}\n');
     expect(events).toEqual([{ type: "text", delta: "Hola" }]);
+  });
+
+  it("parses a progress event, and drops a step it does not know (TRA-242)", () => {
+    const good = { type: "progress", step: "wardrobe", detail: "Looking.", sources: ["Wikivoyage", 3] };
+    const bad = { type: "progress", step: "teleport", detail: "?", sources: [] };
+    const { events } = parsePlannerEvents(
+      `data: ${JSON.stringify(good)}
+data: ${JSON.stringify(bad)}
+`
+    );
+    expect(events).toEqual([
+      { type: "progress", step: "wardrobe", detail: "Looking.", sources: ["Wikivoyage"] },
+    ]);
   });
 
   it("parses a typed brief event", () => {
@@ -136,8 +150,10 @@ describe("parsePlannerEvents", () => {
 
   describe("recorded fixture", () => {
     it("parses the full session recording and stops at [DONE]", () => {
+      // fileURLToPath, not `URL.pathname`: the latter is `/C:/...` (and
+      // percent-encoded) on Windows, which no file API can open.
       const fixturePath = path.join(
-        path.dirname(new URL(import.meta.url).pathname),
+        path.dirname(fileURLToPath(import.meta.url)),
         "../test/fixtures/planner-budapest.sse"
       );
       const raw = readFileSync(fixturePath, "utf8");
@@ -351,6 +367,8 @@ const TURN: PlannerTurn = {
   itinerary: null,
   exclude_card_ids: [],
   trip_id: null,
+  session_id: null,
+  language: "en",
 };
 
 describe("streamPlannerTurn", () => {
@@ -455,6 +473,8 @@ describe("streamPlannerTurn — demo fallback (TRA-158)", () => {
     itinerary: null,
     exclude_card_ids: [],
     trip_id: null,
+    session_id: null,
+    language: "en",
   };
 
   beforeEach(() => {

@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 const REDIRECT_MS = 2000;
 
 /** Those routes: a path under one of them was a link that has moved. */
-const STRAY = ["/dashboard/", "/trip/", "/plan/"];
+const STRAY = ["/dashboard/", "/trip/", "/plan/", "/admin/"];
 
 /**
  * The page for a URL that is not one of ours.
@@ -51,7 +51,7 @@ export default function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col font-sans">
       <Aurora />
-      <Header variant="landing" />
+      <Header />
 
       <main className="flex flex-1 items-center justify-center px-4 py-(--header-h) sm:px-6">
         <div className="w-full max-w-[34rem] animate-fade-up text-center">

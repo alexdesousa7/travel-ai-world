@@ -9,9 +9,9 @@ runtime except the way they verify bearer tokens. See [ADR 0001](adr/0001-backen
 flowchart LR
     Browser["Browser<br/>Next.js static export"]
     Proxy["Reverse proxy<br/>(nginx in Compose / CloudFront)<br/>optional"]
-    Core["core_api<br/>FastAPI · SQLAlchemy<br/>auth · users · trips"]
+    Core["core_api<br/>FastAPI · boto3<br/>auth · users · trips"]
     AI["ai_api<br/>FastAPI · httpx · boto3<br/>chat streaming · RAG"]
-    PG[("PostgreSQL")]
+    DDB[("DynamoDB<br/>one table, travel-ai-core<br/>(owned by core_api)")]
     Cognito["Cognito user pool<br/>(Google IdP) · deployed"]
     Google["Google OAuth<br/>tokeninfo · local"]
     NVIDIA["LLM provider<br/>Bedrock (deployed) · NVIDIA (local)"]
@@ -23,7 +23,7 @@ flowchart LR
     Browser -. "or two base URLs" .-> Core
     Browser -. "or two base URLs" .-> AI
     Browser -->|"managed login, code + PKCE"| Cognito
-    Core --> PG
+    Core --> DDB
     Core -. "local mode only" .-> Google
     AI --> NVIDIA
     AI -->|"IAM, RETRIEVAL_ENABLED"| Vec
@@ -33,24 +33,32 @@ flowchart LR
 | Component | Owns | Never touches |
 |---|---|---|
 | `core_api` | users, trips and their children; account upsert and revocation; local-mode sign-in and token issuing | LLM providers |
-| `ai_api` | prompts, providers, retrieval, streaming | the relational database, ORM models |
+| `ai_api` | prompts, providers, retrieval, streaming | `core_api`'s table and entities |
 | `travel_common` | `Principal`, settings base, domain errors, token verification (local HS256, Cognito RS256), app factory | anything used by one service only |
 
 Calls go in one direction only: `ai_api → core_api`. `core_api` works with `ai_api` down.
 
+`core_api` keeps everything in **one DynamoDB table** ([ADR 0023](adr/0023-dynamodb-data-store.md)):
+the account under `USER#<id>`/`PROFILE` (plus an `EMAIL#` item for uniqueness), each trip as one
+item holding its whole aggregate, each conversation under its owner and its messages under
+`THREAD#<id>`, ordered by time. There are no migrations and no SQL database: RDS was retired
+in TRA-219.
+
 ## Code layout per service
 
-- `core_api` is **N-tier**: `api → services → repositories → models`. Generic `BaseRepository`
-  and `BaseService`; endpoints are thin; services raise domain errors; a single handler maps them
-  to HTTP. `Trip` is the aggregate root: its children are nested under `/trips/{trip_id}/...` and
+- `core_api` is **layered**: `api → services → domain` (plain dataclasses and repository
+  protocols), with `infrastructure/dynamo/` as the only storage adapter. Endpoints are thin;
+  services raise domain errors; a single handler maps them to HTTP. `Trip` is the aggregate root: its children are nested under `/trips/{trip_id}/...` and
   authorised once at the boundary ([ADR 0005](adr/0005-trip-aggregate-nested-resources.md)). One
   trip is one city; its `phase` (`upcoming | ongoing | past`) is derived from its dates, and an
   ongoing or past trip refuses every write with 409 `TRIP_LOCKED`
   ([ADR 0019](adr/0019-trips-live-in-the-planner.md)).
-  Entities own their invariants (`check_invariants()`); one transaction per request
-  (`unit_of_work`) commits on success and rolls back on any error.
+  Domain models own their invariants (`check_invariants()`); profile, trip and thread writes are
+  conditional on a `version`, and a lost race is 409 `CONFLICT`.
 - `ai_api` is **ports and adapters**: `domain` (types + Protocols) ← `application` (use cases) ←
-  `infrastructure` (NVIDIA, SSE, core_api client) ← `api` (wiring). Swapping the LLM provider or
+  `infrastructure` (NVIDIA and Bedrock providers, Titan embedder, S3 Vectors retriever, trace log,
+  Open-Meteo, Commons photos, site previews, SSE, core_api client) ← `api` (wiring). Swapping the
+  LLM provider or
   adding a retriever touches only `infrastructure/` and `api/deps.py`.
 
 Two styles on purpose: a CRUD service is best served by layers; an integration-heavy service by
@@ -114,10 +122,13 @@ A card opens `/plan/?trip=<id>`, read-only when its phase is not `upcoming`
 
 In both modes:
 
-- `core_api` verifies the token **and** checks the account in the database on every request:
-  a deactivated user is cut off immediately. In Cognito mode the row is upserted from the claims
-  on first sight and the `admin` role mirrors the pool's `admin` group; in local mode the database
-  owns the role (`PATCH /users/{id}/role`).
+- `core_api` verifies the token **and** checks the account in its table on every request:
+  a deactivated user is cut off immediately. In Cognito mode the profile is upserted from the
+  claims (written only when they change it) and the `admin` role mirrors the pool's `admin`
+  group; in local mode the table owns the role (`PATCH /users/{id}/role`).
+- Administrators read every trip and account under `core_api`'s `/api/v1/admin` (GSI2 lists
+  every trip newest first; each read logs an audit line). The Cognito `admin` group is filled from
+  `admin_usernames` in Terraform (ADR 0024).
 - `ai_api` verifies the token only (stateless). A deactivated user can keep chatting until the
   token expires (60 min). See [ADR 0002](adr/0002-auth-between-services.md) (superseded for the
   issuer, still the rule for the boundary).
@@ -151,13 +162,15 @@ filled out of band by `just index` from the corpus committed under `tools/city_c
 
 Wire format is fixed by `ai_api/infrastructure/sse.py` and consumed by `src/frontend/src/services/chat.ts`.
 Conversations are stored by `core_api` ([ADR 0013](adr/0013-chat-conversations-in-core-api.md)):
-`ai_api` keeps no state and reaches no database.
+`ai_api` never reaches `core_api`'s table: its only storage is its own trace table,
+`<prefix>-interactions` ([ADR 0024](adr/0024-turn-traces-and-admin-access.md)).
 
 ## Planner
 
 The planner page (`/plan/`) talks to `POST /api/v1/ai/planner`, the typed successor of the chat
 stream: SSE v2 ([ADR 0015](adr/0015-planner-sse-v2-stateless-orchestration.md)), one JSON event per
-`data:` line (`text`, `brief`, `options`, `itinerary_patch`, `error`) then `[DONE]`, with the models
+`data:` line (`text`, `brief`, `options`, `itinerary_patch`, `progress` ([ADR 0025](adr/0025-planner-progress-event.md)),
+`error`, `done`) then `[DONE]`, with the models
 generated for both sides by `just contracts`.
 
 ```mermaid
@@ -179,13 +192,18 @@ sequenceDiagram
     Note over A: stateless: the group id says what a selection means (nb, hotels:<district>, slot:<day>:<part>)
 ```
 
+The turn's trace (its model calls, retrievals with their top-k, tools, the SSE timeline) is
+written to `<prefix>-interactions` before `[DONE]`, keyed by the page's `session_id` (ADR 0024).
+An administrator reads it back through `GET /api/v1/ai/admin/{turns,turns/<id>,sessions/<id>,stats}`
+(403 for anyone else, one `admin_read` audit line per read), straight from that table.
+
 A card the page holds is an id, so opening one asks the service for it again: `GET
 /api/v1/ai/planner/card?id=<doc id>` answers a `CardDetail` — the card's own fields plus the
 corpus document's text, its address, phone and site (`application/card_detail.py`). Nothing is
 taken from the client: an id the index does not hold is a 404. The lookup pictures that card the
-way the carousel's are (Commons), but it cannot know the `why` the model wrote for a turn, nor the
-same-category fallback photo that turn picked, so the page merges the detail onto the card it
-already holds rather than replacing it.
+way the carousel's are (Commons, then the venue's own site preview), but it cannot know the `why`
+the model wrote for a turn, nor the fallback photo that turn picked, so the page merges the detail
+onto the card it already holds rather than replacing it.
 
 Every card is a retrieved corpus document (`application/cards.py`); ids the model returns that were
 not retrieved are dropped, prices are tiers, flights a prefilled search link (`static_flight_search.py`),
@@ -196,10 +214,11 @@ session is the test double for the page.
 
 ## Service-to-service calls
 
-When `ai_api` must persist something (a generated itinerary), it calls `core_api` **as the user**:
+When `ai_api` persists something (the chat's conversation; the planner's itinerary is saved by the
+browser), it calls `core_api` **as the user**:
 it forwards the same bearer token, so `core_api` applies the same permissions it applies to the
 browser. No service secret exists today; add an `INTERNAL_API_KEY` + `/internal/*` router only when
-a job must act without a user (RAG ingestion).
+a job must act without a user.
 
 ## Contracts
 
@@ -213,7 +232,7 @@ regenerates `src/frontend/src/types/generated/*.ts`; CI fails on drift.
 | Local `just dev-*` | `:8000` core, `:8001` ai | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_AI_API_URL` |
 | Docker Compose (`just stack-up`) | nginx `:8080`: the export at `/`, the APIs at `/api/*` (same origin, like AWS) | `NEXT_PUBLIC_API_URL=http://localhost:8080` only, set by the recipe |
 | AWS v3 (CloudFront → S3 + API Gateway → Lambda, `infra/aws/`) | one CloudFront domain | `NEXT_PUBLIC_API_URL=https://<domain>` (same origin) + `NEXT_PUBLIC_COGNITO_*` |
-| GCP (two Cloud Run) | two URLs | both variables |
+| GCP (two Cloud Run; not ported to DynamoDB, see `infra/gcp/README.md`) | two URLs | both variables |
 
 See [ADR 0003](adr/0003-frontend-two-base-urls.md) and the [deploy runbook](../runbooks/deploy.md).
 
@@ -230,9 +249,17 @@ edge and gateway decisions come from [ADR 0008](adr/0008-aws-architecture-v2-edg
 `infra/aws/` is this shape ([README](../../infra/aws/README.md)), with the chat on Bedrock
 (TRA-122, `LLM_PROVIDER`) and the vector store on **Amazon S3 Vectors**
 ([ADR 0014](adr/0014-vector-store-s3-vectors.md)): the `pgvector` database of TRA-123 cannot be
-reached from `ai_api`, outside the VPC, and S3 Vectors needs no endpoint of its own. The retriever
+reached from `ai_api`, which runs outside any VPC, and S3 Vectors needs no endpoint of its own. The retriever
 that reads it is TRA-152; the [vector store spike](vector-store-spike.md) (TRA-151) measured Qdrant
 against it and kept S3 Vectors.
+
+Since [ADR 0023](adr/0023-dynamodb-data-store.md), `core_api` stores its data in the DynamoDB
+table `travel-ai-core` (on-demand, `PK`/`SK` + `GSI1` + `GSI2`, point-in-time recovery, deletion
+protection). Like `ai_api`, the function runs outside any VPC and reaches the table over
+DynamoDB's public HTTPS endpoint, authorised by its IAM role. There is no VPC in the account's
+shape any more: RDS, the private subnets and the gateway endpoint were removed in TRA-219. CloudFront
+has a **WAF web ACL** (AWS managed rules: IP reputation, common rule set, known bad inputs),
+created from the console and not managed by Terraform.
 
 ## Known gaps (tracked)
 

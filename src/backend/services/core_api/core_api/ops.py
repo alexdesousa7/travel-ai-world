@@ -1,100 +1,71 @@
-"""Operational commands, runnable wherever the service runs.
+"""One-off operations on the core table: `python -m core_api.ops <command>`.
 
-On Lambda there is no container entrypoint to run migrations at start
-(ADR 0009): the deploy workflow invokes the function with
-`{"command": "migrate"}`, the Lambda Web Adapter delivers that payload as
-`POST /events`, and the command runs inside the process. The same commands
-are reachable from the container entrypoint (`entrypoint.sh migrate`) and
-from a shell (`python -m core_api.ops ...`, what `just migrate`-style recipes
-call).
+    just backfill-trip-index --dry-run   # count what would change
+    just backfill-trip-index             # stamp it
 
-A command takes a dictionary of arguments; `migrate` ignores them. Unknown
-names and missing arguments are `BadRequest`, so an event with a typo answers
-400 instead of crashing the function.
+`backfill-trip-index` (TRA-230) writes `GSI2PK`/`GSI2SK` on every trip saved
+before the admin index existed (TRA-227, ADR 0024), so `GET
+/api/v1/admin/trips` lists it; the algorithm lives in the adapter
+(`infrastructure/dynamo/backfill.py`). Run it once after the TRA-227 apply;
+running it again changes nothing.
 
-`COMMANDS` is the whole surface `POST /events` exposes to whoever can invoke
-the function, so a command has to earn its place here. Developer helpers —
-anything that mints credentials or writes rows a request could not — live in
-their own module, which nothing in the running service imports.
+Settings come from `get_settings()`: with `DYNAMODB_ENDPOINT_URL` it targets
+DynamoDB Local; without it, the real `CORE_TABLE` in `AWS_REGION` through the
+environment's credentials (`just aws-login`). Nothing in the running service
+imports this module.
 """
 
 import argparse
 import asyncio
-import logging
-from collections.abc import Awaitable, Callable
-from pathlib import Path
-from typing import Any
+import sys
 
-from alembic import command
-from alembic.config import Config
-from travel_common.exceptions import BadRequest
-from travel_common.http.logging import configure_logging
+from travel_common.exceptions import DomainError
 
 from core_api.config import get_settings
-
-logger = logging.getLogger(__name__)
-
-# Relative to the working directory: `services/core_api/` locally, `/app` in the image.
-ALEMBIC_DIR = Path("alembic")
-
-Args = dict[str, Any]
-CommandHandler = Callable[[Args], Awaitable[Any]]
+from core_api.infrastructure.dynamo.backfill import (
+    BackfillResult,
+    backfill_trip_index,
+    open_core_table,
+)
 
 
-def upgrade_database(scripts: Path = ALEMBIC_DIR) -> None:
-    """`alembic upgrade head`, blocking. `env.py` opens its own event loop, so
-    call this from a worker thread when a loop is already running.
-
-    No `alembic.ini`: reading it would make `env.py` reconfigure the logging
-    of the running web process. The database URL comes from settings anyway.
-    """
-    logger.info("Applying migrations from %s", scripts.resolve())
-    config = Config()
-    config.set_main_option("script_location", str(scripts))
-    command.upgrade(config, "head")
+async def _backfill_with_own_table(*, dry_run: bool) -> BackfillResult:
+    table = await open_core_table(get_settings())
+    return await backfill_trip_index(table, dry_run=dry_run)
 
 
-async def migrate(args: Args) -> None:
-    await asyncio.to_thread(upgrade_database)
-
-
-COMMANDS: dict[str, CommandHandler] = {"migrate": migrate}
-
-
-async def run_command(name: str, args: Args | None = None) -> Any:
-    """Run a named command; unknown names are a client error, not a crash."""
-    try:
-        handler = COMMANDS[name]
-    except KeyError:
-        raise BadRequest(f"Unknown command: {name}") from None
-    logger.info("Running command %s", name)
-    return await handler(args or {})
-
-
-# ── CLI: python -m core_api.ops migrate ─────────────────────────────────────
+# ── CLI: python -m core_api.ops backfill-trip-index [--dry-run] ──────────────
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m core_api.ops",
-        description="Run an operational command against the configured database.",
+        description="One-off operations on the core table.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser(
-        "migrate", help="apply Alembic migrations (alembic upgrade head)"
+    backfill = commands.add_parser(
+        "backfill-trip-index",
+        help="write GSI2PK/GSI2SK on trips saved before the admin index (TRA-227)",
+    )
+    backfill.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="count the trips that would be stamped; write nothing",
     )
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> int:
+    """Exit 0 with the summary on stdout; exit 1 with the reason on stderr."""
     namespace = build_parser().parse_args(argv)
-    args = {k: v for k, v in vars(namespace).items() if k != "command"}
-    configure_logging(get_settings().LOG_LEVEL)
-    result = asyncio.run(run_command(namespace.command, args))
-    if result is not None:
-        # The CLI's one line for the terminal; everything else is logged.
-        print(result)
+    try:
+        result = asyncio.run(_backfill_with_own_table(dry_run=namespace.dry_run))
+    except DomainError as exc:
+        print(f"error: {exc.message}", file=sys.stderr)
+        return 1
+    print(result.summary(dry_run=namespace.dry_run))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

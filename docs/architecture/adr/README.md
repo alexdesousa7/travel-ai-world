@@ -8,21 +8,27 @@ One file per decision, numbered, never deleted (superseded ones get a new status
 | [0002](0002-auth-between-services.md) | Stateless JWT in `ai_api`; forward the user's token to `core_api` | Superseded by 0009 |
 | [0003](0003-frontend-two-base-urls.md) | Frontend supports two base URLs; reverse proxy is optional | Accepted |
 | [0004](0004-repository-layout.md) | Source under `src/`, infrastructure under `infra/`, one ignore file | Accepted |
-| [0005](0005-trip-aggregate-nested-resources.md) | `Trip` is the aggregate root; child resources are nested and declarative | Accepted (superseded in part by 0019) |
+| [0005](0005-trip-aggregate-nested-resources.md) | `Trip` is the aggregate root; child resources are nested and declarative | Accepted (superseded in part by 0019 and 0023) |
 | [0006](0006-frontend-trip-view-model.md) | The frontend renders a view model mapped from the backend contract | Accepted (superseded in part by 0019) |
 | [0007](0007-aws-cloud-and-auth.md) | AWS is the deployment cloud; SSO locally, OIDC in CI, state in S3 | Accepted |
 | [0008](0008-aws-architecture-v2-edge-and-gateway.md) | AWS v2: CloudFront single origin, API Gateway REST with streaming, private Fargate | Superseded by 0009 |
-| [0009](0009-lambda-cognito-budget.md) | AWS v3 on a 30 €/month budget: Lambda instead of Fargate, Cognito for sign-in, no NAT | Accepted |
+| [0009](0009-lambda-cognito-budget.md) | AWS v3 on a 30 €/month budget: Lambda instead of Fargate, Cognito for sign-in, no NAT | Accepted (data superseded by 0023; VPC and RDS removed) |
 | [0010](0010-domain-roots-in-terraform.md) | The hosted zone and the ACM certificate are Terraform resources, imported and `prevent_destroy` | Accepted |
-| [0011](0011-real-trips-seed-and-client-side-loading.md) | Real trips: backend-seeded demo data per account, client-side loading, `/trip/?id=`, Compose mirrors CloudFront | Accepted (superseded in part by 0019) |
-| [0013](0013-chat-conversations-in-core-api.md) | Chat conversations are stored by `core_api` and written by `ai_api` over HTTP | Accepted |
+| [0011](0011-real-trips-seed-and-client-side-loading.md) | Real trips: backend-seeded demo data per account, client-side loading, `/trip/?id=`, Compose mirrors CloudFront | Accepted (superseded in part by 0019 and 0020) |
+| 0012 | Reserved for the knowledge base (TRA-137), never written: the corpus contract is [`tools/city_corpus/README.md`](../../../src/backend/tools/city_corpus/README.md#output), the store is ADR 0014 | — |
+| [0013](0013-chat-conversations-in-core-api.md) | Chat conversations are stored by `core_api` and written by `ai_api` over HTTP | Accepted (storage superseded by 0023) |
 | [0014](0014-vector-store-s3-vectors.md) | The vector store is Amazon S3 Vectors, filled from the committed corpus | Accepted |
-| [0015](0015-planner-sse-v2-stateless-orchestration.md) | The planner streams typed events (SSE v2) from a stateless orchestrator in `ai_api` | Accepted |
+| [0015](0015-planner-sse-v2-stateless-orchestration.md) | The planner streams typed events (SSE v2) from a stateless orchestrator in `ai_api` | Accepted (amended by 0025) |
 | [0016](0016-planner-map-openfreemap-maplibre.md) | The planner's map is MapLibre GL over OpenFreeMap's hosted tiles | Accepted |
 | [0017](0017-city-intro-and-hero-in-the-cities-manifest.md) | A city's intro (derived from the corpus) and hero photo (curated) travel in the cities manifest | Accepted |
 | [0018](0018-chat-answers-carry-cards-client-names-the-slot.md) | A chat answer's places become cards; the client names the slot | Accepted |
 | [0019](0019-trips-live-in-the-planner.md) | Trips live in the planner: one city, a derived phase, a read-only past | Accepted (amended by 0020) |
 | [0020](0020-signed-in-home-is-the-trips-page.md) | The signed-in home is the trips page; the planner makes and reads one trip | Accepted |
+| [0021](0021-venue-photos-from-the-venues-site-preview.md) | A venue with no photo shows the preview of its own site, never another venue's | Accepted |
+| [0022](0022-hotel-photos-resolved-at-build-time.md) | Every hotel has a photo: resolved at build time, or it leaves the corpus | Accepted |
+| [0023](0023-dynamodb-data-store.md) | DynamoDB is the data store: one table for `core_api`, one interaction log for `ai_api`, RDS retired | Accepted (amended by 0024) |
+| [0024](0024-turn-traces-and-admin-access.md) | A turn is a trace with steps; admins are the Cognito group, filled from Terraform | Accepted |
+| [0025](0025-planner-progress-event.md) | The planner streams its progress: a `progress` event per packing step | Accepted |
 
 ## Inputs
 

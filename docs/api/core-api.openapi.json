@@ -577,15 +577,10 @@
             "title": "Lng"
           },
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
           },
           "price_per_night": {
             "anyOf": [
@@ -1088,15 +1083,8 @@
         "description": "Partial update of ActivityBase.",
         "properties": {
           "booking_required": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Booking Required"
+            "title": "Booking Required",
+            "type": "boolean"
           },
           "booking_url": {
             "anyOf": [
@@ -1287,6 +1275,25 @@
             "title": "Time"
           },
           "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "ActivityUpdate",
+        "type": "object"
+      },
+      "AdminTripPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTripSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
             "anyOf": [
               {
                 "type": "string"
@@ -1295,10 +1302,155 @@
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Next Cursor"
           }
         },
-        "title": "ActivityUpdate",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AdminTripPage",
+        "type": "object"
+      },
+      "AdminTripSummary": {
+        "description": "A trip as GSI2 projects it: its owner, dates, and the planner session.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "city_slug": {
+            "title": "City Slug",
+            "type": "string"
+          },
+          "country_code": {
+            "title": "Country Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "phase": {
+            "enum": [
+              "upcoming",
+              "ongoing",
+              "past"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "planner_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Session Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "city_slug",
+          "city",
+          "country_code",
+          "start_date",
+          "end_date",
+          "image_url",
+          "created_at",
+          "updated_at",
+          "planner_session_id",
+          "phase"
+        ],
+        "title": "AdminTripSummary",
+        "type": "object"
+      },
+      "AdminUserPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AdminUserPage",
         "type": "object"
       },
       "AuthUser": {
@@ -1309,8 +1461,9 @@
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "title": "Id",
-            "type": "integer"
+            "type": "string"
           },
           "name": {
             "anyOf": [
@@ -1657,8 +1810,9 @@
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "title": "User Id",
-            "type": "integer"
+            "type": "string"
           }
         },
         "required": [
@@ -1920,15 +2074,9 @@
             "title": "Date"
           },
           "day_number": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Day Number"
+            "minimum": 1.0,
+            "title": "Day Number",
+            "type": "integer"
           },
           "description": {
             "anyOf": [
@@ -2479,15 +2627,10 @@
             "title": "Rating"
           },
           "restaurant_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Restaurant Name"
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Restaurant Name",
+            "type": "string"
           },
           "source_ref": {
             "anyOf": [
@@ -3314,6 +3457,17 @@
             ],
             "title": "Pace Preference"
           },
+          "planner_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Session Id"
+          },
           "start_date": {
             "anyOf": [
               {
@@ -3665,6 +3819,17 @@
             "title": "Phase",
             "type": "string"
           },
+          "planner_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Session Id"
+          },
           "start_date": {
             "anyOf": [
               {
@@ -3729,8 +3894,9 @@
             "type": "string"
           },
           "user_id": {
+            "format": "uuid",
             "title": "User Id",
-            "type": "integer"
+            "type": "string"
           }
         },
         "required": [
@@ -3743,13 +3909,14 @@
           "user_id",
           "created_at",
           "updated_at",
+          "planner_session_id",
           "phase"
         ],
         "title": "TripResponse",
         "type": "object"
       },
       "TripUpdate": {
-        "description": "Partial update of TripBase.",
+        "description": "Partial update of TripWrite.",
         "properties": {
           "accommodation_type": {
             "anyOf": [
@@ -3908,48 +4075,25 @@
             "title": "Budget Transportation"
           },
           "city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City"
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
           },
           "city_slug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "City Slug"
+            "maxLength": 100,
+            "title": "City Slug",
+            "type": "string"
           },
           "country": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Country"
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Country",
+            "type": "string"
           },
           "country_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Country Code"
+            "title": "Country Code",
+            "type": "string"
           },
           "description": {
             "anyOf": [
@@ -4047,6 +4191,17 @@
             ],
             "title": "Pace Preference"
           },
+          "planner_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Session Id"
+          },
           "start_date": {
             "anyOf": [
               {
@@ -4060,15 +4215,10 @@
             "title": "Start Date"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
           },
           "travel_style": {
             "anyOf": [
@@ -4085,37 +4235,19 @@
             "title": "Travel Style"
           },
           "travelers_adults": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Travelers Adults"
+            "minimum": 0.0,
+            "title": "Travelers Adults",
+            "type": "integer"
           },
           "travelers_children": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Travelers Children"
+            "minimum": 0.0,
+            "title": "Travelers Children",
+            "type": "integer"
           },
           "travelers_infants": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Travelers Infants"
+            "minimum": 0.0,
+            "title": "Travelers Infants",
+            "type": "integer"
           }
         },
         "title": "TripUpdate",
@@ -4134,8 +4266,9 @@
             "type": "string"
           },
           "id": {
+            "format": "uuid",
             "title": "Id",
-            "type": "integer"
+            "type": "string"
           },
           "is_active": {
             "default": true,
@@ -4166,12 +4299,24 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
           }
         },
         "required": [
           "email",
           "id",
-          "role"
+          "role",
+          "subject"
         ],
         "title": "UserResponse",
         "type": "object"
@@ -4189,7 +4334,7 @@
         "type": "object"
       },
       "UserUpdate": {
-        "description": "All fields are optional \u2014 supports partial PUT/PATCH updates.",
+        "description": "All fields are optional: a partial update (PATCH).",
         "properties": {
           "email": {
             "anyOf": [
@@ -4294,6 +4439,199 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/trips": {
+      "get": {
+        "description": "Every user's trips, newest first, a page at a time.",
+        "operationId": "list_all_trips_api_v1_admin_trips_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTripPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List All Trips",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/trips/{user_id}/{trip_id}": {
+      "get": {
+        "description": "One trip, whole, whoever owns it.",
+        "operationId": "read_any_trip_api_v1_admin_trips__user_id___trip_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "trip_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Trip Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read Any Trip",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "description": "Every account by email, with the `subject` the AI traces name it by.",
+        "operationId": "list_all_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List All Users",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/api/v1/auth/google": {
       "post": {
         "description": "Verify the Google credential, upsert the user and issue our JWT.",
@@ -4748,7 +5086,7 @@
     },
     "/api/v1/health/db": {
       "get": {
-        "description": "Readiness: the database answers. 503 (via ProviderUnavailable) when it does not.",
+        "description": "Readiness: the table answers. 503 (via ProviderUnavailable) when it does not.",
         "operationId": "db_health_check_api_v1_health_db_get",
         "responses": {
           "200": {
@@ -6746,8 +7084,9 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "User Id",
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -6785,8 +7124,9 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "User Id",
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -6831,8 +7171,9 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "User Id",
-              "type": "integer"
+              "type": "string"
             }
           }
         ],
@@ -6889,8 +7230,9 @@
             "name": "user_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "User Id",
-              "type": "integer"
+              "type": "string"
             }
           }
         ],

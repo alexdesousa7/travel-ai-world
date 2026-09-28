@@ -1,0 +1,715 @@
+{
+  "city": "berlin",
+  "built_at": "2026-09-22T16:58:45Z",
+  "documents": 12240,
+  "listings": 9434,
+  "prose": 2806,
+  "sources": [
+    "curated",
+    "open-meteo",
+    "openstreetmap",
+    "wikipedia",
+    "wikivoyage"
+  ],
+  "categories": [
+    "climate",
+    "do",
+    "drink",
+    "eat",
+    "history",
+    "neighbourhood",
+    "practical",
+    "see",
+    "sleep",
+    "tour",
+    "transport"
+  ],
+  "by_category_source": {
+    "climate": {
+      "open-meteo": 12,
+      "wikivoyage": 2
+    },
+    "do": {
+      "openstreetmap": 290,
+      "wikivoyage": 217
+    },
+    "drink": {
+      "openstreetmap": 1047,
+      "wikivoyage": 133
+    },
+    "eat": {
+      "openstreetmap": 6286,
+      "wikivoyage": 186
+    },
+    "history": {
+      "wikipedia": 2027,
+      "wikivoyage": 40
+    },
+    "neighbourhood": {
+      "wikivoyage": 11
+    },
+    "practical": {
+      "wikivoyage": 30
+    },
+    "see": {
+      "openstreetmap": 718,
+      "wikipedia": 508,
+      "wikivoyage": 210
+    },
+    "sleep": {
+      "openstreetmap": 288,
+      "wikivoyage": 90
+    },
+    "tour": {
+      "curated": 4,
+      "wikivoyage": 1
+    },
+    "transport": {
+      "wikipedia": 39,
+      "wikivoyage": 101
+    }
+  },
+  "named_by_category": {
+    "climate": 12,
+    "do": 481,
+    "drink": 1167,
+    "eat": 6461,
+    "history": 2029,
+    "practical": 5,
+    "see": 1419,
+    "sleep": 374,
+    "tour": 5,
+    "transport": 67
+  },
+  "located_by_category": {
+    "do": 451,
+    "drink": 1149,
+    "eat": 6453,
+    "history": 1913,
+    "practical": 1,
+    "see": 1382,
+    "sleep": 341,
+    "tour": 4,
+    "transport": 63
+  },
+  "pictured_by_category": {
+    "do": 332,
+    "drink": 44,
+    "eat": 43,
+    "history": 1874,
+    "see": 1169,
+    "sleep": 341,
+    "transport": 63
+  },
+  "districts": [
+    "City West",
+    "East",
+    "East Central",
+    "Mitte",
+    "Reinickendorf and Spandau",
+    "Steglitz-Zehlendorf",
+    "Tempelhof and Neukölln",
+    "Treptow-Köpenick"
+  ],
+  "places_by_district": {
+    "City West": 2597,
+    "East": 793,
+    "East Central": 3028,
+    "Mitte": 2424,
+    "Reinickendorf and Spandau": 621,
+    "Steglitz-Zehlendorf": 758,
+    "Tempelhof and Neukölln": 920,
+    "Treptow-Köpenick": 551
+  },
+  "small_districts": [],
+  "described_districts": [
+    "City West",
+    "East",
+    "East Central",
+    "Mitte",
+    "Reinickendorf and Spandau",
+    "Steglitz-Zehlendorf",
+    "Tempelhof and Neukölln",
+    "Treptow-Köpenick"
+  ],
+  "price_tiers": {
+    "eat": {
+      "1": 55,
+      "2": 54,
+      "3": 19,
+      "untiered": 6344
+    },
+    "sleep": {
+      "1": 37,
+      "2": 53,
+      "3": 49,
+      "untiered": 239
+    }
+  },
+  "climate_months": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12"
+  ],
+  "climate_missing": [],
+  "curated_tours": 4,
+  "reclassified_tours": 1,
+  "tours_by_type": {
+    "boat": 1,
+    "other": 1,
+    "walking": 3
+  },
+  "tour_names": [
+    "Explore Berlin: See All The Iconic Sights & Some Hidden Gems",
+    "Free Day & Night Tours",
+    "Historical City Tour from Alte Börse (C5)",
+    "Segway Tour Berlin",
+    "The Original Berlin Free Walking Tour"
+  ],
+  "smoke": {
+    "see": {
+      "museum": [
+        {
+          "name": "Museum Island",
+          "district": "Mitte",
+          "score": 12.89
+        },
+        {
+          "name": "Berlin Spy Museum",
+          "district": "Mitte",
+          "score": 12.83
+        },
+        {
+          "name": "DDR Museum",
+          "district": "Mitte",
+          "score": 12.83
+        }
+      ],
+      "cathedral": [
+        {
+          "name": "Neue Kirche, Berlin",
+          "district": "Mitte",
+          "score": 11.61
+        },
+        {
+          "name": "Französischer Dom",
+          "district": "Mitte",
+          "score": 11.39
+        },
+        {
+          "name": "Berliner Dom",
+          "district": "Mitte",
+          "score": 11.1
+        }
+      ],
+      "viewpoint": [
+        {
+          "name": "Berliner Balkon",
+          "district": "East",
+          "score": 10.69
+        },
+        {
+          "name": "Dachterrasse Humboldt Forum",
+          "district": "Mitte",
+          "score": 10.69
+        },
+        {
+          "name": "Drachenberg",
+          "district": "City West",
+          "score": 10.69
+        }
+      ]
+    },
+    "do": {
+      "market": [
+        {
+          "name": "Farmers Market",
+          "district": "East Central",
+          "score": 11.79
+        },
+        {
+          "name": "Mauerpark Flea Market",
+          "district": "East Central",
+          "score": 11.79
+        },
+        {
+          "name": "Turkish Market",
+          "district": "Tempelhof and Neukölln",
+          "score": 11.79
+        }
+      ]
+    },
+    "eat": {
+      "traditional restaurant": [
+        {
+          "name": "Khao Taan",
+          "district": "East Central",
+          "score": 21.79
+        },
+        {
+          "name": "Genazvale",
+          "district": "City West",
+          "score": 21.39
+        },
+        {
+          "name": "1687 RESTAURANT & CAFÉ",
+          "district": "Mitte",
+          "score": 11.79
+        }
+      ],
+      "street food": [
+        {
+          "name": "Antonello's Cevicheria & Street Food",
+          "district": "East Central",
+          "score": 23.22
+        },
+        {
+          "name": "Bandol Korean Street Food",
+          "district": "Mitte",
+          "score": 23.22
+        },
+        {
+          "name": "Sicilian Street Food by Amici Amici",
+          "district": "East Central",
+          "score": 23.22
+        }
+      ]
+    },
+    "drink": {
+      "craft beer bar": [
+        {
+          "name": "Mikkeller Craft Beer Bar",
+          "district": "Mitte",
+          "score": 35.01
+        },
+        {
+          "name": "Freiheit Fünfzehn",
+          "district": "Treptow-Köpenick",
+          "score": 21.79
+        },
+        {
+          "name": "Vagabund Brauerei",
+          "district": "East Central",
+          "score": 21.79
+        }
+      ],
+      "cocktail bar": [
+        {
+          "name": "AVCI Cocktail-Bar",
+          "district": "East",
+          "score": 23.4
+        },
+        {
+          "name": "Cocktail Oase Eck",
+          "district": "East",
+          "score": 22.3
+        },
+        {
+          "name": "Galander Haifischbar",
+          "district": "East Central",
+          "score": 21.39
+        }
+      ]
+    },
+    "sleep": {
+      "boutique hotel": [
+        {
+          "name": "Louisa’s Place",
+          "district": "City West",
+          "score": 21.39
+        },
+        {
+          "name": "Wyndham Berlin Excelsior Hotel",
+          "district": "City West",
+          "score": 12.08
+        },
+        {
+          "name": "Garner Hotel Berlin Mitte",
+          "district": "East Central",
+          "score": 11.95
+        }
+      ],
+      "hostel": [
+        {
+          "name": "Ballhaus Berlin Hostel",
+          "district": "Mitte",
+          "score": 12.08
+        },
+        {
+          "name": "Almansi Hostel",
+          "district": "East Central",
+          "score": 11.79
+        },
+        {
+          "name": "Berlin Surf Hostel",
+          "district": "East Central",
+          "score": 11.79
+        }
+      ]
+    },
+    "tour": {
+      "free walking tour": [
+        {
+          "name": "The Original Berlin Free Walking Tour",
+          "district": "Mitte",
+          "score": 35.53
+        },
+        {
+          "name": "Free Day & Night Tours",
+          "district": "East Central",
+          "score": 33.33
+        },
+        {
+          "name": "Historical City Tour from Alte Börse (C5)",
+          "district": "Mitte",
+          "score": 22.48
+        }
+      ]
+    }
+  },
+  "hotel_photos": {
+    "curated": 6,
+    "site": 97,
+    "facebook": 5,
+    "commons": 22,
+    "wikidata": 15,
+    "page": 114,
+    "dropped": 308,
+    "shared": 16,
+    "dropped_examples": [
+      "1a pension apartment berlin",
+      "25hours Hotel Bikini Berlin",
+      "2A-Hostel",
+      "A&O",
+      "A&O Berlin Hauptbahnhof",
+      "A&O Berlin Kolumbus",
+      "A&O Hotel and Hostel Berlin Mitte",
+      "ADAPT APARTMENTS Berlin GmbH",
+      "AMANO",
+      "AMANO Home"
+    ],
+    "notable_without_photo": [
+      {
+        "name": "A&O",
+        "reason": "shared picture"
+      },
+      {
+        "name": "A&O Berlin Hauptbahnhof",
+        "reason": "shared picture"
+      },
+      {
+        "name": "A&O Berlin Kolumbus",
+        "reason": "shared picture"
+      },
+      {
+        "name": "A&O Hotel and Hostel Berlin Mitte",
+        "reason": "shared picture"
+      },
+      {
+        "name": "B&B HOTEL Berlin-Adlershof",
+        "reason": "no picture"
+      },
+      {
+        "name": "B&B Hotel Berlin City-Ost",
+        "reason": "no picture"
+      },
+      {
+        "name": "B&B Hotel Berlin-Alexanderplatz",
+        "reason": "403"
+      },
+      {
+        "name": "B&B Hotel Berlin-Mitte",
+        "reason": "403"
+      },
+      {
+        "name": "B&B Hotel Berlin-Potsdamer Platz",
+        "reason": "no picture"
+      },
+      {
+        "name": "B&B Hotel Berlin-Tiergarten",
+        "reason": "403"
+      },
+      {
+        "name": "Best Western Hotel Am Spittelmarkt",
+        "reason": "no url"
+      },
+      {
+        "name": "Best Western Hotel Berlin Mitte",
+        "reason": "no url"
+      },
+      {
+        "name": "Best Western Hotel Kantstraße Berlin",
+        "reason": "no picture"
+      },
+      {
+        "name": "Courtyard by Marriott Berlin City Centre",
+        "reason": "403"
+      },
+      {
+        "name": "Courtyard by Marriott Berlin Mitte",
+        "reason": "no picture"
+      },
+      {
+        "name": "DoubleTree by Hilton Berlin Ku'damm",
+        "reason": "403"
+      },
+      {
+        "name": "Holiday Inn Berlin-Alexanderplatz",
+        "reason": "dead"
+      },
+      {
+        "name": "Hotel Berlin Mitte by Campanile",
+        "reason": "dead"
+      },
+      {
+        "name": "Hotel Indigo Alexanderplatz",
+        "reason": "no picture"
+      },
+      {
+        "name": "Hotel Indigo Berlin Ku'damm",
+        "reason": "dead"
+      },
+      {
+        "name": "Hotel Indigo Berlin-Alexanderplatz",
+        "reason": "no picture"
+      },
+      {
+        "name": "Hotel Indigo Ku'damm",
+        "reason": "no picture"
+      },
+      {
+        "name": "Ibis Hotel",
+        "reason": "no url"
+      },
+      {
+        "name": "JW Marriott Hotel Berlin",
+        "reason": "403"
+      },
+      {
+        "name": "Leonardo Hotel Berlin",
+        "reason": "no url"
+      },
+      {
+        "name": "Mercure Berlin Wittenbergplatz",
+        "reason": "no url"
+      },
+      {
+        "name": "Mercure Berlin-Alexanderplatz",
+        "reason": "no url"
+      },
+      {
+        "name": "Mercure Hotel Berlin City West",
+        "reason": "no url"
+      },
+      {
+        "name": "Mercure Hotel Berlin Mitte",
+        "reason": "dead"
+      },
+      {
+        "name": "Motel One",
+        "reason": "dead"
+      },
+      {
+        "name": "Motel One Berlin-Bellevue",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Motel One Berlin-Ku'Damm",
+        "reason": "dead"
+      },
+      {
+        "name": "Motel One Berlin-Spittelmarkt",
+        "reason": "shared picture"
+      },
+      {
+        "name": "Motel One Potsdamer Platz",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Berlin Alexanderplatz",
+        "reason": "403"
+      },
+      {
+        "name": "NH Berlin Friederichstraße",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Berlin Kreuzberg",
+        "reason": "403"
+      },
+      {
+        "name": "NH Berlin Mitte",
+        "reason": "403"
+      },
+      {
+        "name": "NH Berlin Potsdamer Platz",
+        "reason": "no url"
+      },
+      {
+        "name": "NH Collection Berlin Mitte am Checkpoint Charlie",
+        "reason": "403"
+      },
+      {
+        "name": "Novotel Berlin Mitte",
+        "reason": "no url"
+      },
+      {
+        "name": "Park Plaza Wallstreet Berlin Mitte",
+        "reason": "no url"
+      },
+      {
+        "name": "Premier Inn Berlin City Centre Hotel",
+        "reason": "dead"
+      },
+      {
+        "name": "Premier Inn Berlin City Süd Hotel",
+        "reason": "no url"
+      },
+      {
+        "name": "Premier Inn Berlin City Wilmersdorf",
+        "reason": "dead"
+      },
+      {
+        "name": "Radisson Blu Hotel, Berlin",
+        "reason": "403"
+      },
+      {
+        "name": "Radisson Collection Hotel Berlin",
+        "reason": "403"
+      },
+      {
+        "name": "Scandic Berlin Kurfürstendamm",
+        "reason": "dead"
+      },
+      {
+        "name": "Scandic Charlottenburg",
+        "reason": "dead"
+      },
+      {
+        "name": "Steigenberger",
+        "reason": "dead"
+      },
+      {
+        "name": "TRYP Berlin Mitte",
+        "reason": "no url"
+      },
+      {
+        "name": "TRYP Berlin am Ku'damm",
+        "reason": "dead"
+      },
+      {
+        "name": "art'appart - kempinski plaza",
+        "reason": "dead"
+      },
+      {
+        "name": "iStay by NH Berlin CIty Ost",
+        "reason": "403"
+      },
+      {
+        "name": "ibis Berlin City Nord",
+        "reason": "no url"
+      },
+      {
+        "name": "ibis Styles Berlin Alexanderplatz",
+        "reason": "no url"
+      },
+      {
+        "name": "ibis Styles Berlin Mitte",
+        "reason": "no url"
+      }
+    ]
+  },
+  "readiness": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "Located see + history + do places",
+        "threshold": "≥ 150",
+        "measured": "3746",
+        "passed": true
+      },
+      {
+        "name": "Located eat places",
+        "threshold": "≥ 100",
+        "measured": "6453",
+        "passed": true
+      },
+      {
+        "name": "Sleep documents",
+        "threshold": "≥ 20",
+        "measured": "378",
+        "passed": true
+      },
+      {
+        "name": "Located sleep places",
+        "threshold": "≥ 10",
+        "measured": "341",
+        "passed": true
+      },
+      {
+        "name": "Pictured located sleep places",
+        "threshold": "≥ 10",
+        "measured": "341",
+        "passed": true
+      },
+      {
+        "name": "Districts",
+        "threshold": "≥ 5",
+        "measured": "8",
+        "passed": true
+      },
+      {
+        "name": "Districts with a neighbourhood document",
+        "threshold": "≥ 5",
+        "measured": "8",
+        "passed": true
+      },
+      {
+        "name": "Pictured share of located see + history places",
+        "threshold": "≥ 50%",
+        "measured": "92%",
+        "passed": true
+      },
+      {
+        "name": "Climate normals",
+        "threshold": "= 12",
+        "measured": "12",
+        "passed": true
+      },
+      {
+        "name": "Curated tours",
+        "threshold": "≥ 3",
+        "measured": "4",
+        "passed": true
+      },
+      {
+        "name": "Tour documents",
+        "threshold": "≥ 3",
+        "measured": "5",
+        "passed": true
+      }
+    ],
+    "thresholds": {
+      "located_sights": 150,
+      "located_eat": 100,
+      "sleep": 20,
+      "located_sleep": 10,
+      "pictured_sleep": 10,
+      "districts": 5,
+      "described_districts": 5,
+      "pictured_sights_share": 0.5,
+      "climate_normals": 12,
+      "curated_tours": 3,
+      "tour_documents": 3
+    }
+  }
+}
