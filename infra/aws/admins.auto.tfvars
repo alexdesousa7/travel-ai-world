@@ -10,4 +10,5 @@
 # `cognito:groups`.
 admin_usernames = [
   "Google_108657555537374578008", # manugijon@gmail.com
+  "Google_103190282319288494474", # alexdesousa@gmail.com
 ]
