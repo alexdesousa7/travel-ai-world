@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, UnauthorizedError } from "@/services/http";
-import { deleteAccessGrant, listAccessGrants, putAccessGrant, type AccessGrant } from "@/services/admin";
-import { ACCESS_GRANT_PAGE } from "@/test/fixtures/admin";
-import { fireEvent, renderWithProviders, screen, waitFor, within } from "@/test/render";
+import {
+  deleteAccessGrant,
+  getAdminUsage,
+  listAccessGrants,
+  listAdminUsers,
+  putAccessGrant,
+  type AccessGrant,
+} from "@/services/admin";
+import { ACCESS_GRANT_PAGE, ADMIN_USAGE, ADMIN_USER_PAGE } from "@/test/fixtures/admin";
+import { usagePercent } from "@/components/admin/access/UsageToday";
+import { act, fireEvent, renderWithProviders, screen, waitFor, within } from "@/test/render";
 import AccessClientPage, { parseLimit } from "./AccessClientPage";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -12,6 +20,8 @@ vi.mock("@/services/admin", async (importOriginal) => ({
   listAccessGrants: vi.fn(),
   putAccessGrant: vi.fn(),
   deleteAccessGrant: vi.fn(),
+  getAdminUsage: vi.fn(),
+  listAdminUsers: vi.fn(),
 }));
 
 const grant = (email: string, overrides: Partial<AccessGrant> = {}): AccessGrant => ({
@@ -52,6 +62,8 @@ describe("AccessClientPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listAccessGrants).mockResolvedValue(ACCESS_GRANT_PAGE);
+    vi.mocked(getAdminUsage).mockResolvedValue({ day: "2026-10-01", items: [] });
+    vi.mocked(listAdminUsers).mockResolvedValue(ADMIN_USER_PAGE);
   });
 
   it("lists every grant with its limit said in words", async () => {
@@ -355,5 +367,156 @@ describe("AccessClientPage", () => {
     renderWithProviders(<AccessClientPage />);
 
     await waitFor(() => expect(localStorage.getItem("travel_ai_user")).toBeNull());
+  });
+});
+
+describe("AccessClientPage — usage today (TRA-258)", () => {
+  const usageTable = () => screen.findByRole("table", { name: "Token usage today" });
+  const usageRows = async () => within(await usageTable()).getAllByRole("row").slice(1);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(listAccessGrants).mockResolvedValue(ACCESS_GRANT_PAGE);
+    vi.mocked(listAdminUsers).mockResolvedValue(ADMIN_USER_PAGE);
+    vi.mocked(getAdminUsage).mockResolvedValue(ADMIN_USAGE);
+  });
+
+  it("lists each account's turns and tokens against the limit its grant gives it", async () => {
+    renderWithProviders(<AccessClientPage />);
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Usage today" })).toBeInTheDocument();
+    await waitFor(async () => expect((await usageRows())[0]).toHaveTextContent("ada@example.com"));
+    const [ada, grace, unknown] = await usageRows();
+    // Ada: 52,500 of her 50,000 — a full bar, and it says so.
+    expect(ada).toHaveTextContent("14");
+    expect(ada).toHaveTextContent("52,500");
+    expect(ada).toHaveTextContent("50,000");
+    expect(ada).toHaveTextContent("105%");
+    // Said in the row for everyone, not only to a screen reader.
+    expect(within(ada!).getByText("Limit reached")).not.toHaveClass("sr-only");
+    expect(within(ada!).getByTestId("usage-bar")).toHaveStyle({ width: "100%" });
+    // Grace's grant is 0: unlimited, so there is nothing to fill.
+    expect(grace).toHaveTextContent("grace@example.com");
+    expect(grace).toHaveTextContent("Unlimited");
+    expect(within(grace!).queryByTestId("usage-bar")).not.toBeInTheDocument();
+    // A subject no account answers for: its short form, on the default limit.
+    expect(unknown).toHaveTextContent("ffffffff");
+    // The whole subject is in the DOM, cut by CSS: no hover-only title.
+    const subject = within(unknown!).getByText(ADMIN_USAGE.items[2]!.subject);
+    expect(subject).toHaveClass("truncate");
+    expect(subject).not.toHaveAttribute("title");
+    expect(unknown).toHaveTextContent("Default");
+    expect(within(unknown!).queryByTestId("usage-bar")).not.toBeInTheDocument();
+    expect(screen.getByText(/Tokens spent on 2026-10-01 \(UTC\)/)).toBeInTheDocument();
+    expect(getAdminUsage).toHaveBeenCalledWith(undefined, expect.anything());
+  });
+
+  it("fills the bar in proportion under the limit", async () => {
+    vi.mocked(getAdminUsage).mockResolvedValue({
+      day: "2026-10-01",
+      items: [{ ...ADMIN_USAGE.items[0]!, input_tokens: 10_000, output_tokens: 2_500, tokens: 12_500 }],
+    });
+
+    renderWithProviders(<AccessClientPage />);
+
+    await waitFor(async () => expect((await usageRows())[0]).toHaveTextContent("ada@example.com"));
+    const [ada] = await usageRows();
+    expect(within(ada!).getByTestId("usage-bar")).toHaveStyle({ width: "25%" });
+    expect(ada).toHaveTextContent("25%");
+    expect(ada).not.toHaveTextContent("Limit reached");
+  });
+
+  it("never shows 100% for a counter that is still under the limit", async () => {
+    vi.mocked(getAdminUsage).mockResolvedValue({
+      day: "2026-10-01",
+      items: [{ ...ADMIN_USAGE.items[0]!, input_tokens: 40_000, output_tokens: 9_980, tokens: 49_980 }],
+    });
+
+    renderWithProviders(<AccessClientPage />);
+
+    await waitFor(async () => expect((await usageRows())[0]).toHaveTextContent("ada@example.com"));
+    const [ada] = await usageRows();
+    expect(ada).toHaveTextContent("99%");
+    expect(ada).not.toHaveTextContent("100%");
+    expect(ada).not.toHaveTextContent("Limit reached");
+    expect(within(ada!).getByTestId("usage-bar")).toHaveStyle({ width: "99%" });
+    expect(usagePercent(49_980, 50_000)).toBe(99);
+    expect(usagePercent(50_000, 50_000)).toBe(100);
+    expect(usagePercent(52_500, 50_000)).toBe(105);
+    expect(usagePercent(200, 50_000)).toBe(0);
+  });
+
+  it("says when nobody has spent anything", async () => {
+    vi.mocked(getAdminUsage).mockResolvedValue({ day: "2026-10-01", items: [] });
+
+    renderWithProviders(<AccessClientPage />);
+
+    expect(await screen.findByText("Nobody has spent a token today.")).toBeInTheDocument();
+  });
+
+  it("reloads the counters on demand, keeping the rows meanwhile", async () => {
+    renderWithProviders(<AccessClientPage />);
+    await usageRows();
+    vi.mocked(getAdminUsage).mockResolvedValue({
+      day: "2026-10-01",
+      items: [{ ...ADMIN_USAGE.items[1]!, tokens: 99_000 }],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    await waitFor(async () => expect((await usageRows())[0]).toHaveTextContent("99,000"));
+    expect(getAdminUsage).toHaveBeenCalledTimes(2);
+    expect(await usageRows()).toHaveLength(1);
+  });
+
+  it("keeps the focus on Reload while it waits, takes no second click, and says when it is done", async () => {
+    renderWithProviders(<AccessClientPage />);
+    await usageRows();
+    const section = screen.getByRole("region", { name: "Usage today" });
+    expect(within(section).getByRole("status")).toBeEmptyDOMElement();
+    let answer: (usage: typeof ADMIN_USAGE) => void = () => {};
+    vi.mocked(getAdminUsage).mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+    const reload = screen.getByRole("button", { name: "Reload" });
+    reload.focus();
+    fireEvent.click(reload);
+
+    const waiting = await screen.findByRole("button", { name: "Reloading…" });
+    expect(waiting).toBe(reload);
+    expect(waiting).toHaveAttribute("aria-disabled", "true");
+    expect(waiting).not.toBeDisabled();
+    expect(waiting).toHaveFocus();
+    fireEvent.click(waiting);
+    expect(getAdminUsage).toHaveBeenCalledTimes(2);
+    expect(within(section).getByRole("status")).toBeEmptyDOMElement();
+
+    await act(async () => answer(ADMIN_USAGE));
+
+    expect(await screen.findByRole("button", { name: "Reload" })).toHaveFocus();
+    expect(within(section).getByRole("status")).toHaveTextContent("Usage updated.");
+  });
+
+  it("is called Reload, not Reloading, while the first load is in flight", async () => {
+    vi.mocked(getAdminUsage).mockReturnValue(new Promise(() => {}));
+
+    renderWithProviders(<AccessClientPage />);
+
+    const reload = await screen.findByRole("button", { name: "Reload" });
+    expect(reload).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("button", { name: "Reloading…" })).not.toBeInTheDocument();
+  });
+
+  it("a usage that fails does not take the access list down, and can be retried", async () => {
+    vi.mocked(getAdminUsage).mockRejectedValueOnce(new ApiError(503, "down"));
+
+    renderWithProviders(<AccessClientPage />);
+
+    expect(await rows()).toHaveLength(3);
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    // One way to ask again, not two: the header's Reload steps aside.
+    expect(screen.queryByRole("button", { name: "Reload" })).not.toBeInTheDocument();
+    fireEvent.click(retry);
+    expect(await usageRows()).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
   });
 });

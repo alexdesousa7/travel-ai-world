@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, formatCurrency, formatDuration } from './format';
+import { formatWeekdayTime, formatDate, formatCurrency, formatDuration } from './format';
 
 describe('format utils', () => {
   describe('formatDate', () => {
@@ -28,6 +28,26 @@ describe('format utils', () => {
       const eur = formatCurrency(1500, 'EUR', 'de-DE');
       expect(eur).toContain('1.500');
       expect(eur).toContain('€');
+    });
+  });
+
+  describe('formatWeekdayTime', () => {
+    it('gives the local weekday, hour and minute, the locale\'s way', () => {
+      const iso = '2026-10-02T00:00:00+00:00';
+      const local = new Date(iso);
+      const minutes = String(local.getMinutes()).padStart(2, '0');
+      const weekday = (locale: string) => local.toLocaleDateString(locale, { weekday: 'short' });
+
+      const en = formatWeekdayTime(iso, 'en-US');
+      expect(en).toMatch(new RegExp(`\\d{1,2}:${minutes}\\s?(AM|PM)$`));
+      expect(en).toContain(weekday('en-US'));
+      const es = formatWeekdayTime(iso, 'es-ES');
+      expect(es).toContain(`${local.getHours()}:${minutes}`);
+      expect(es).toContain(weekday('es-ES'));
+    });
+
+    it('is empty for something that is not a date', () => {
+      expect(formatWeekdayTime('soon')).toBe('');
     });
   });
 

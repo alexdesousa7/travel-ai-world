@@ -24,7 +24,8 @@ import {
   OPTION_KINDS,
   WARN_CODES,
 } from "@/types/planner";
-import { ApiError, isAiAvailable, request, requestRaw } from "./http";
+import { ApiError, UnauthorizedError, isAiAvailable, request, requestRaw } from "./http";
+import { getMyAccess } from "./access";
 import { streamDemoTurn } from "./plannerDemo";
 
 /** The packing steps a `progress` event may name, in order. */
@@ -290,9 +291,53 @@ export interface StreamPlannerOptions {
   onDemo?: () => void;
 }
 
+/**
+ * Why a turn could not be asked. `quota`: the account spent today's tokens
+ * (429 `DAILY_TOKEN_LIMIT`); `denied`: it is not on the access list (403
+ * `ACCESS_DENIED`). ADR 0026.
+ */
+export type PlannerFailureKind = "unauthorized" | "generic" | "quota" | "denied";
+
+export interface PlannerFailure {
+  kind: PlannerFailureKind;
+  /** When a spent daily allowance starts again (ISO 8601); `null` otherwise. */
+  resetsAt: string | null;
+}
+
+/** What a rejected planner request means for the page. Pure. */
+export function toPlannerFailure(err: unknown): PlannerFailure {
+  if (err instanceof UnauthorizedError) return { kind: "unauthorized", resetsAt: null };
+  if (err instanceof ApiError) {
+    if (err.status === 429 && err.code === "DAILY_TOKEN_LIMIT") {
+      const resetsAt = err.extras?.resets_at;
+      return { kind: "quota", resetsAt: typeof resetsAt === "string" ? resetsAt : null };
+    }
+    if (err.status === 403 && err.code === "ACCESS_DENIED") return { kind: "denied", resetsAt: null };
+  }
+  return { kind: "generic", resetsAt: null };
+}
+
 /** A 404/405 from the planner route means it is not deployed: not a failure. */
 function isRouteMissing(err: unknown): boolean {
   return err instanceof ApiError && (err.status === 404 || err.status === 405);
+}
+
+/**
+ * Whether a "missing" planner route is really the access list. Behind
+ * CloudFront every API 403 reaches the browser as an HTML 404 (the
+ * distribution's `custom_error_response`, `infra/aws/frontend.tf`), so ai_api's
+ * 403 `ACCESS_DENIED` looks exactly like a route that is not deployed. The
+ * access read is a 200 for an uninvited account too, so it can tell them
+ * apart. Anything but a clear "not allowed" (allowed, no answer, a failed
+ * read) keeps the demo fallback.
+ */
+async function isAccessDenied(signal?: AbortSignal): Promise<boolean> {
+  try {
+    const access = await getMyAccess({ signal });
+    return access?.allowed === false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -377,7 +422,11 @@ export async function getCardDetail(
 /**
  * Streams one planner turn. Yields every typed event as it arrives, the
  * `done` event last; the generator returns after `done` or when the body
- * ends. Throws `UnauthorizedError` on 401 and `ApiError` on other failures;
+ * ends. Throws `UnauthorizedError` on 401 and `ApiError` on other failures
+ * (`toPlannerFailure` says which: a spent daily allowance and an account off
+ * the access list are refused before the stream, as plain JSON; a 404 on the
+ * route is checked against `getMyAccess` before the demo answers, because
+ * CloudFront turns that 403 into a 404);
  * an in-stream `error` event is yielded, not thrown, so the caller decides.
  */
 export async function* streamPlannerTurn(
@@ -400,6 +449,11 @@ export async function* streamPlannerTurn(
     });
   } catch (err) {
     if (!isRouteMissing(err)) throw err;
+    // The request was really sent: before playing the demo, make sure the 404
+    // is not a 403 `ACCESS_DENIED` rewritten on the way (ADR 0026).
+    if (await isAccessDenied(signal)) {
+      throw new ApiError(403, "This account has not been given access yet", "ACCESS_DENIED");
+    }
     onDemo?.();
     yield* streamDemoTurn(turn, { signal });
     return;
