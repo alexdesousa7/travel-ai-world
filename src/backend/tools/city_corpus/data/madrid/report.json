@@ -1,8 +1,8 @@
 {
   "city": "madrid",
-  "built_at": "2026-09-22T16:58:22Z",
-  "documents": 5574,
-  "listings": 4764,
+  "built_at": "2026-10-01T15:05:54Z",
+  "documents": 5573,
+  "listings": 4763,
   "prose": 810,
   "sources": [
     "curated",
@@ -38,7 +38,7 @@
       "wikivoyage": 44
     },
     "eat": {
-      "openstreetmap": 3462,
+      "openstreetmap": 3460,
       "wikivoyage": 82
     },
     "history": {
@@ -58,7 +58,7 @@
     },
     "sleep": {
       "openstreetmap": 250,
-      "wikivoyage": 22
+      "wikivoyage": 23
     },
     "tour": {
       "curated": 3,
@@ -72,22 +72,22 @@
     "climate": 12,
     "do": 164,
     "drink": 433,
-    "eat": 3530,
+    "eat": 3528,
     "history": 485,
     "practical": 14,
     "see": 542,
-    "sleep": 267,
+    "sleep": 268,
     "tour": 5,
     "transport": 3
   },
   "located_by_category": {
     "do": 151,
     "drink": 430,
-    "eat": 3529,
+    "eat": 3527,
     "history": 451,
     "practical": 12,
     "see": 535,
-    "sleep": 267,
+    "sleep": 268,
     "tour": 5,
     "transport": 3
   },
@@ -97,7 +97,7 @@
     "eat": 21,
     "history": 446,
     "see": 444,
-    "sleep": 267,
+    "sleep": 268,
     "transport": 3
   },
   "districts": [
@@ -114,15 +114,15 @@
     "Southern Suburbs"
   ],
   "places_by_district": {
-    "Arganzuela": 389,
-    "Centro": 1778,
-    "Chamberí-Castellana": 770,
+    "Arganzuela": 388,
+    "Centro": 1779,
+    "Chamberí-Castellana": 772,
     "La Latina-Austrias": 151,
     "Malasaña-Chueca": 32,
     "Moncloa": 327,
     "Northern Suburbs": 404,
     "Retiro-Paseo del Arte": 319,
-    "Salamanca": 479,
+    "Salamanca": 478,
     "Sol-Letras-Lavapiés": 50,
     "Southern Suburbs": 78
   },
@@ -145,10 +145,10 @@
       "1": 31,
       "2": 22,
       "3": 11,
-      "untiered": 3480
+      "untiered": 3478
     },
     "sleep": {
-      "1": 14,
+      "1": 15,
       "2": 24,
       "3": 62,
       "untiered": 172
@@ -354,7 +354,7 @@
           "score": 11.79
         },
         {
-          "name": "Ok Hostel Madrid",
+          "name": "Latina Hostel",
           "district": "Centro",
           "score": 11.79
         }
@@ -382,13 +382,13 @@
   },
   "hotel_photos": {
     "curated": 4,
-    "site": 122,
+    "site": 123,
     "facebook": 7,
     "commons": 11,
     "wikidata": 9,
     "page": 80,
-    "dropped": 260,
-    "shared": 16,
+    "dropped": 259,
+    "shared": 12,
     "dropped_examples": [
       "4C Bravo Murillo",
       "AC Hotel Aitana",
@@ -644,25 +644,25 @@
       {
         "name": "Located eat places",
         "threshold": "≥ 100",
-        "measured": "3529",
+        "measured": "3527",
         "passed": true
       },
       {
         "name": "Sleep documents",
         "threshold": "≥ 20",
-        "measured": "272",
+        "measured": "273",
         "passed": true
       },
       {
         "name": "Located sleep places",
         "threshold": "≥ 10",
-        "measured": "267",
+        "measured": "268",
         "passed": true
       },
       {
         "name": "Pictured located sleep places",
         "threshold": "≥ 10",
-        "measured": "267",
+        "measured": "268",
         "passed": true
       },
       {
