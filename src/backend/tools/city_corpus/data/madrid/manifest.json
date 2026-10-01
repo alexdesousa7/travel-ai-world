@@ -1,54 +1,54 @@
 {
   "city": "madrid",
-  "built_at": "2026-09-22T16:58:22Z",
-  "documents": 5574,
-  "listings": 4764,
-  "listings_with_coordinates": 4744,
+  "built_at": "2026-10-01T15:05:54Z",
+  "documents": 5573,
+  "listings": 4763,
+  "listings_with_coordinates": 4743,
   "by_source": {
     "curated": 3,
     "open-meteo": 12,
-    "openstreetmap": 4435,
+    "openstreetmap": 4433,
     "wikipedia": 679,
-    "wikivoyage": 445
+    "wikivoyage": 446
   },
   "by_lang": {
-    "en": 5501,
+    "en": 5500,
     "es": 73
   },
   "by_kind": {
-    "listing": 4764,
+    "listing": 4763,
     "prose": 810
   },
   "by_category": {
     "climate": 14,
     "do": 175,
     "drink": 439,
-    "eat": 3544,
+    "eat": 3542,
     "history": 501,
     "neighbourhood": 13,
     "practical": 34,
     "see": 545,
-    "sleep": 272,
+    "sleep": 273,
     "tour": 5,
     "transport": 32
   },
   "by_district": {
-    "(city-wide)": 752,
-    "Arganzuela": 391,
-    "Centro": 1779,
-    "Chamberí-Castellana": 777,
+    "(city-wide)": 750,
+    "Arganzuela": 390,
+    "Centro": 1780,
+    "Chamberí-Castellana": 779,
     "La Latina-Austrias": 154,
     "Malasaña-Chueca": 39,
     "Moncloa": 330,
     "Northern Suburbs": 408,
     "Retiro-Paseo del Arte": 325,
-    "Salamanca": 482,
+    "Salamanca": 481,
     "Sol-Letras-Lavapiés": 57,
     "Southern Suburbs": 80
   },
   "districts_missing": [],
   "images": {
-    "with_image": 1293,
+    "with_image": 1294,
     "see_documents": 545,
     "see_with_image": 445,
     "see_image_coverage": 0.817
@@ -113,13 +113,13 @@
       }
     },
     "openstreetmap": {
-      "as_of": "2026-09-22T13:34:40Z",
+      "as_of": "2026-09-21T19:17:19Z",
       "district_boundaries": 21,
       "documents_linked_to_wikidata": 25,
-      "elements": 11360,
-      "candidates": 4934,
+      "elements": 11358,
+      "candidates": 4932,
       "merged_into_existing": 197,
-      "new_documents": 4675,
+      "new_documents": 4673,
       "outside_bbox": 0,
       "skipped_too_short": 62
     },
@@ -133,13 +133,13 @@
     "districts_assigned_by_boundary": 666,
     "photos": {
       "curated": 4,
-      "site": 122,
+      "site": 123,
       "facebook": 7,
       "commons": 11,
       "wikidata": 9,
       "page": 80,
-      "dropped": 260,
-      "shared": 16,
+      "dropped": 259,
+      "shared": 12,
       "dropped_examples": [
         "4C Bravo Murillo",
         "AC Hotel Aitana",
@@ -514,7 +514,7 @@
     "wikipedia:en:Palace of la Bolsa de Madrid": 1365372846,
     "wikipedia:en:Palace of marqués de Miraflores": 1365372888,
     "wikipedia:en:Palace of the Marquis of Molins": 1365372994,
-    "wikipedia:en:Palacio de Cibeles": 1376141072,
+    "wikipedia:en:Palacio de Cibeles": 1352819213,
     "wikipedia:en:Palacio de Cristal del Retiro": 1340225673,
     "wikipedia:en:Palacio de Santoña": 1365373061,
     "wikipedia:en:Palacio de Velázquez": 1216672164,
@@ -594,6 +594,6 @@
     "wikivoyage:en:Madrid/Salamanca": 5353319,
     "wikivoyage:en:Madrid/Sol-Letras-Lavapiés": 5353320,
     "wikivoyage:en:Madrid/Southern Suburbs": 5300219,
-    "wikivoyage:es:Madrid": 256685
+    "wikivoyage:es:Madrid": 257617
   }
 }
