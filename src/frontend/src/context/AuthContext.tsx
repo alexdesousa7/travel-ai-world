@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import type { User } from "@/types/user";
+import { getMyAccess } from "@/services/access";
 import { loginWithGoogle } from "@/services/auth";
 import {
   completeCognitoLogin,
@@ -40,11 +41,24 @@ import { getMe } from "@/services/users";
  */
 export type AuthProvider = "cognito" | "google";
 
+/**
+ * Whether the account is on the access list (TRA-257, ADR 0026), as core_api
+ * answered on `GET /users/me/access`. `unknown` until it answers, and for
+ * good when it cannot (no API, offline, a 5xx): it then behaves as allowed,
+ * because the backend refuses an uninvited account anyway.
+ */
+export type AccessState = "unknown" | "allowed" | "denied";
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   /** `user.role === "admin"`: the role core_api reported for this account (TRA-222). */
   isAdmin: boolean;
+  /** `denied`: signed in, but not invited yet. Never stored with the session. */
+  access: AccessState;
+  /** Asks core_api again whether the account is on the list (someone who was
+   * just invited need not sign out and in). A failed read keeps the answer. */
+  refreshAccess: () => Promise<void>;
   /** True until the client has hydrated and storage has been read (and, in
    * Cognito mode, an expired session has been refreshed or dropped). */
   isLoading: boolean;
@@ -101,9 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // The role is the account's, not the token's: ask core_api once per signed-in
   // account (on restore, and right after a login) and merge it into the stored
   // profile. A failure is silent — the role stays whatever was stored.
+  // The same moment asks whether the account is on the access list; the answer
+  // lives in memory only, tied to the account it was given for.
   const roleCheckedFor = useRef<string | null>(null);
+  const [accessAnswer, setAccessAnswer] = useState<{ userId: string; access: AccessState } | null>(null);
   const isLoading = !isHydrated || restoring;
   const userId = user?.id ?? null;
+  // Signed out: the answer goes with the session, so the next sign-in (even of
+  // the same account, perhaps invited meanwhile) starts from "unknown".
+  if (userId === null && accessAnswer !== null) setAccessAnswer(null);
   useEffect(() => {
     if (isLoading || userId === null) {
       if (userId === null) roleCheckedFor.current = null;
@@ -117,7 +137,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (me) updateStoredUser({ role: me.role });
       })
       .catch(() => {});
+    getMyAccess()
+      .then((answer) => {
+        if (answer) setAccessAnswer({ userId, access: answer.allowed ? "allowed" : "denied" });
+      })
+      .catch(() => {});
   }, [isLoading, userId]);
+
+  const access: AccessState =
+    accessAnswer !== null && accessAnswer.userId === userId ? accessAnswer.access : "unknown";
+
+  const refreshAccess = useCallback(async () => {
+    if (userId === null || !readToken() || !isApiAvailable()) return;
+    const answer = await getMyAccess().catch(() => null);
+    if (answer) setAccessAnswer({ userId, access: answer.allowed ? "allowed" : "denied" });
+  }, [userId]);
 
   const login = useCallback(async (credential: string) => {
     await loginWithGoogle(credential);
@@ -142,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: user !== null,
       isAdmin: user?.role === "admin",
+      access,
+      refreshAccess,
       isLoading,
       provider,
       login,
@@ -149,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeLogin,
       logout,
     }),
-    [user, isLoading, provider, login, loginWithRedirect, completeLogin, logout]
+    [user, access, refreshAccess, isLoading, provider, login, loginWithRedirect, completeLogin, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

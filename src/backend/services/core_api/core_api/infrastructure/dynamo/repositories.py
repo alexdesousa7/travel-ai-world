@@ -27,7 +27,14 @@ from travel_common.exceptions import (
     UnprocessableEntity,
 )
 
-from core_api.domain.models import ChatMessage, ChatThread, Trip, TripSummary, User
+from core_api.domain.models import (
+    AccessGrant,
+    ChatMessage,
+    ChatThread,
+    Trip,
+    TripSummary,
+    User,
+)
 from core_api.infrastructure.dynamo import keys
 from core_api.infrastructure.dynamo.codec import (
     entity_to_item,
@@ -101,6 +108,16 @@ def message_item(message: ChatMessage) -> Item:
     )
 
 
+def access_grant_item(grant: AccessGrant) -> Item:
+    return entity_to_item(
+        grant,
+        PK=keys.access_pk(grant.email),
+        SK=keys.ACCESS,
+        GSI1PK=keys.ACCESS,
+        GSI1SK=grant.email,
+    )
+
+
 # ── Cursors ─────────────────────────────────────────────────────────────────
 # An index page ends with DynamoDB's `LastEvaluatedKey`; the client gets it
 # back as an opaque cursor (base64url of its JSON) and hands it in to go on.
@@ -113,9 +130,12 @@ def encode_cursor(last_key: Item | None) -> str | None:
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
-def decode_cursor(cursor: str | None, index_keys: tuple[str, str]) -> Item | None:
+def decode_cursor(
+    cursor: str | None, index_keys: tuple[str, str], partition: str
+) -> Item | None:
     """The `ExclusiveStartKey` a cursor stands for; `BadRequest` when it is not
-    one this index could have produced."""
+    one this partition of the index could have produced (two lists share GSI1:
+    a cursor of the accounts is not one of the access list)."""
     if not cursor:
         return None
     expected = {keys.PK, keys.SK, *index_keys}
@@ -135,6 +155,8 @@ def decode_cursor(cursor: str | None, index_keys: tuple[str, str]) -> Item | Non
             for value in start.values()
         )
     ):
+        raise BadRequest("Invalid cursor")
+    if start[index_keys[0]]["S"] != partition:
         raise BadRequest("Invalid cursor")
     return start
 
@@ -214,7 +236,7 @@ class _Store:
             "ScanIndexForward": not newest_first,
             "Limit": limit,
         }
-        start = decode_cursor(cursor, index_keys)
+        start = decode_cursor(cursor, index_keys, partition)
         if start is not None:
             kwargs["ExclusiveStartKey"] = start
         response = await call(self._client.query, **kwargs)
@@ -566,3 +588,44 @@ class DynamoChatMessageRepository(_Store):
         thread.updated_at = message.created_at
         thread.version += 1
         return message
+
+
+# ── Access list ─────────────────────────────────────────────────────────────
+
+
+class DynamoAccessGrantRepository(_Store):
+    """Grants by email (ADR 0026). They share GSI1 with the accounts under
+    their own partition (`ACCESS`), so neither list sees the other."""
+
+    async def get(self, email: str) -> AccessGrant | None:
+        item = await self._get(keys.access_pk(email), keys.ACCESS)
+        return item_to_entity(AccessGrant, item) if item else None
+
+    async def list_page(
+        self, cursor: str | None, limit: int
+    ) -> tuple[builtins.list[AccessGrant], str | None]:
+        items, next_cursor = await self._index_page(
+            GSI1, (keys.GSI1PK, keys.GSI1SK), keys.ACCESS, cursor=cursor, limit=limit
+        )
+        return [item_to_entity(AccessGrant, item) for item in items], next_cursor
+
+    async def put(self, grant: AccessGrant) -> AccessGrant:
+        stored = await self.get(grant.email)
+        if stored is not None:
+            grant.created_at = stored.created_at
+            grant.added_by = stored.added_by
+        await call(
+            self._client.put_item,
+            TableName=self.table.name,
+            Item=access_grant_item(grant),
+        )
+        return grant
+
+    async def delete(self, email: str) -> bool:
+        response = await call(
+            self._client.delete_item,
+            TableName=self.table.name,
+            Key=keys.key(keys.access_pk(email), keys.ACCESS),
+            ReturnValues="ALL_OLD",
+        )
+        return bool(response.get("Attributes"))

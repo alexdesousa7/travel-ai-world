@@ -49,6 +49,8 @@ const signedOut = () =>
     loginWithRedirect: vi.fn(),
     completeLogin: vi.fn(),
     isAdmin: false,
+    access: "unknown" as const,
+    refreshAccess: vi.fn(),
   });
 
 const signedIn = () =>
@@ -62,6 +64,8 @@ const signedIn = () =>
     loginWithRedirect: vi.fn(),
     completeLogin: vi.fn(),
     isAdmin: false,
+    access: "unknown" as const,
+    refreshAccess: vi.fn(),
   });
 
 describe("Header", () => {

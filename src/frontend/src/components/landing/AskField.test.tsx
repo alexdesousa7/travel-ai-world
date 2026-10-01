@@ -29,6 +29,8 @@ function session(overrides: Partial<ReturnType<typeof useAuth>> = {}) {
     loginWithRedirect,
     completeLogin: vi.fn(),
     isAdmin: false,
+    access: "unknown" as const,
+    refreshAccess: vi.fn(),
     logout: vi.fn(),
     ...overrides,
   });

@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import Field
 from travel_common.config import CommonSettings
 from travel_common.dynamodb import DynamoSettings
 
@@ -16,6 +18,16 @@ class CoreSettings(CommonSettings, DynamoSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+
+    # Who may use the app (ADR 0026). "open": every signed-in account.
+    # "allowlist": administrators and the emails on the access list
+    # (`/admin/access`); everyone else gets 403 ACCESS_DENIED from core_api.
+    # ai_api does not read the list yet: that arrives with TRA-258.
+    ACCESS_MODE: Literal["open", "allowlist"] = "open"
+    # Tokens a person may spend per UTC day when their grant sets no limit of
+    # its own; 0 = unlimited. Served by GET /users/me/access; nothing enforces
+    # it yet (ai_api will, with TRA-258).
+    DEFAULT_DAILY_TOKEN_LIMIT: int = Field(default=300_000, ge=0)
 
     # Set by the Lambda runtime itself; never in a .env. On Lambda the empty
     # DYNAMODB_ENDPOINT_URL is expected (the regional endpoint), so the start-up
